@@ -1,0 +1,298 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 91% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 53%;
+    --radius: 0.75rem;
+    --realtime: 142 71% 45%;
+    --realtime-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
+    --realtime: 142 71% 45%;
+    --realtime-foreground: 0 0% 100%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply border border-white/20 bg-white/60 backdrop-blur-xl dark:border-white/10 dark:bg-white/5;
+  }
+
+  .glass-card {
+    @apply rounded-2xl border border-border/50 bg-card/80 shadow-glass backdrop-blur-xl;
+  }
+
+  .section-container {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .section-padding {
+    @apply py-16 sm:py-20 lg:py-24;
+  }
+
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary to-aule-blue bg-clip-text text-transparent;
+  }
+
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground;
+  }
+
+  .landing-map-container {
+    @apply relative h-full w-full overflow-hidden bg-[#0d1117];
+  }
+
+  .landing-map-container .maplibregl-canvas {
+    outline: none;
+  }
+
+  .landing-map-container .maplibregl-ctrl-bottom-left,
+  .landing-map-container .maplibregl-ctrl-bottom-right {
+    display: none;
+  }
+
+  .landing-map-container::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at center,
+      transparent 40%,
+      hsl(var(--background) / 0.15) 100%
+    );
+    z-index: 1;
+  }
+
+  .landing-map-marker-inner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    position: relative;
+  }
+
+  .landing-map-marker-pilot {
+    background: rgba(34, 197, 94, 0.2);
+    color: #fff;
+    border-color: rgba(34, 197, 94, 0.45);
+    box-shadow: 0 0 24px rgba(34, 197, 94, 0.35);
+  }
+
+  .landing-map-marker-coming {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.75);
+    opacity: 0.85;
+  }
+
+  .landing-map-marker-pulse {
+    position: absolute;
+    inset: -4px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.3);
+    animation: pulse-soft 2.5s ease-in-out infinite;
+  }
+
+  .landing-map-marker-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.25);
+    color: #4ade80;
+  }
+
+  .landing-map-vehicle-dot {
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+  }
+
+  .landing-map-vehicle-pulse {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  .landing-map-user {
+    position: relative;
+    width: 24px;
+    height: 24px;
+  }
+
+  .landing-map-user-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(27, 102, 245, 0.25);
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  .landing-map-user-dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #1b66f5;
+    border: 2px solid #fff;
+  }
+}
+
+/* Dashboard legacy styles (preserved for existing app) */
+.dashboard-shell {
+  display: grid;
+  grid-template-columns: 260px 1fr 340px;
+  grid-template-rows: 56px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.dashboard-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+}
+
+.dashboard-sidebar {
+  border-right: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  padding: 16px;
+  overflow: auto;
+}
+
+.dashboard-map {
+  position: relative;
+  min-height: 0;
+}
+
+.dashboard-panel {
+  border-left: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  overflow: auto;
+}
+
+.nav-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 4px;
+}
+
+.nav-link.active,
+.nav-link:hover {
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--foreground));
+}
+
+.fleet-item,
+.incident-item {
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  margin-bottom: 8px;
+  background: hsl(var(--card) / 0.5);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.section-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--muted-foreground));
+  margin: 16px 0 8px;
+}
+
+.muted {
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
