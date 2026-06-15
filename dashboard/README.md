@@ -19,6 +19,12 @@ npm run dev
 
 Ouvrir [http://localhost:3001](http://localhost:3001) (port **3001** pour ne pas entrer en conflit avec Flutter Web).
 
+En cas d'erreur `Cannot find module './XXX.js'` ou de pages en 500, nettoyer le cache Next.js :
+
+```bash
+npm run dev:clean
+```
+
 ## Variables d'environnement
 
 | Variable | Description |

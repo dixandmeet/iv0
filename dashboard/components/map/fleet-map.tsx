@@ -2,6 +2,7 @@
 
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -11,6 +12,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
 import type { LiveFleetPosition, NetworkIncident } from "@/lib/types";
 import { reliabilityColor, severityColor, sourceLabel } from "@/lib/types";
+import { pointCoordinates } from "@/lib/geo";
 import { createDarkMapStyle, NANTES_CENTER } from "@/lib/landing-map-style";
 
 export interface FleetMapHandle {
@@ -43,6 +45,10 @@ function osmStyle(): maplibregl.StyleSpecification {
   };
 }
 
+function mapStyle(isDark: boolean): maplibregl.StyleSpecification {
+  return isDark ? createDarkMapStyle() : osmStyle();
+}
+
 export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
   function FleetMap(
     {
@@ -60,62 +66,32 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
     const mapRef = useRef<maplibregl.Map | null>(null);
     const vehicleMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
     const incidentMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+    const initialFitDoneRef = useRef(false);
     const { resolvedTheme } = useTheme();
 
-    useImperativeHandle(ref, () => ({
-      flyToVehicle(vehicleId: string) {
-        const vehicle = fleet.find((v) => v.id === vehicleId);
-        if (!vehicle || !mapRef.current) return;
-        const [lon, lat] = vehicle.geom.coordinates;
-        mapRef.current.flyTo({ center: [lon, lat], zoom: 15, duration: 800 });
-      },
-      flyToIncident(incidentId: string) {
-        const incident = incidents.find((i) => i.id === incidentId);
-        if (!incident?.geom || !mapRef.current) return;
-        const [lon, lat] = incident.geom.coordinates;
-        mapRef.current.flyTo({ center: [lon, lat], zoom: 14, duration: 800 });
-      },
-    }));
+    const isDark = resolvedTheme === "dark";
 
-    useEffect(() => {
-      if (!containerRef.current || mapRef.current) return;
-
-      const map = new maplibregl.Map({
-        container: containerRef.current,
-        style: resolvedTheme === "dark" ? createDarkMapStyle() : osmStyle(),
-        center: NANTES_CENTER,
-        zoom: 12,
-      });
-
-      map.addControl(new maplibregl.NavigationControl(), "top-right");
-      mapRef.current = map;
-
-      return () => {
-        vehicleMarkersRef.current.forEach((m) => m.remove());
-        vehicleMarkersRef.current.clear();
-        incidentMarkersRef.current.forEach((m) => m.remove());
-        incidentMarkersRef.current.clear();
-        map.remove();
-        mapRef.current = null;
-      };
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    useEffect(() => {
-      const map = mapRef.current;
-      if (!map) return;
-      map.setStyle(resolvedTheme === "dark" ? createDarkMapStyle() : osmStyle());
-    }, [resolvedTheme]);
-
-    useEffect(() => {
-      const map = mapRef.current;
-      if (!map || incidentsOnly) return;
-
+    const clearVehicleMarkers = useCallback(() => {
       vehicleMarkersRef.current.forEach((marker) => marker.remove());
       vehicleMarkersRef.current.clear();
+    }, []);
+
+    const clearIncidentMarkers = useCallback(() => {
+      incidentMarkersRef.current.forEach((marker) => marker.remove());
+      incidentMarkersRef.current.clear();
+    }, []);
+
+    const syncVehicleMarkers = useCallback(() => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded() || incidentsOnly) return;
+
+      clearVehicleMarkers();
 
       fleet.forEach((vehicle) => {
-        const [lon, lat] = vehicle.geom.coordinates;
+        const coords = pointCoordinates(vehicle.geom);
+        if (!coords) return;
+
+        const [lon, lat] = coords;
         const color = reliabilityColor(vehicle.reliability_score);
         const isSelected = vehicle.id === selectedVehicleId;
         const rotation = vehicle.heading ?? 0;
@@ -140,18 +116,25 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
           .addTo(map);
         vehicleMarkersRef.current.set(vehicle.id, marker);
       });
-    }, [fleet, selectedVehicleId, onSelectVehicle, incidentsOnly]);
+    }, [
+      fleet,
+      selectedVehicleId,
+      onSelectVehicle,
+      incidentsOnly,
+      clearVehicleMarkers,
+    ]);
 
-    useEffect(() => {
+    const syncIncidentMarkers = useCallback(() => {
       const map = mapRef.current;
-      if (!map) return;
+      if (!map || !map.isStyleLoaded()) return;
 
-      incidentMarkersRef.current.forEach((marker) => marker.remove());
-      incidentMarkersRef.current.clear();
+      clearIncidentMarkers();
 
       incidents.forEach((incident) => {
-        if (!incident.geom) return;
-        const [lon, lat] = incident.geom.coordinates;
+        const coords = pointCoordinates(incident.geom);
+        if (!coords) return;
+
+        const [lon, lat] = coords;
         const color = severityColor(incident.severity);
         const isSelected = incident.id === selectedIncidentId;
 
@@ -176,45 +159,137 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
           .addTo(map);
         incidentMarkersRef.current.set(incident.id, marker);
       });
-    }, [incidents, selectedIncidentId, onSelectIncident]);
+    }, [
+      incidents,
+      selectedIncidentId,
+      onSelectIncident,
+      clearIncidentMarkers,
+    ]);
 
+    const syncAllMarkers = useCallback(() => {
+      syncVehicleMarkers();
+      syncIncidentMarkers();
+    }, [syncVehicleMarkers, syncIncidentMarkers]);
+
+    const syncAllMarkersRef = useRef(syncAllMarkers);
+    syncAllMarkersRef.current = syncAllMarkers;
+
+    const isDarkRef = useRef(isDark);
+    isDarkRef.current = isDark;
+
+    useImperativeHandle(ref, () => ({
+      flyToVehicle(vehicleId: string) {
+        const vehicle = fleet.find((v) => v.id === vehicleId);
+        const coords = vehicle ? pointCoordinates(vehicle.geom) : null;
+        if (!coords || !mapRef.current) return;
+        mapRef.current.flyTo({ center: coords, zoom: 15, duration: 800 });
+      },
+      flyToIncident(incidentId: string) {
+        const incident = incidents.find((i) => i.id === incidentId);
+        const coords = incident ? pointCoordinates(incident.geom) : null;
+        if (!coords || !mapRef.current) return;
+        mapRef.current.flyTo({ center: coords, zoom: 14, duration: 800 });
+      },
+    }));
+
+    // Init carte une fois le thème résolu
+    useEffect(() => {
+      if (!containerRef.current || mapRef.current || !resolvedTheme) return;
+
+      const map = new maplibregl.Map({
+        container: containerRef.current,
+        style: mapStyle(isDarkRef.current),
+        center: NANTES_CENTER,
+        zoom: 12,
+      });
+
+      map.addControl(new maplibregl.NavigationControl(), "top-right");
+      mapRef.current = map;
+
+      map.on("load", () => syncAllMarkersRef.current());
+
+      return () => {
+        clearVehicleMarkers();
+        clearIncidentMarkers();
+        map.remove();
+        mapRef.current = null;
+        initialFitDoneRef.current = false;
+      };
+    }, [resolvedTheme, clearVehicleMarkers, clearIncidentMarkers]);
+
+    // Changement de thème (après init)
+    const themeInitializedRef = useRef(false);
     useEffect(() => {
       const map = mapRef.current;
-      if (!map || fleet.length === 0) return;
+      if (!map || !resolvedTheme) return;
+
+      if (!themeInitializedRef.current) {
+        themeInitializedRef.current = true;
+        return;
+      }
+
+      map.setStyle(mapStyle(isDark));
+      map.once("style.load", () => syncAllMarkersRef.current());
+    }, [isDark, resolvedTheme]);
+
+    // Sync marqueurs quand les données changent
+    useEffect(() => {
+      syncVehicleMarkers();
+    }, [syncVehicleMarkers]);
+
+    useEffect(() => {
+      syncIncidentMarkers();
+    }, [syncIncidentMarkers]);
+
+    // Zoom sur sélection
+    useEffect(() => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded()) return;
 
       if (selectedVehicleId) {
         const vehicle = fleet.find((v) => v.id === selectedVehicleId);
-        if (vehicle) {
-          const [lon, lat] = vehicle.geom.coordinates;
-          map.flyTo({ center: [lon, lat], zoom: 14, duration: 600 });
-        }
+        const coords = vehicle ? pointCoordinates(vehicle.geom) : null;
+        if (coords) map.flyTo({ center: coords, zoom: 14, duration: 600 });
         return;
       }
 
       if (selectedIncidentId) {
         const incident = incidents.find((i) => i.id === selectedIncidentId);
-        if (incident?.geom) {
-          const [lon, lat] = incident.geom.coordinates;
-          map.flyTo({ center: [lon, lat], zoom: 14, duration: 600 });
-        }
-        return;
+        const coords = incident ? pointCoordinates(incident.geom) : null;
+        if (coords) map.flyTo({ center: coords, zoom: 14, duration: 600 });
       }
+    }, [selectedVehicleId, selectedIncidentId, fleet, incidents]);
 
-      if (fleet.length === 1) {
-        const [lon, lat] = fleet[0].geom.coordinates;
-        map.flyTo({ center: [lon, lat], zoom: 13, duration: 600 });
+    // Fit bounds initial uniquement (pas à chaque poll)
+    useEffect(() => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded() || initialFitDoneRef.current) return;
+
+      const points: [number, number][] = [];
+      if (!incidentsOnly) {
+        fleet.forEach((v) => {
+          const coords = pointCoordinates(v.geom);
+          if (coords) points.push(coords);
+        });
+      }
+      incidents.forEach((i) => {
+        const coords = pointCoordinates(i.geom);
+        if (coords) points.push(coords);
+      });
+
+      if (points.length === 0) return;
+
+      initialFitDoneRef.current = true;
+
+      if (points.length === 1) {
+        map.flyTo({ center: points[0], zoom: 13, duration: 600 });
         return;
       }
 
       const bounds = new maplibregl.LngLatBounds();
-      fleet.forEach((v) => bounds.extend(v.geom.coordinates));
-      incidents.forEach((i) => {
-        if (i.geom) bounds.extend(i.geom.coordinates);
-      });
-      if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 600 });
-      }
-    }, [fleet, incidents, selectedVehicleId, selectedIncidentId]);
+      points.forEach((p) => bounds.extend(p));
+      map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 600 });
+    }, [fleet, incidents, incidentsOnly]);
 
     return (
       <div className="relative h-full w-full min-h-[400px]">

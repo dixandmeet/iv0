@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../services/gtfs_service.dart';
 import '../services/location_service.dart';
-import '../theme/flow_theme.dart';
-import '../widgets/flow_primitives.dart';
-import '../widgets/flow_widgets.dart';
+import '../theme/aule_theme.dart';
 import 'stop_detail_page.dart';
 
 /// Recherche d'une station du réseau Naolib par son nom. Sans saisie,
@@ -40,8 +39,8 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
   void _openSchedule(NearbyStation station, {required bool hasDistance}) {
     Navigator.push(
       context,
-      FlowPageRoute(
-        page: StopDetailPage(
+      MaterialPageRoute<void>(
+        builder: (_) => StopDetailPage(
           station: station,
           showDistance: hasDistance,
         ),
@@ -51,6 +50,9 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = isDark ? AuleColors.dark : AuleColors.light;
+
     final gtfs = Provider.of<GtfsService>(context);
     final location = Provider.of<LocationService>(context);
     final pos = location.currentPosition;
@@ -59,7 +61,7 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
     final query = _controller.text.trim();
 
     return Scaffold(
-      backgroundColor: FlowColors.white,
+      backgroundColor: c.bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -67,28 +69,30 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 16, 10),
               child: Row(
                 children: [
-                  FlowIconButton(
-                      icon: LucideIcons.arrowLeft,
-                      onTap: () => Navigator.pop(context)),
+                  _IconButton(
+                    icon: LucideIcons.arrowLeft,
+                    colors: c,
+                    onTap: () => Navigator.pop(context),
+                  ),
                   const SizedBox(width: 10),
-                  Expanded(child: _searchField()),
+                  Expanded(child: _searchField(c)),
                 ],
               ),
             ),
-            const Divider(height: 1),
+            Divider(height: 1, thickness: 1, color: c.line),
             Expanded(
               child: gtfs.cachedStops.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(FlowTokens.margin),
+                  ? Padding(
+                      padding: const EdgeInsets.all(AuleTokens.rCardSm),
                       child: Align(
                         alignment: Alignment.topLeft,
                         child: Text('Chargement du réseau Naolib…',
-                            style: FlowText.rowSub),
+                            style: _subStyle(c)),
                       ),
                     )
                   : query.isEmpty
-                      ? _nearbyList(gtfs, userPos)
-                      : _resultsList(gtfs, userPos, query),
+                      ? _nearbyList(gtfs, userPos, c)
+                      : _resultsList(gtfs, userPos, query, c),
             ),
           ],
         ),
@@ -96,17 +100,17 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
     );
   }
 
-  Widget _searchField() {
+  Widget _searchField(AuleColors c) {
     return Container(
       height: 50,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: FlowColors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: FlowColors.blue, width: 2),
+        color: c.surface,
+        borderRadius: BorderRadius.circular(AuleTokens.rSearch),
+        border: Border.all(color: c.brand, width: 2),
         boxShadow: [
           BoxShadow(
-            color: FlowColors.blue.withValues(alpha: 0.18),
+            color: c.brand.withValues(alpha: 0.18),
             blurRadius: 0,
             spreadRadius: 4,
           ),
@@ -114,21 +118,32 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.search, color: FlowColors.blue, size: 20),
+          Icon(LucideIcons.search, color: c.brand, size: 20),
           const SizedBox(width: 9),
           Expanded(
-            child: FlowTextField(
+            child: TextField(
               controller: _controller,
               autofocus: true,
-              hintText: 'Rechercher une station…',
+              cursorColor: c.brand,
+              style: _titleStyle(c),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: 'Rechercher une station…',
+                hintStyle: GoogleFonts.hankenGrotesk(
+                  color: c.faint,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
           if (_controller.text.isNotEmpty)
-            FlowTappable(
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: _controller.clear,
-              child: const Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(LucideIcons.x, color: FlowColors.g2, size: 18),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(LucideIcons.x, color: c.muted, size: 18),
               ),
             ),
         ],
@@ -138,22 +153,23 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
 
   /// Suggestions sans saisie : stations les plus proches de l'utilisateur
   /// (ou du centre de Nantes si le GPS est indisponible).
-  Widget _nearbyList(GtfsService gtfs, LatLng? userPos) {
+  Widget _nearbyList(GtfsService gtfs, LatLng? userPos, AuleColors c) {
     final stations =
         gtfs.nearbyStations(userPos ?? _nantesCenter, limit: 6, maxMeters: 2500);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
-          FlowTokens.margin, 14, FlowTokens.margin, 24),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
       children: [
-        SectionLabel(userPos == null
-            ? 'Autour du centre de Nantes'
-            : 'Stations à proximité'),
+        _SectionLabel(
+          userPos == null
+              ? 'Autour du centre de Nantes'
+              : 'Stations à proximité',
+          colors: c,
+        ),
         const SizedBox(height: 4),
         if (stations.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 10),
-            child:
-                Text('Aucune station à proximité.', style: FlowText.rowSub),
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text('Aucune station à proximité.', style: _subStyle(c)),
           )
         else
           ...stations.map((s) => _StationRow(
@@ -165,21 +181,21 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
     );
   }
 
-  Widget _resultsList(GtfsService gtfs, LatLng? userPos, String query) {
+  Widget _resultsList(
+      GtfsService gtfs, LatLng? userPos, String query, AuleColors c) {
     final results = gtfs.searchStations(query, from: userPos);
     if (results.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(FlowTokens.margin),
+        padding: const EdgeInsets.all(16),
         child: Align(
           alignment: Alignment.topLeft,
           child: Text('Aucune station trouvée pour « $query ».',
-              style: FlowText.rowSub),
+              style: _subStyle(c)),
         ),
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(
-          FlowTokens.margin, 8, FlowTokens.margin, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: results.length,
       itemBuilder: (context, i) {
         final station = results[i];
@@ -189,6 +205,73 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
           onTap: () => _openSchedule(station, hasDistance: userPos != null),
         );
       },
+    );
+  }
+}
+
+// --- Styles & primitives Aule locaux ---------------------------------------
+
+TextStyle _titleStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.2,
+      color: c.text,
+    );
+
+TextStyle _subStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+      fontSize: 12.5,
+      fontWeight: FontWeight.w500,
+      color: c.muted,
+    );
+
+/// Bouton-icône carré arrondi (équivalent Aule de l'ancien FlowIconButton).
+class _IconButton extends StatelessWidget {
+  final IconData icon;
+  final AuleColors colors;
+  final VoidCallback onTap;
+
+  const _IconButton({
+    required this.icon,
+    required this.colors,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colors.line),
+        ),
+        child: Icon(icon, size: 20, color: colors.text),
+      ),
+    );
+  }
+}
+
+/// Petit label de section en capitales.
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  final AuleColors colors;
+  const _SectionLabel(this.text, {required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text.toUpperCase(),
+      style: GoogleFonts.hankenGrotesk(
+        fontSize: 10.5,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+        height: 1.1,
+        color: colors.faint,
+      ),
     );
   }
 }
@@ -224,17 +307,24 @@ class _StationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FlowTappable(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = isDark ? AuleColors.dark : AuleColors.light;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      pressedScale: 0.985,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 11),
         child: Row(
           children: [
-            const IconTile(
-              icon: LucideIcons.mapPin,
-              background: FlowColors.blueSoft,
-              iconColor: FlowColors.blue,
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: c.brandWeak,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(LucideIcons.mapPin, size: 20, color: c.brand),
             ),
             const SizedBox(width: 13),
             Expanded(
@@ -246,22 +336,21 @@ class _StationRow extends StatelessWidget {
                       Flexible(
                         child: Text(
                           station.stop.stopName,
-                          style: FlowText.rowTitle,
+                          style: _titleStyle(c),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (station.stop.isWheelchairAccessible) ...[
                         const SizedBox(width: 6),
-                        const Icon(LucideIcons.accessibility,
-                            size: 14, color: FlowColors.green),
+                        Icon(LucideIcons.accessibility, size: 14, color: c.ok),
                       ],
                     ],
                   ),
                   const SizedBox(height: 1),
                   Text(
                     _sub,
-                    style: FlowText.rowSub,
+                    style: _subStyle(c),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -269,8 +358,7 @@ class _StationRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(LucideIcons.chevronRight,
-                size: 18, color: FlowColors.gWeak),
+            Icon(LucideIcons.chevronRight, size: 18, color: c.faint),
           ],
         ),
       ),

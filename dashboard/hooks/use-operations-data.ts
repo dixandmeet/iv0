@@ -15,10 +15,9 @@ export function useOperationsData() {
     const supabase = createClient();
     setError(null);
 
-    try {
-      await supabase.rpc("refresh_live_fleet_positions");
-    } catch {
-      // Table/RPC pas encore déployée — on tente quand même la lecture
+    const { error: rpcError } = await supabase.rpc("refresh_live_fleet_positions");
+    if (rpcError && !rpcError.message.includes("does not exist")) {
+      // Ignorer si la RPC n'est pas déployée
     }
 
     const [fleetRes, incidentsRes] = await Promise.all([

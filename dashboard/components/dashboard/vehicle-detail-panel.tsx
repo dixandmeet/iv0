@@ -1,6 +1,7 @@
 "use client";
 
 import { Crosshair, Gauge, Navigation } from "lucide-react";
+import type { ComponentType } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ function DetailItem({
   value,
   highlight,
 }: {
-  icon?: React.ComponentType<{ className?: string }>;
+  icon?: ComponentType<{ className?: string }>;
   label: string;
   value: string;
   highlight?: boolean;
