@@ -14,10 +14,7 @@ import '../services/aule_data_adapter.dart';
 import '../services/gtfs_service.dart';
 import '../services/location_service.dart';
 import '../theme/aule_theme.dart';
-import '../theme/flow_theme.dart';
 import '../widgets/aule/line_badge.dart' as aule;
-import '../widgets/flow_primitives.dart';
-import '../widgets/flow_widgets.dart';
 import '../widgets/vehicle_tracking/approach_alert_sheet.dart';
 import '../widgets/vehicle_tracking/vehicle_action_buttons.dart';
 import '../widgets/vehicle_tracking/vehicle_info_card.dart';
@@ -25,6 +22,84 @@ import '../widgets/vehicle_tracking/vehicle_map_header.dart';
 import '../widgets/vehicle_tracking/vehicle_vertical_timeline.dart';
 
 enum GuidancePhase { walkToStop, waiting, inTransit, transfer, arrived }
+
+// Palette Aule (clair) — le guidage est volontairement en thème clair (et
+// sombre « à bord »). Constantes locales pour rester utilisables en `const`.
+const Color _ink = Color(0xFF0B1220);
+const Color _muted = Color(0xFF5B6677);
+const Color _faint = Color(0xFF9AA4B2);
+const Color _line = Color(0xFFE7EAF0);
+const Color _fill = Color(0xFFF2F4F8);
+const Color _brand = Color(0xFF1B66F5);
+const Color _brandWeak = Color(0xFFEAF1FE);
+const Color _green = Color(0xFF15803D);
+const Color _greenSoft = Color(0xFFDCF2E4);
+const List<BoxShadow> _soft = [
+  BoxShadow(color: Color(0x14101828), blurRadius: 24, offset: Offset(0, 8)),
+  BoxShadow(color: Color(0x0F101828), blurRadius: 6, offset: Offset(0, 2)),
+];
+
+void _guidanceToast(BuildContext context, String message, {IconData? icon}) {
+  ScaffoldMessenger.of(context)
+    ..clearSnackBars()
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 16),
+              const SizedBox(width: 8),
+            ],
+            Expanded(child: Text(message)),
+          ],
+        ),
+      ),
+    );
+}
+
+/// Badge doux (équivalent Aule de l'ancien SoftBadge Flow).
+class _SoftBadge extends StatelessWidget {
+  final String text;
+  final Color color;
+  final Color background;
+  final IconData? icon;
+  const _SoftBadge({
+    required this.text,
+    required this.color,
+    required this.background,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            text,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// Guidage pas à pas d'un itinéraire TC complet (marche, attente, trajet,
 /// correspondances).
@@ -96,7 +171,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
 
     if (!mounted) return;
     if (ctx == null) {
-      showFlowToast(
+      _guidanceToast(
         context,
         'Impossible de démarrer le guidage pour cette étape.',
         icon: LucideIcons.circleAlert,
@@ -345,13 +420,13 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(color: FlowColors.blue),
+              const CircularProgressIndicator(color: _brand),
               const SizedBox(height: 16),
               Text(
                 'Préparation du guidage…',
                 style: GoogleFonts.hankenGrotesk(
                   fontWeight: FontWeight.w700,
-                  color: FlowColors.g2,
+                  color: _muted,
                 ),
               ),
             ],
@@ -707,17 +782,17 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: FlowColors.blue, width: 2),
-                  boxShadow: FlowTokens.soft,
+                  border: Border.all(color: _brand, width: 2),
+                  boxShadow: _soft,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SoftBadge(
+                    const _SoftBadge(
                       text: 'CORRESPONDANCE',
                       icon: LucideIcons.arrowLeftRight,
-                      color: FlowColors.blue,
-                      background: FlowColors.blueSoft,
+                      color: _brand,
+                      background: _brandWeak,
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -734,7 +809,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: FlowColors.g2,
+                        color: _muted,
                         height: 1.4,
                       ),
                     ),
@@ -771,7 +846,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(28),
-                  boxShadow: FlowTokens.soft,
+                  boxShadow: _soft,
                 ),
                 child: Column(
                   children: [
@@ -779,13 +854,13 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                       width: 72,
                       height: 72,
                       decoration: const BoxDecoration(
-                        color: FlowColors.greenSoft,
+                        color: _greenSoft,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         LucideIcons.circleCheck,
                         size: 36,
-                        color: FlowColors.green,
+                        color: _green,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -804,7 +879,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: FlowColors.g2,
+                        color: _muted,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -813,7 +888,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: FlowColors.gWeak,
+                        color: _faint,
                       ),
                     ),
                   ],
@@ -822,7 +897,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
               const Spacer(flex: 2),
               _PrimaryGuidanceButton(
                 label: 'Terminer',
-                color: FlowColors.blue,
+                color: _brand,
                 icon: LucideIcons.check,
                 onTap: () => Navigator.pop(context),
               ),
@@ -862,7 +937,7 @@ class _GuidanceStepHeader extends StatelessWidget {
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: FlowColors.blue,
+                color: _brand,
                 letterSpacing: 0.3,
               ),
             ),
@@ -872,7 +947,7 @@ class _GuidanceStepHeader extends StatelessWidget {
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: FlowColors.gWeak,
+                color: _faint,
               ),
             ),
           ],
@@ -883,21 +958,21 @@ class _GuidanceStepHeader extends StatelessWidget {
           child: LinearProgressIndicator(
             value: progress,
             minHeight: 5,
-            backgroundColor: FlowColors.line,
-            color: FlowColors.blue,
+            backgroundColor: _line,
+            color: _brand,
           ),
         ),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: FlowColors.fill,
+            color: _fill,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: FlowColors.line),
+            border: Border.all(color: _line),
           ),
           child: Row(
             children: [
-              const Icon(LucideIcons.navigation, size: 14, color: FlowColors.blue),
+              const Icon(LucideIcons.navigation, size: 14, color: _brand),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -905,7 +980,7 @@ class _GuidanceStepHeader extends StatelessWidget {
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: FlowColors.ink,
+                    color: _ink,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -916,7 +991,7 @@ class _GuidanceStepHeader extends StatelessWidget {
                 child: Icon(
                   LucideIcons.arrowRight,
                   size: 14,
-                  color: FlowColors.gWeak,
+                  color: _faint,
                 ),
               ),
               Expanded(
@@ -926,7 +1001,7 @@ class _GuidanceStepHeader extends StatelessWidget {
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: FlowColors.ink,
+                    color: _ink,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -973,7 +1048,7 @@ class _WalkInstructionCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE7EAF0)),
-        boxShadow: FlowTokens.soft,
+        boxShadow: _soft,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -985,13 +1060,13 @@ class _WalkInstructionCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: FlowColors.blueSoft,
+                  color: _brandWeak,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   LucideIcons.footprints,
                   size: 22,
-                  color: FlowColors.blue,
+                  color: _brand,
                 ),
               ),
               const SizedBox(width: 14),
@@ -1028,7 +1103,7 @@ class _WalkInstructionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: FlowColors.fill,
+              color: _fill,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -1059,15 +1134,15 @@ class _WalkInstructionCard extends StatelessWidget {
                 _WalkMetricChip(
                   icon: LucideIcons.footprints,
                   label: '~${walkMeters.round()} m',
-                  color: FlowColors.blue,
-                  background: FlowColors.blueSoft,
+                  color: _brand,
+                  background: _brandWeak,
                 ),
                 const SizedBox(width: 8),
                 _WalkMetricChip(
                   icon: LucideIcons.clock3,
                   label: '~$walkMinutes min',
-                  color: FlowColors.green,
-                  background: FlowColors.greenSoft,
+                  color: _green,
+                  background: _greenSoft,
                 ),
               ],
             ),
@@ -1136,7 +1211,7 @@ class _ItineraryStepsPreview extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: FlowColors.line),
+        border: Border.all(color: _line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1146,7 +1221,7 @@ class _ItineraryStepsPreview extends StatelessWidget {
             style: GoogleFonts.hankenGrotesk(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: FlowColors.g2,
+              color: _muted,
               letterSpacing: 0.4,
             ),
           ),
@@ -1186,15 +1261,15 @@ class _StepPreviewRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final isWalk = step.lineType == 'walk';
     final dotColor = isPast
-        ? FlowColors.green
+        ? _green
         : isCurrent
             ? lineColor
-            : FlowColors.gWeak;
+            : _faint;
     final textColor = isPast
-        ? FlowColors.gWeak
+        ? _faint
         : isCurrent
-            ? FlowColors.ink
-            : FlowColors.g2;
+            ? _ink
+            : _muted;
     final weight = isCurrent ? FontWeight.w800 : FontWeight.w600;
 
     return Row(
@@ -1291,7 +1366,7 @@ class _InTransitBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: FlowColors.blue, width: 2),
+        border: Border.all(color: _brand, width: 2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.25),
@@ -1327,7 +1402,7 @@ class _InTransitBanner extends StatelessWidget {
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: FlowColors.g2,
+                        color: _muted,
                       ),
                     ),
                   ],
@@ -1339,7 +1414,7 @@ class _InTransitBanner extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
             decoration: BoxDecoration(
-              color: FlowColors.fill,
+              color: _fill,
               borderRadius: BorderRadius.circular(13),
             ),
             child: Column(
@@ -1353,7 +1428,7 @@ class _InTransitBanner extends StatelessWidget {
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: FlowColors.g2,
+                        color: _muted,
                         letterSpacing: 0.4,
                       ),
                     ),
@@ -1362,7 +1437,7 @@ class _InTransitBanner extends StatelessWidget {
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: FlowColors.blue,
+                        color: _brand,
                       ),
                     ),
                   ],
@@ -1386,8 +1461,8 @@ class _InTransitBanner extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: w,
                         minHeight: 6,
-                        backgroundColor: FlowColors.line,
-                        color: FlowColors.blue,
+                        backgroundColor: _line,
+                        color: _brand,
                       ),
                     );
                   },
