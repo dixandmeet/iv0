@@ -64,44 +64,52 @@ Chemin d'exécution réel : `main.dart → app/ModeGate → app/AppShell` (ongle
 
 ---
 
-## 4. État actuel : vivant vs à nettoyer
+## 4. État réel après nettoyage (2026-06-16)
 
-Inventaire au moment de la rédaction (chemins relatifs à `lib/screens/`).
+Le repo a été initialisé sous git, puis 11 fichiers du prototype parallèle mort ont été
+supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
 
-### Arbre vivant (atteignable depuis `AppShell`)
-`app_shell`, `home_tab` (+ `widgets/home/*`), `itinerary_page` → `route_result_screen` →
-`itinerary_guidance_page`, `horaires_page` → `station_search_screen`, `menu_page`,
-`stop_detail_page`, `line_detail_page` → `immersive_navigation_page`, `search_route_screen`,
-`settings_screen`, `pulse_screen`.
+### Constat clé
+- L'**accueil vivant** (`home_tab`) est **déjà en Aule** (hankenGrotesk, palette dark-aware inline).
+  Le « home en Flow » supposé était en réalité le `home_screen` supprimé.
+- Sur les **85 fichiers atteignables** depuis `main.dart`, **Flow ne subsiste que dans 5** :
 
-### Code mort à supprimer (importé par personne, ou seulement via des racines mortes)
-| Fichier | Raison |
-|---|---|
-| `aule_shell`, `aule_home_screen`, `aule_map_screen`, `aule_profile_screen` | prototype d'UI alternatif jamais branché |
-| `main_shell` | ancien shell, remplacé par `app_shell` (référencé seulement par `privacy_consent_screen`) |
-| `privacy_consent_screen` | importé par personne (consentement géré ailleurs — à confirmer) |
-| `home_screen`, `map_screen` | atteignables uniquement via `aule_shell` / `main_shell` (morts) |
-| `unified_search_screen` | atteignable uniquement via `aule_home_screen` / `home_screen` (morts) |
+  | Fichier vivant en Flow | Ampleur | Note |
+  |---|---|---|
+  | `screens/route_result_screen.dart` | ~54 refs, 1053 l. | écran central, **à migrer avec rendu visible** |
+  | `screens/itinerary_guidance_page.dart` | ~48 refs, 1450 l. | guidage, **à migrer avec rendu visible** |
+  | `screens/settings_screen.dart` | ~31 refs, 307 l. | mécanique |
+  | `screens/station_search_screen.dart` | ~25 refs, 279 l. | mécanique |
+  | `services/map_service.dart` | 13 refs (constantes couleur) | trivial |
 
-### Features MVP existantes mais déconnectées (à reconnecter, pas à supprimer)
-| Fichier | Fonctionnalité | Action |
+  → migrer ces 5 fichiers vers Aule = pré-requis pour supprimer `flow_theme` / `flow_widgets` / `flow_primitives`.
+
+### Orphelins révélés par le nettoyage (~40, non atteignables depuis `main.dart`)
+
+Classés par intention — **ne pas supprimer en masse** :
+
+| Bucket | Fichiers | Décision |
 |---|---|---|
-| `vehicle_tracking_page` (+ `trip_in_progress_page`) | Suivi véhicule en direct | brancher une entrée depuis carte / fiche véhicule |
-| `nearby_stops_page` | Arrêts à proximité | fusionner avec `map` ou exposer une entrée |
+| **Features MVP à reconnecter** | `vehicle_tracking_page`, `trip_in_progress_page`, `nearby_stops_page` + widgets `vehicle_tracking/*`, `nearby_stops/{map_preview,quick_actions}`, sheets `vehicle_details/tracked_vehicle/station_details/report_incident` | brancher au shell (étape 4) |
+| **Services temps réel** | `gtfs_rt_service`, `operator_realtime_service`, `utils/aule_eta` | reconnecter (feature « temps réel ») |
+| **Kit de widgets Aule** (orphelin depuis `aule_shell`) | `widgets/aule/*` (9 fichiers) | réutiliser pour bâtir les features en Aule |
+| **Ancien dashboard d'accueil en Flow** | `screens/widgets/home/*` (7), `widgets/home/*` (3), `nearby_station_card`, `pulse_screen`, `search_route_screen` | **décision produit** : reconstruire en Aule (accueil riche) ou supprimer (garder l'accueil simple actuel) |
 
-### Écrans redondants à fusionner
-- **Recherche** : `search_route_screen`, `station_search_screen`, `unified_search_screen` → un parcours unique par feature (`journey` pour A→B, `schedules` pour la recherche de station).
-- **Navigation/trajet** : `itinerary_guidance_page`, `immersive_navigation_page`, `trip_in_progress_page` → un seul écran de guidage dans `journey`.
+L'« ancien dashboard Flow » est plus riche que l'accueil vivant (favoris, départs imminents,
+véhicules proches, alertes trafic, suggestions) et colle mieux au MVP « Accueil » — mais il est
+dans le mauvais design system. C'est le seul vrai arbitrage produit restant.
 
 ---
 
-## 5. Plan de migration (incrémental, une étape livrable à la fois)
+## 5. Plan de migration (état)
 
-1. **Filet de sécurité** : `git init` + premier commit de l'état actuel (le repo n'est pas versionné aujourd'hui).
-2. **Supprimer le code mort** (§4) — aucun impact fonctionnel.
-3. **Unifier le design system sur Aule** : migrer `home` + `widgets/home/*` (aujourd'hui en Flow) vers Aule, puis retirer `flow_theme` / `flow_widgets` / `flow_primitives`.
-4. **Reconnecter** `vehicles` et `nearby_stops` au shell.
-5. **Fusionner** les écrans de recherche et de navigation redondants.
-6. **Déplacer vers `features/`** une feature à la fois (commencer par les plus autonomes : `vehicles`, `favorites`).
+1. ~~**Filet de sécurité** : `git init` + commit initial~~ ✅ fait
+2. ~~**Supprimer le code mort** (prototype parallèle)~~ ✅ fait (11 fichiers)
+3. **Unifier sur Aule** : migrer les 5 fichiers Flow vivants (§4). Les 2 gros écrans de guidage
+   doivent être migrés **app lancée** (vérification visuelle), pas à l'aveugle. Puis supprimer Flow.
+4. **Reconnecter** les features MVP orphelines : suivi véhicule, arrêts à proximité, temps réel opérateur.
+5. **Trancher l'accueil** : dashboard riche (reconstruit en Aule) vs accueil simple actuel.
+6. **Fusionner** les écrans de recherche/navigation redondants.
+7. **Déplacer vers `features/`** une feature à la fois (commencer par les plus autonomes).
 
 Chaque étape doit laisser l'app compilable et lançable.

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, MailCheck, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { WEB_STAFF_ROLES, type StaffRole } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,9 +21,29 @@ type AuthMode = "login" | "signup";
 const inputClassName =
   "w-full rounded-xl border border-input bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20";
 
+const UNAUTHORIZED_MESSAGE =
+  "Ce compte n'a pas accès au poste de contrôle. Seuls les profils régulateur, superviseur MSR ou administrateur sont autorisés. Demandez à un administrateur de mettre à jour votre rôle dans Supabase.";
+
 type LoginFormProps = {
   initialError?: string | null;
 };
+
+async function assertStaffAccess(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<string | null> {
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const role = (profile?.role as StaffRole | undefined) ?? "passenger";
+  if (WEB_STAFF_ROLES.includes(role)) return null;
+
+  await supabase.auth.signOut();
+  return UNAUTHORIZED_MESSAGE;
+}
 
 export function LoginForm({ initialError = null }: LoginFormProps) {
   const router = useRouter();
@@ -49,13 +70,20 @@ export function LoginForm({ initialError = null }: LoginFormProps) {
     setSuccess(null);
 
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (authError) {
       setError(authError.message);
+      setLoading(false);
+      return;
+    }
+
+    const accessError = await assertStaffAccess(supabase, data.user.id);
+    if (accessError) {
+      setError(accessError);
       setLoading(false);
       return;
     }
@@ -99,6 +127,13 @@ export function LoginForm({ initialError = null }: LoginFormProps) {
     }
 
     if (data.session) {
+      const accessError = await assertStaffAccess(supabase, data.session.user.id);
+      if (accessError) {
+        setError(accessError);
+        setLoading(false);
+        return;
+      }
+
       router.push("/dashboard");
       router.refresh();
       return;

@@ -15,7 +15,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const initialError =
     params.error === "unauthorized"
-      ? "Ce compte n'a pas accès au poste de contrôle."
+      ? "Ce compte n'a pas accès au poste de contrôle. Seuls les profils régulateur, superviseur MSR ou administrateur sont autorisés."
       : null;
 
   return <LoginForm initialError={initialError} />;
