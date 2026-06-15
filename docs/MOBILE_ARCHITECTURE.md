@@ -93,11 +93,18 @@ Classés par intention — **ne pas supprimer en masse** :
 | **Features MVP à reconnecter** | `vehicle_tracking_page`, `trip_in_progress_page`, `nearby_stops_page` + widgets `vehicle_tracking/*`, `nearby_stops/{map_preview,quick_actions}`, sheets `vehicle_details/tracked_vehicle/station_details/report_incident` | brancher au shell (étape 4) |
 | **Services temps réel** | `gtfs_rt_service`, `operator_realtime_service`, `utils/aule_eta` | reconnecter (feature « temps réel ») |
 | **Kit de widgets Aule** (orphelin depuis `aule_shell`) | `widgets/aule/*` (9 fichiers) | réutiliser pour bâtir les features en Aule |
-| **Ancien dashboard d'accueil en Flow** | `screens/widgets/home/*` (7), `widgets/home/*` (3), `nearby_station_card`, `pulse_screen`, `search_route_screen` | **décision produit** : reconstruire en Aule (accueil riche) ou supprimer (garder l'accueil simple actuel) |
+| ~~Ancien dashboard d'accueil en Flow~~ | ~~`screens/widgets/home/*`, `widgets/home/*`, `nearby_station_card`, `pulse_screen`, `search_route_screen`, `station_details_bottom_sheet`~~ | ✅ **supprimé** (14 fichiers) — accueil Aule conservé |
 
-L'« ancien dashboard Flow » est plus riche que l'accueil vivant (favoris, départs imminents,
-véhicules proches, alertes trafic, suggestions) et colle mieux au MVP « Accueil » — mais il est
-dans le mauvais design system. C'est le seul vrai arbitrage produit restant.
+**Décision accueil (exécutée) :** l'accueil Aule vivant a été vérifié à l'écran (header, chip temps
+réel, arrêts à proximité) et conservé comme base. L'ancien dashboard Flow, débranché et plus riche
+mais dans le mauvais design system, a été supprimé pour ne pas réintroduire Flow. Ses sections
+(favoris, départs imminents, véhicules proches, alertes, suggestions) restent **récupérables via git**
+et seront rebâties nativement en Aule au besoin.
+
+**Vérification à l'écran (preview web) :** accueil, onglet itinéraire et écran résultats bootent et
+sont fonctionnels. Constat de thème : l'accueil/itinéraire (Aule) utilisent une palette de neutres
+*froide*, tandis que `route_result`/`itinerary_guidance` (Flow) utilisent une palette *chaude* (beige) —
+d'où l'incohérence visuelle subtile. Finir la migration Aule de ces écrans supprime cet écart.
 
 ---
 

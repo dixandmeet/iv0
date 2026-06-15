@@ -46,4 +46,14 @@ WHERE id = '<uuid-auth-user>';
 
 ## Prérequis Supabase
 
-Appliquer les migrations `supabase/migrations/001` → `006` et activer Realtime sur `live_fleet_positions` et `network_incidents`.
+Appliquer les migrations `supabase/migrations/001` → `006` et activer Realtime sur `live_fleet_positions`, `network_incidents` et `msr_missions`.
+
+### Données de démonstration (dev)
+
+Pour peupler le dashboard avec des véhicules, incidents et missions fictifs autour de Nantes :
+
+```bash
+psql $DATABASE_URL -f supabase/seed_dashboard_demo.sql
+```
+
+Ce script est idempotent : il supprime et recrée les données demo à chaque exécution.

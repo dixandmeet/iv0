@@ -2,6 +2,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Badge } from "@/components/ui/badge";
+
+const ROLE_VARIANT: Record<string, "default" | "secondary" | "realtime" | "pilot"> = {
+  admin: "default",
+  regulator: "pilot",
+  msr_supervisor: "realtime",
+};
 
 export default async function DashboardLayout({
   children,
@@ -23,20 +31,21 @@ export default async function DashboardLayout({
 
   const displayName = profile?.display_name ?? user.email ?? "Exploitant";
   const role = profile?.role ?? "—";
+  const roleVariant = ROLE_VARIANT[role] ?? "secondary";
 
   return (
     <div className="dashboard-shell">
       <header className="dashboard-header">
-        <div>
-          <strong>Aule</strong>
-          <span className="muted" style={{ marginLeft: 12 }}>
-            Poste de contrôle
-          </span>
+        <div className="flex items-center gap-3">
+          <strong className="text-base">Aule</strong>
+          <span className="text-sm text-muted-foreground">Poste de contrôle</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span className="muted">
-            {displayName} · {role}
+        <div className="flex items-center gap-3">
+          <span className="hidden text-sm text-muted-foreground sm:inline">
+            {displayName}
           </span>
+          <Badge variant={roleVariant}>{role}</Badge>
+          <ThemeToggle />
           <SignOutButton />
         </div>
       </header>
@@ -44,7 +53,7 @@ export default async function DashboardLayout({
       <aside className="dashboard-sidebar">
         <DashboardNav />
         <p className="section-title">Régulateur</p>
-        <p className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
+        <p className="text-xs leading-relaxed text-muted-foreground">
           Flotte live, conducteurs certifiés et incidents réseau en temps réel.
         </p>
       </aside>

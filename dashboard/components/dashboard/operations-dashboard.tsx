@@ -1,111 +1,81 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { LiveFleetPosition, NetworkIncident } from "@/lib/types";
-import { FleetMap } from "@/components/map/fleet-map";
+import { useCallback, useRef, useState } from "react";
+import { useOperationsData } from "@/hooks/use-operations-data";
+import { FleetMap, type FleetMapHandle } from "@/components/map/fleet-map";
 import { FleetPanel } from "@/components/fleet/fleet-panel";
 import { IncidentsPanel } from "@/components/incidents/incidents-panel";
+import { KpiBar } from "@/components/dashboard/kpi-bar";
+import { VehicleDetailPanel } from "@/components/dashboard/vehicle-detail-panel";
+import { ErrorBanner } from "@/components/dashboard/error-banner";
 
 export function OperationsDashboard() {
-  const [fleet, setFleet] = useState<LiveFleetPosition[]>([]);
-  const [incidents, setIncidents] = useState<NetworkIncident[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { fleet, incidents, loading, error, lastUpdated, refresh } =
+    useOperationsData();
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
+  const mapRef = useRef<FleetMapHandle>(null);
 
-  const loadData = useCallback(async () => {
-    const supabase = createClient();
+  const selectedVehicle = fleet.find((v) => v.id === selectedVehicleId) ?? null;
 
-    try {
-      await supabase.rpc("refresh_live_fleet_positions");
-    } catch {
-      // Table/RPC pas encore déployée — on tente quand même la lecture
-    }
-
-    const [fleetRes, incidentsRes] = await Promise.all([
-      supabase
-        .from("live_fleet_positions")
-        .select("*")
-        .order("reliability_score", { ascending: false }),
-      supabase
-        .from("network_incidents")
-        .select("*")
-        .in("status", ["open", "acknowledged", "in_progress"])
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
-
-    if (!fleetRes.error && fleetRes.data) {
-      setFleet(fleetRes.data as LiveFleetPosition[]);
-    }
-    if (!incidentsRes.error && incidentsRes.data) {
-      setIncidents(incidentsRes.data as NetworkIncident[]);
-    }
-    setLoading(false);
+  const handleSelectVehicle = useCallback((id: string | null) => {
+    setSelectedVehicleId(id);
+    if (id) setSelectedIncidentId(null);
   }, []);
 
-  useEffect(() => {
-    loadData();
-    const supabase = createClient();
+  const handleSelectIncident = useCallback((id: string | null) => {
+    setSelectedIncidentId(id);
+    if (id) setSelectedVehicleId(null);
+  }, []);
 
-    const fleetChannel = supabase
-      .channel("dashboard-fleet")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "live_fleet_positions" },
-        () => loadData(),
-      )
-      .subscribe();
-
-    const incidentsChannel = supabase
-      .channel("dashboard-incidents")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "network_incidents" },
-        () => loadData(),
-      )
-      .subscribe();
-
-    const poll = setInterval(loadData, 15000);
-
-    return () => {
-      clearInterval(poll);
-      supabase.removeChannel(fleetChannel);
-      supabase.removeChannel(incidentsChannel);
-    };
-  }, [loadData]);
+  const handleCenterVehicle = useCallback(() => {
+    if (selectedVehicleId) {
+      mapRef.current?.flyToVehicle(selectedVehicleId);
+    }
+  }, [selectedVehicleId]);
 
   return (
     <>
-      <div className="dashboard-map">
-        <FleetMap
+      <div className="dashboard-map flex flex-col">
+        {error && <ErrorBanner message={error} onRetry={refresh} />}
+        <KpiBar
           fleet={fleet}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
+          incidents={incidents}
+          loading={loading}
+          lastUpdated={lastUpdated}
         />
-        {loading && (
-          <div
-            style={{
-              position: "absolute",
-              top: 12,
-              left: 12,
-              background: "var(--panel)",
-              padding: "8px 12px",
-              borderRadius: 8,
-              fontSize: 13,
-            }}
-          >
-            Chargement…
-          </div>
-        )}
+        <div className="relative min-h-0 flex-1">
+          <FleetMap
+            ref={mapRef}
+            fleet={fleet}
+            incidents={incidents}
+            selectedVehicleId={selectedVehicleId}
+            selectedIncidentId={selectedIncidentId}
+            onSelectVehicle={handleSelectVehicle}
+            onSelectIncident={handleSelectIncident}
+          />
+        </div>
       </div>
-      <aside className="dashboard-panel" style={{ padding: 16 }}>
+      <aside className="dashboard-panel p-4">
         <FleetPanel
           fleet={fleet}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
+          selectedId={selectedVehicleId}
+          onSelect={handleSelectVehicle}
+          loading={loading}
         />
-        <IncidentsPanel incidents={incidents} />
+        {selectedVehicle && (
+          <VehicleDetailPanel
+            vehicle={selectedVehicle}
+            onCenter={handleCenterVehicle}
+            onClose={() => setSelectedVehicleId(null)}
+          />
+        )}
+        <IncidentsPanel
+          incidents={incidents}
+          selectedId={selectedIncidentId}
+          onSelect={handleSelectIncident}
+          loading={loading}
+        />
       </aside>
     </>
   );
