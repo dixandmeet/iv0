@@ -46,13 +46,18 @@ WHERE id = '<uuid-auth-user>';
 | Route | Description |
 |-------|-------------|
 | `/login` | Connexion exploitant |
-| `/dashboard` | Carte + flotte live + incidents |
-| `/incidents` | Module incidents (stub) |
-| `/missions` | Missions MSR (stub Phase 4) |
+| `/dashboard` | Carte + flotte live + KPI + alertes |
+| `/alertes` | Centre d'alertes automatiques |
+| `/incidents` | Création, suivi et résolution incidents |
+| `/conducteurs` | Sessions conducteurs actives |
+| `/communication` | Messages staff (individuel, groupe, diffusion) |
+| `/info-voyageur` | Publication perturbations et annonces |
+| `/missions` | Missions MSR |
+| `/reporting` | KPI, ponctualité, exports CSV |
 
 ## Prérequis Supabase
 
-Appliquer les migrations `supabase/migrations/001` → `006` et activer Realtime sur `live_fleet_positions`, `network_incidents` et `msr_missions`.
+Appliquer les migrations `supabase/migrations/001` → `007` et activer Realtime sur `live_fleet_positions`, `network_incidents`, `msr_missions`, `staff_messages` et `passenger_announcements`.
 
 ### Données de démonstration (dev)
 

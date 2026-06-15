@@ -5,8 +5,13 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/dashboard", label: "Vue réseau" },
+  { href: "/alertes", label: "Alertes" },
   { href: "/incidents", label: "Incidents" },
+  { href: "/conducteurs", label: "Conducteurs" },
+  { href: "/communication", label: "Communication" },
+  { href: "/info-voyageur", label: "Info voyageur" },
   { href: "/missions", label: "Missions MSR" },
+  { href: "/reporting", label: "Reporting" },
 ];
 
 export function DashboardNav() {

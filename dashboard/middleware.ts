@@ -34,7 +34,12 @@ export async function middleware(request: NextRequest) {
   const isProtected =
     request.nextUrl.pathname.startsWith("/dashboard") ||
     request.nextUrl.pathname.startsWith("/missions") ||
-    request.nextUrl.pathname.startsWith("/incidents");
+    request.nextUrl.pathname.startsWith("/incidents") ||
+    request.nextUrl.pathname.startsWith("/conducteurs") ||
+    request.nextUrl.pathname.startsWith("/communication") ||
+    request.nextUrl.pathname.startsWith("/alertes") ||
+    request.nextUrl.pathname.startsWith("/info-voyageur") ||
+    request.nextUrl.pathname.startsWith("/reporting");
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();
@@ -69,5 +74,15 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/missions/:path*", "/incidents/:path*", "/login"],
+  matcher: [
+    "/dashboard/:path*",
+    "/missions/:path*",
+    "/incidents/:path*",
+    "/conducteurs/:path*",
+    "/communication/:path*",
+    "/alertes/:path*",
+    "/info-voyageur/:path*",
+    "/reporting/:path*",
+    "/login",
+  ],
 };

@@ -5,12 +5,13 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
 } from "react";
 import { useTheme } from "next-themes";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
-import type { LiveFleetPosition, NetworkIncident } from "@/lib/types";
+import type { GtfsStop, LiveFleetPosition, NetworkIncident } from "@/lib/types";
 import { reliabilityColor, severityColor, sourceLabel } from "@/lib/types";
 import { pointCoordinates } from "@/lib/geo";
 import { createDarkMapStyle, NANTES_CENTER } from "@/lib/landing-map-style";
@@ -23,11 +24,14 @@ export interface FleetMapHandle {
 interface FleetMapProps {
   fleet: LiveFleetPosition[];
   incidents?: NetworkIncident[];
+  stops?: GtfsStop[];
   selectedVehicleId?: string | null;
   selectedIncidentId?: string | null;
   onSelectVehicle?: (id: string | null) => void;
   onSelectIncident?: (id: string | null) => void;
   incidentsOnly?: boolean;
+  routeFilter?: string;
+  showStops?: boolean;
 }
 
 function osmStyle(): maplibregl.StyleSpecification {
@@ -54,11 +58,14 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
     {
       fleet,
       incidents = [],
+      stops = [],
       selectedVehicleId,
       selectedIncidentId,
       onSelectVehicle,
       onSelectIncident,
       incidentsOnly = false,
+      routeFilter = "all",
+      showStops = true,
     },
     ref,
   ) {
@@ -66,6 +73,7 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
     const mapRef = useRef<maplibregl.Map | null>(null);
     const vehicleMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
     const incidentMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
+    const stopMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
     const initialFitDoneRef = useRef(false);
     const { resolvedTheme } = useTheme();
 
@@ -81,13 +89,23 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
       incidentMarkersRef.current.clear();
     }, []);
 
+    const clearStopMarkers = useCallback(() => {
+      stopMarkersRef.current.forEach((marker) => marker.remove());
+      stopMarkersRef.current.clear();
+    }, []);
+
+    const visibleFleet = useMemo(() => {
+      if (routeFilter === "all") return fleet;
+      return fleet.filter((v) => v.route_id === routeFilter);
+    }, [fleet, routeFilter]);
+
     const syncVehicleMarkers = useCallback(() => {
       const map = mapRef.current;
       if (!map || !map.isStyleLoaded() || incidentsOnly) return;
 
       clearVehicleMarkers();
 
-      fleet.forEach((vehicle) => {
+      visibleFleet.forEach((vehicle) => {
         const coords = pointCoordinates(vehicle.geom);
         if (!coords) return;
 
@@ -95,19 +113,22 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
         const color = reliabilityColor(vehicle.reliability_score);
         const isSelected = vehicle.id === selectedVehicleId;
         const rotation = vehicle.heading ?? 0;
+        const hasDelay =
+          vehicle.estimated_delay_seconds != null && vehicle.estimated_delay_seconds > 300;
 
         const el = document.createElement("button");
         el.type = "button";
         el.title = `Ligne ${vehicle.route_id} · ${sourceLabel(vehicle.source)} · ${vehicle.reliability_score}%`;
         el.style.cssText = `
-          width: ${isSelected ? 20 : 16}px;
-          height: ${isSelected ? 20 : 16}px;
-          border-radius: 50%;
-          border: 2px solid ${isSelected ? "#fff" : "rgba(255,255,255,0.8)"};
+          width: ${isSelected ? 22 : 18}px;
+          height: ${isSelected ? 22 : 18}px;
+          border-radius: 4px;
+          border: 2px solid ${hasDelay ? "#ea580c" : isSelected ? "#fff" : "rgba(255,255,255,0.8)"};
           background: ${color};
           cursor: pointer;
           box-shadow: 0 1px 4px rgba(0,0,0,0.4);
           transform: rotate(${rotation}deg);
+          clip-path: polygon(50% 0%, 100% 75%, 50% 100%, 0% 75%);
         `;
         el.onclick = () => onSelectVehicle?.(vehicle.id);
 
@@ -117,12 +138,42 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
         vehicleMarkersRef.current.set(vehicle.id, marker);
       });
     }, [
-      fleet,
+      visibleFleet,
       selectedVehicleId,
       onSelectVehicle,
       incidentsOnly,
       clearVehicleMarkers,
     ]);
+
+    const syncStopMarkers = useCallback(() => {
+      const map = mapRef.current;
+      if (!map || !map.isStyleLoaded() || incidentsOnly || !showStops) return;
+
+      clearStopMarkers();
+
+      const zoom = map.getZoom();
+      if (zoom < 13) return;
+
+      stops.slice(0, 200).forEach((stop) => {
+        const coords = pointCoordinates(stop.geom);
+        if (!coords) return;
+
+        const el = document.createElement("div");
+        el.style.cssText = `
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: rgba(100,116,139,0.6);
+          border: 1px solid rgba(255,255,255,0.5);
+        `;
+        el.title = stop.stop_name;
+
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat(coords)
+          .addTo(map);
+        stopMarkersRef.current.set(stop.stop_id, marker);
+      });
+    }, [stops, incidentsOnly, showStops, clearStopMarkers]);
 
     const syncIncidentMarkers = useCallback(() => {
       const map = mapRef.current;
@@ -169,7 +220,8 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
     const syncAllMarkers = useCallback(() => {
       syncVehicleMarkers();
       syncIncidentMarkers();
-    }, [syncVehicleMarkers, syncIncidentMarkers]);
+      syncStopMarkers();
+    }, [syncVehicleMarkers, syncIncidentMarkers, syncStopMarkers]);
 
     const syncAllMarkersRef = useRef(syncAllMarkers);
     syncAllMarkersRef.current = syncAllMarkers;
@@ -211,11 +263,12 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
       return () => {
         clearVehicleMarkers();
         clearIncidentMarkers();
+        clearStopMarkers();
         map.remove();
         mapRef.current = null;
         initialFitDoneRef.current = false;
       };
-    }, [resolvedTheme, clearVehicleMarkers, clearIncidentMarkers]);
+    }, [resolvedTheme, clearVehicleMarkers, clearIncidentMarkers, clearStopMarkers]);
 
     // Changement de thème (après init)
     const themeInitializedRef = useRef(false);
@@ -231,6 +284,10 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
       map.setStyle(mapStyle(isDark));
       map.once("style.load", () => syncAllMarkersRef.current());
     }, [isDark, resolvedTheme]);
+
+    useEffect(() => {
+      syncStopMarkers();
+    }, [syncStopMarkers]);
 
     // Sync marqueurs quand les données changent
     useEffect(() => {
@@ -267,7 +324,7 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
 
       const points: [number, number][] = [];
       if (!incidentsOnly) {
-        fleet.forEach((v) => {
+        visibleFleet.forEach((v) => {
           const coords = pointCoordinates(v.geom);
           if (coords) points.push(coords);
         });
@@ -289,7 +346,7 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
       const bounds = new maplibregl.LngLatBounds();
       points.forEach((p) => bounds.extend(p));
       map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 600 });
-    }, [fleet, incidents, incidentsOnly]);
+    }, [visibleFleet, incidents, incidentsOnly]);
 
     return (
       <div className="relative h-full w-full min-h-[400px]">

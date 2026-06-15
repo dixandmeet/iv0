@@ -29,6 +29,91 @@ export interface LiveFleetPosition {
   coherence_score: number | null;
   last_seen_at: string;
   estimated_delay_seconds: number | null;
+  driver_session_id?: string | null;
+  community_vehicle_id?: string | null;
+  active_user_count?: number | null;
+}
+
+export interface DriverSession {
+  id: string;
+  driver_id: string;
+  route_id: string | null;
+  direction_id: number | null;
+  trip_id: string | null;
+  headsign: string | null;
+  detection_mode: string;
+  detection_confidence: number | null;
+  status: "detecting" | "active" | "paused" | "ended";
+  started_at: string;
+  confirmed_at: string | null;
+  ended_at: string | null;
+  driver?: {
+    display_name: string | null;
+    role: string;
+  };
+}
+
+export interface StaffMessage {
+  id: string;
+  sender_id: string;
+  recipient_id: string | null;
+  recipient_role: string | null;
+  route_id: string | null;
+  subject: string | null;
+  body: string;
+  message_type: "direct" | "group" | "broadcast";
+  read_at: string | null;
+  created_at: string;
+  sender?: { display_name: string | null };
+  recipient?: { display_name: string | null };
+}
+
+export interface PassengerAnnouncement {
+  id: string;
+  title: string;
+  message: string;
+  announcement_type: "info" | "disruption" | "cancellation" | "deviation" | "delay";
+  route_ids: string[];
+  severity: NetworkIncident["severity"];
+  incident_id: string | null;
+  published_by: string | null;
+  published_at: string;
+  expires_at: string | null;
+  is_active: boolean;
+}
+
+export interface IncidentActionLog {
+  id: string;
+  incident_id: string;
+  action_type: string;
+  result: Record<string, unknown>;
+  executed_at: string;
+}
+
+export interface GtfsRoute {
+  route_id: string;
+  route_short_name: string | null;
+  route_long_name: string | null;
+  route_type: number;
+  route_color: string | null;
+}
+
+export interface GtfsStop {
+  stop_id: string;
+  stop_name: string;
+  geom: { type: "Point"; coordinates: [number, number] };
+}
+
+export interface OperationalAlert {
+  id: string;
+  type: "delay" | "gps_loss" | "immobilized" | "off_route" | "driver_disconnect" | "crowding" | "incident";
+  severity: "info" | "warning" | "critical";
+  title: string;
+  description: string;
+  route_id?: string | null;
+  vehicle_id?: string | null;
+  incident_id?: string | null;
+  created_at: string;
 }
 
 export interface NetworkIncident {
@@ -140,6 +225,38 @@ export function statusLabel(status: string): string {
       return "Terminée";
     case "cancelled":
       return "Annulée";
+    default:
+      return status;
+  }
+}
+
+export function announcementTypeLabel(
+  type: PassengerAnnouncement["announcement_type"],
+): string {
+  switch (type) {
+    case "disruption":
+      return "Perturbation";
+    case "cancellation":
+      return "Annulation";
+    case "deviation":
+      return "Déviation";
+    case "delay":
+      return "Retard";
+    default:
+      return "Information";
+  }
+}
+
+export function driverStatusLabel(status: DriverSession["status"]): string {
+  switch (status) {
+    case "active":
+      return "En service";
+    case "paused":
+      return "Pause";
+    case "detecting":
+      return "Détection";
+    case "ended":
+      return "Terminé";
     default:
       return status;
   }

@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+// CrowdLevel a été extrait dans un fichier neutre (transport_visuals) pour la
+// migration vers Aule ; ré-exporté ici pour les consommateurs Flow restants.
+export '../models/transport_visuals.dart' show CrowdLevel;
+
 /// Système visuel FLOW — « le Waze des transports en commun ».
 ///
 /// Palette monochrome chaude (jamais bleutée), accent bleu électrique,
@@ -133,9 +137,6 @@ class FlowText {
     color: FlowColors.g2,
   );
 }
-
-/// Niveau d'affluence d'un véhicule.
-enum CrowdLevel { low, mid, high }
 
 /// Couleur sémantique d'un temps d'attente (départ transport en commun) :
 /// 0-5 min vert (imminent/proche), 6-15 min orange (moyen), +15 min gris.

@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../models/transport_visuals.dart';
 import '../services/aule_data_adapter.dart';
 import '../services/gtfs_service.dart';
 import '../services/location_service.dart';
 import '../services/map_service.dart';
 import '../theme/aule_theme.dart';
-import '../theme/flow_theme.dart';
 import 'itinerary_guidance_page.dart';
 import '../widgets/aule/line_badge.dart' as aule;
-import '../widgets/flow_primitives.dart';
-import '../widgets/flow_widgets.dart';
 
 enum _SortCriteria { fastest, lessWalking, direct }
 
@@ -120,13 +119,13 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
         _swapping = false;
       });
       if (results.isEmpty) {
-        showFlowToast(context, 'Aucun itinéraire trouvé pour ce trajet.',
+        _toast(context, 'Aucun itinéraire trouvé pour ce trajet.',
             icon: LucideIcons.circleAlert);
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _swapping = false);
-      showFlowToast(context, 'Erreur lors du calcul', icon: LucideIcons.triangleAlert);
+      _toast(context, 'Erreur lors du calcul', icon: LucideIcons.triangleAlert);
     }
   }
 
@@ -147,8 +146,8 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
   void _openGuidance(TransitItinerary itinerary) {
     Navigator.push(
       context,
-      FlowPageRoute(
-        page: ItineraryGuidancePage(
+      MaterialPageRoute<void>(
+        builder: (_) => ItineraryGuidancePage(
           origin: _origin,
           destination: _destination,
           itinerary: itinerary,
@@ -159,12 +158,15 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = isDark ? AuleColors.dark : AuleColors.light;
+
     final displayed = _displayedItineraries;
     final fastestMin =
         displayed.isEmpty ? null : displayed.first.totalDurationMinutes;
 
     return Scaffold(
-      backgroundColor: FlowColors.fill,
+      backgroundColor: c.bg,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -174,6 +176,7 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
               destination: _destination,
               swapping: _swapping,
               onSwap: _swapEndpoints,
+              colors: c,
             ),
             SizedBox(
               height: 50,
@@ -186,6 +189,7 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
                     icon: LucideIcons.zap,
                     active: _criteria == _SortCriteria.fastest,
                     onTap: () => _selectCriteria(_SortCriteria.fastest),
+                    colors: c,
                   ),
                   const SizedBox(width: 8),
                   _CriteriaChip(
@@ -193,12 +197,14 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
                     icon: LucideIcons.footprints,
                     active: _criteria == _SortCriteria.lessWalking,
                     onTap: () => _selectCriteria(_SortCriteria.lessWalking),
+                    colors: c,
                   ),
                   const SizedBox(width: 8),
                   _CriteriaChip(
                     label: 'Direct',
                     active: _criteria == _SortCriteria.direct,
                     onTap: () => _selectCriteria(_SortCriteria.direct),
+                    colors: c,
                   ),
                 ],
               ),
@@ -209,27 +215,27 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
                 child: Text(
                   '${displayed.length} itinéraire${displayed.length > 1 ? 's' : ''}'
                   '${fastestMin != null ? ' · dès $fastestMin min' : ''}',
-                  style: const TextStyle(
+                  style: GoogleFonts.hankenGrotesk(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: FlowColors.g2,
+                    color: c.muted,
                   ),
                 ),
               ),
             Expanded(
               child: _swapping
-                  ? const Center(
+                  ? Center(
                       child: SizedBox(
                         width: 28,
                         height: 28,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          color: FlowColors.blue,
+                          color: c.brand,
                         ),
                       ),
                     )
                   : displayed.isEmpty
-                      ? _EmptyResults(criteria: _criteria)
+                      ? _EmptyResults(criteria: _criteria, colors: c)
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                           itemCount: displayed.length,
@@ -247,6 +253,7 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
                               deltaMinutes: it.totalDurationMinutes - bestMin,
                               onTap: () => _openGuidance(it),
                               onExpand: () => _toggleExpanded(index),
+                              colors: c,
                             );
                           },
                         ),
@@ -258,9 +265,183 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
   }
 }
 
+// --- Helpers Aule ----------------------------------------------------------
+
+void _toast(BuildContext context, String message, {IconData? icon}) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final c = isDark ? AuleColors.dark : AuleColors.light;
+  ScaffoldMessenger.of(context)
+    ..clearSnackBars()
+    ..showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: c.surface2,
+        content: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 16, color: c.warn),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: Text(message,
+                  style: GoogleFonts.hankenGrotesk(
+                      color: c.text, fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      ),
+    );
+}
+
+TextStyle _rowTitleStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+      fontSize: 15,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.2,
+      color: c.text,
+    );
+
+TextStyle _rowSubStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+      fontSize: 12.5,
+      fontWeight: FontWeight.w500,
+      color: c.muted,
+    );
+
+Color _crowdColor(AuleColors c, CrowdLevel level) {
+  switch (level) {
+    case CrowdLevel.low:
+      return c.ok;
+    case CrowdLevel.mid:
+      return c.warn;
+    case CrowdLevel.high:
+      return c.isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626);
+  }
+}
+
+class _IconButton extends StatelessWidget {
+  final IconData icon;
+  final AuleColors colors;
+  final VoidCallback onTap;
+
+  const _IconButton(
+      {required this.icon, required this.colors, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colors.line),
+        ),
+        child: Icon(icon, size: 20, color: colors.text),
+      ),
+    );
+  }
+}
+
+class _SoftBadge extends StatelessWidget {
+  final String text;
+  final Color color;
+  final Color background;
+  final IconData? icon;
+  const _SoftBadge(
+      {required this.text,
+      required this.color,
+      required this.background,
+      this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 5),
+          ],
+          Text(
+            text,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.4,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  final AuleColors colors;
+  const _SectionLabel(this.text, {required this.colors});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text.toUpperCase(),
+      style: GoogleFonts.hankenGrotesk(
+        fontSize: 10.5,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+        height: 1.1,
+        color: colors.faint,
+      ),
+    );
+  }
+}
+
+class _CrowdBars extends StatelessWidget {
+  final CrowdLevel level;
+  final AuleColors colors;
+  const _CrowdBars({required this.level, required this.colors});
+
+  int get _filled => switch (level) {
+        CrowdLevel.low => 1,
+        CrowdLevel.mid => 2,
+        CrowdLevel.high => 3,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _crowdColor(colors, level);
+    const heights = [6.0, 10.0, 14.0];
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(3, (i) {
+        return Container(
+          width: 4,
+          height: heights[i],
+          margin: const EdgeInsets.only(left: 3),
+          decoration: BoxDecoration(
+            color: i < _filled ? color : colors.surface2,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      }),
+    );
+  }
+}
+
 class _EmptyResults extends StatelessWidget {
   final _SortCriteria criteria;
-  const _EmptyResults({required this.criteria});
+  final AuleColors colors;
+  const _EmptyResults({required this.criteria, required this.colors});
 
   @override
   Widget build(BuildContext context) {
@@ -273,15 +454,15 @@ class _EmptyResults extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.route, size: 40, color: FlowColors.gWeak),
+            Icon(LucideIcons.route, size: 40, color: colors.faint),
             const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: GoogleFonts.hankenGrotesk(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: FlowColors.g2,
+                color: colors.muted,
                 height: 1.45,
               ),
             ),
@@ -297,22 +478,27 @@ class _OriginDestinationHeader extends StatelessWidget {
   final String destination;
   final bool swapping;
   final VoidCallback onSwap;
+  final AuleColors colors;
 
   const _OriginDestinationHeader({
     required this.origin,
     required this.destination,
     required this.swapping,
     required this.onSwap,
+    required this.colors,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: FlowColors.white,
+      color: colors.surface,
       padding: const EdgeInsets.fromLTRB(12, 8, 16, 10),
       child: Row(
         children: [
-          FlowIconButton(icon: LucideIcons.arrowLeft, onTap: () => Navigator.pop(context)),
+          _IconButton(
+              icon: LucideIcons.arrowLeft,
+              colors: colors,
+              onTap: () => Navigator.pop(context)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -324,16 +510,17 @@ class _OriginDestinationHeader extends StatelessWidget {
                     height: 10,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: FlowColors.gWeak, width: 2.5),
+                      border: Border.all(color: colors.faint, width: 2.5),
                     ),
                   ),
                   label: origin,
+                  colors: colors,
                 ),
-                const Padding(
-                  padding: EdgeInsets.only(left: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
                   child: SizedBox(
                     height: 10,
-                    child: VerticalDivider(width: 2, color: FlowColors.line),
+                    child: VerticalDivider(width: 2, color: colors.line),
                   ),
                 ),
                 _EndpointRow(
@@ -341,19 +528,21 @@ class _OriginDestinationHeader extends StatelessWidget {
                     width: 10,
                     height: 10,
                     decoration: BoxDecoration(
-                      color: FlowColors.blue,
+                      color: colors.brand,
                       borderRadius: BorderRadius.circular(2.5),
                     ),
                   ),
                   label: destination,
                   bold: true,
+                  colors: colors,
                 ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          FlowIconButton(
+          _IconButton(
             icon: swapping ? LucideIcons.loader : LucideIcons.arrowUpDown,
+            colors: colors,
             onTap: swapping ? () {} : onSwap,
           ),
         ],
@@ -366,10 +555,12 @@ class _EndpointRow extends StatelessWidget {
   final Widget icon;
   final String label;
   final bool bold;
+  final AuleColors colors;
 
   const _EndpointRow({
     required this.icon,
     required this.label,
+    required this.colors,
     this.bold = false,
   });
 
@@ -382,7 +573,7 @@ class _EndpointRow extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: FlowText.rowTitle.copyWith(
+            style: _rowTitleStyle(colors).copyWith(
               fontWeight: bold ? FontWeight.w800 : FontWeight.w700,
             ),
             overflow: TextOverflow.ellipsis,
@@ -398,28 +589,30 @@ class _CriteriaChip extends StatelessWidget {
   final IconData? icon;
   final bool active;
   final VoidCallback onTap;
+  final AuleColors colors;
 
   const _CriteriaChip({
     required this.label,
     this.icon,
     this.active = false,
     required this.onTap,
+    required this.colors,
   });
 
   @override
   Widget build(BuildContext context) {
-    final fg = active ? FlowColors.blue : FlowColors.g2;
-    return FlowTappable(
+    final fg = active ? colors.brand : colors.muted;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      pressedScale: 0.96,
       child: Container(
         height: 38,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? FlowColors.blueSoft : FlowColors.white,
+          color: active ? colors.brandWeak : colors.surface,
           borderRadius: BorderRadius.circular(12),
-          border: active ? null : Border.all(color: FlowColors.line),
+          border: active ? null : Border.all(color: colors.line),
         ),
         child: Row(
           children: [
@@ -429,7 +622,8 @@ class _CriteriaChip extends StatelessWidget {
             ],
             Text(
               label,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fg),
+              style: GoogleFonts.hankenGrotesk(
+                  fontSize: 13, fontWeight: FontWeight.w700, color: fg),
             ),
           ],
         ),
@@ -470,6 +664,7 @@ class _ItineraryCard extends StatelessWidget {
   final int deltaMinutes;
   final VoidCallback onTap;
   final VoidCallback onExpand;
+  final AuleColors colors;
 
   const _ItineraryCard({
     required this.itinerary,
@@ -481,6 +676,7 @@ class _ItineraryCard extends StatelessWidget {
     required this.deltaMinutes,
     required this.onTap,
     required this.onExpand,
+    required this.colors,
   });
 
   Color _accentColor(GtfsService gtfs, MapService mapHelper) {
@@ -489,11 +685,12 @@ class _ItineraryCard extends StatelessWidget {
         return _stepColor(step, gtfs, mapHelper);
       }
     }
-    return FlowColors.blue;
+    return colors.brand;
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = colors;
     final mapHelper = Provider.of<MapService>(context);
     final gtfs = Provider.of<GtfsService>(context, listen: false);
     final it = itinerary;
@@ -513,10 +710,10 @@ class _ItineraryCard extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
-        color: FlowColors.white,
-        borderRadius: BorderRadius.circular(FlowTokens.rCardXl),
+        color: c.surface,
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isBest ? accent.withValues(alpha: 0.45) : FlowColors.line,
+          color: isBest ? accent.withValues(alpha: 0.45) : c.line,
           width: isBest ? 1.5 : 1,
         ),
         boxShadow: isBest
@@ -527,18 +724,18 @@ class _ItineraryCard extends StatelessWidget {
                   offset: const Offset(0, 10),
                 ),
               ]
-            : FlowTokens.soft,
+            : AuleTokens.cardShadow(c.shadow),
       ),
       clipBehavior: Clip.antiAlias,
-      child: FlowTappable(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        pressedScale: 0.988,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
               height: 4,
-              color: isBest ? accent : FlowColors.line,
+              color: isBest ? accent : c.line,
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(16, 14, 16, expanded ? 16 : 14),
@@ -553,19 +750,19 @@ class _ItineraryCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (isBest)
-                              const SoftBadge(
+                              _SoftBadge(
                                 text: 'LE PLUS RAPIDE',
                                 icon: LucideIcons.zap,
-                                color: FlowColors.blue,
-                                background: FlowColors.blueSoft,
+                                color: c.brand,
+                                background: c.brandWeak,
                               )
                             else ...[
-                              const SectionLabel('Alternative'),
+                              _SectionLabel('Alternative', colors: c),
                               if (deltaMinutes > 0) ...[
                                 const SizedBox(height: 4),
                                 Text(
                                   '+$deltaMinutes min',
-                                  style: TextStyle(
+                                  style: GoogleFonts.hankenGrotesk(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     color: accent.withValues(alpha: 0.85),
@@ -576,7 +773,11 @@ class _ItineraryCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      _ArrivalPill(depart: depart, arrival: arrival, accent: accent),
+                      _ArrivalPill(
+                          depart: depart,
+                          arrival: arrival,
+                          accent: accent,
+                          colors: c),
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: onExpand,
@@ -588,13 +789,13 @@ class _ItineraryCard extends StatelessWidget {
                             width: 28,
                             height: 28,
                             decoration: BoxDecoration(
-                              color: FlowColors.fill,
+                              color: c.surface2,
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               LucideIcons.chevronDown,
                               size: 16,
-                              color: FlowColors.g2,
+                              color: c.muted,
                             ),
                           ),
                         ),
@@ -611,17 +812,23 @@ class _ItineraryCard extends StatelessWidget {
                         children: [
                           Text(
                             '${it.totalDurationMinutes}',
-                            style: FlowText.bigNumber.copyWith(fontSize: 34, height: 0.95),
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 34,
+                              height: 0.95,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -1.1,
+                              color: c.text,
+                            ),
                           ),
                           const SizedBox(width: 4),
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 3),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 3),
                             child: Text(
                               'min',
-                              style: TextStyle(
+                              style: GoogleFonts.hankenGrotesk(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
-                                color: FlowColors.g2,
+                                color: c.muted,
                               ),
                             ),
                           ),
@@ -633,6 +840,7 @@ class _ItineraryCard extends StatelessWidget {
                           itinerary: it,
                           gtfs: gtfs,
                           mapHelper: mapHelper,
+                          colors: c,
                         ),
                       ),
                     ],
@@ -642,19 +850,20 @@ class _ItineraryCard extends StatelessWidget {
                     itinerary: it,
                     gtfs: gtfs,
                     mapHelper: mapHelper,
+                    colors: c,
                   ),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Icon(LucideIcons.mapPin, size: 13, color: FlowColors.gWeak),
+                      Icon(LucideIcons.mapPin, size: 13, color: c.faint),
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
                           '$originStop  →  $destStop',
-                          style: const TextStyle(
+                          style: GoogleFonts.hankenGrotesk(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
-                            color: FlowColors.g2,
+                            color: c.muted,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -668,37 +877,36 @@ class _ItineraryCard extends StatelessWidget {
                     runSpacing: 6,
                     children: [
                       _MetaPill(
-                        icon: null,
+                        colors: c,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            CrowdBars(level: crowd),
+                            _CrowdBars(level: crowd, colors: c),
                             const SizedBox(width: 5),
                             Text(
                               crowdLabel(crowd),
-                              style: TextStyle(
+                              style: GoogleFonts.hankenGrotesk(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: switch (crowd) {
-                                  CrowdLevel.low => FlowColors.green,
-                                  CrowdLevel.mid => FlowColors.orange,
-                                  CrowdLevel.high => FlowColors.red,
-                                },
+                                color: _crowdColor(c, crowd),
                               ),
                             ),
                           ],
                         ),
                       ),
                       _MetaPill(
+                        colors: c,
                         icon: transferCount == 0 ? LucideIcons.circleCheck : LucideIcons.gitCompare,
                         label: transferCount == 0 ? 'Direct' : '$transferCount corresp.',
                       ),
                       if (walkScore > 0)
                         _MetaPill(
+                          colors: c,
                           icon: LucideIcons.footprints,
                           label: '~$walkScore min',
                         ),
                       _MetaPill(
+                        colors: c,
                         icon: LucideIcons.ticket,
                         label: '${it.estimatedCost.toStringAsFixed(2).replaceAll('.', ',')} €',
                         emphasized: true,
@@ -714,6 +922,7 @@ class _ItineraryCard extends StatelessWidget {
                       itinerary: it,
                       mapHelper: mapHelper,
                       gtfs: gtfs,
+                      colors: c,
                     ),
                     secondChild: const SizedBox(width: double.infinity),
                   ),
@@ -731,11 +940,13 @@ class _ArrivalPill extends StatelessWidget {
   final String depart;
   final String arrival;
   final Color accent;
+  final AuleColors colors;
 
   const _ArrivalPill({
     required this.depart,
     required this.arrival,
     required this.accent,
+    required this.colors,
   });
 
   @override
@@ -752,15 +963,15 @@ class _ArrivalPill extends StatelessWidget {
         children: [
           Text(
             'Départ $depart',
-            style: const TextStyle(
+            style: GoogleFonts.hankenGrotesk(
               fontSize: 10,
-              color: FlowColors.gWeak,
+              color: colors.faint,
               fontWeight: FontWeight.w600,
             ),
           ),
           Text(
             arrival,
-            style: TextStyle(
+            style: GoogleFonts.hankenGrotesk(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: accent,
@@ -777,11 +988,13 @@ class _RouteSegmentBar extends StatelessWidget {
   final TransitItinerary itinerary;
   final GtfsService gtfs;
   final MapService mapHelper;
+  final AuleColors colors;
 
   const _RouteSegmentBar({
     required this.itinerary,
     required this.gtfs,
     required this.mapHelper,
+    required this.colors,
   });
 
   @override
@@ -799,7 +1012,7 @@ class _RouteSegmentBar extends StatelessWidget {
                 flex: itinerary.steps[i].durationMinutes.clamp(1, total),
                 child: Container(
                   color: itinerary.steps[i].lineType == 'walk'
-                      ? FlowColors.fill2
+                      ? colors.surface2
                       : _stepColor(itinerary.steps[i], gtfs, mapHelper),
                 ),
               ),
@@ -816,12 +1029,14 @@ class _MetaPill extends StatelessWidget {
   final String? label;
   final Widget? child;
   final bool emphasized;
+  final AuleColors colors;
 
   const _MetaPill({
     this.icon,
     this.label,
     this.child,
     this.emphasized = false,
+    required this.colors,
   });
 
   @override
@@ -829,10 +1044,10 @@ class _MetaPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: emphasized ? FlowColors.fill2 : FlowColors.fill,
+        color: colors.surface2,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: emphasized ? FlowColors.line : FlowColors.fill2,
+          color: emphasized ? colors.line : colors.surface2,
         ),
       ),
       child: child ??
@@ -840,15 +1055,16 @@ class _MetaPill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 12, color: emphasized ? FlowColors.ink : FlowColors.g2),
+                Icon(icon,
+                    size: 12, color: emphasized ? colors.text : colors.muted),
                 const SizedBox(width: 4),
               ],
               Text(
                 label ?? '',
-                style: TextStyle(
+                style: GoogleFonts.hankenGrotesk(
                   fontSize: 11,
                   fontWeight: emphasized ? FontWeight.w800 : FontWeight.w700,
-                  color: emphasized ? FlowColors.ink : FlowColors.g2,
+                  color: emphasized ? colors.text : colors.muted,
                 ),
               ),
             ],
@@ -861,11 +1077,13 @@ class _LegsRow extends StatelessWidget {
   final TransitItinerary itinerary;
   final MapService mapHelper;
   final GtfsService gtfs;
+  final AuleColors colors;
 
   const _LegsRow({
     required this.itinerary,
     required this.mapHelper,
     required this.gtfs,
+    required this.colors,
   });
 
   @override
@@ -884,9 +1102,9 @@ class _LegsRow extends StatelessWidget {
         ),
       );
       if (i < transitSteps.length - 1) {
-        widgets.add(const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 5),
-          child: Icon(LucideIcons.chevronRight, size: 14, color: FlowColors.gWeak),
+        widgets.add(Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5),
+          child: Icon(LucideIcons.chevronRight, size: 14, color: colors.faint),
         ));
       }
     }
@@ -906,11 +1124,13 @@ class _StepDetails extends StatelessWidget {
   final TransitItinerary itinerary;
   final MapService mapHelper;
   final GtfsService gtfs;
+  final AuleColors colors;
 
   const _StepDetails({
     required this.itinerary,
     required this.mapHelper,
     required this.gtfs,
+    required this.colors,
   });
 
   @override
@@ -930,20 +1150,21 @@ class _StepDetails extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: FlowColors.blueSoft,
+                        color: colors.brandWeak,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(LucideIcons.arrowLeftRight, size: 11, color: FlowColors.blue),
-                          SizedBox(width: 4),
+                          Icon(LucideIcons.arrowLeftRight,
+                              size: 11, color: colors.brand),
+                          const SizedBox(width: 4),
                           Text(
                             'Correspondance',
-                            style: TextStyle(
+                            style: GoogleFonts.hankenGrotesk(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: FlowColors.blue,
+                              color: colors.brand,
                               letterSpacing: 0.2,
                             ),
                           ),
@@ -959,6 +1180,7 @@ class _StepDetails extends StatelessWidget {
                 step: steps[i],
                 mapHelper: mapHelper,
                 gtfs: gtfs,
+                colors: colors,
               ),
             ),
           ],
@@ -972,22 +1194,25 @@ class _StepTile extends StatelessWidget {
   final RouteStep step;
   final MapService mapHelper;
   final GtfsService gtfs;
+  final AuleColors colors;
 
   const _StepTile({
     required this.step,
     required this.mapHelper,
     required this.gtfs,
+    required this.colors,
   });
 
   @override
   Widget build(BuildContext context) {
+    final c = colors;
     final isWalk = step.lineType == 'walk';
-    final color = isWalk ? FlowColors.g2 : _stepColor(step, gtfs, mapHelper);
+    final color = isWalk ? c.muted : _stepColor(step, gtfs, mapHelper);
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: FlowColors.fill,
+        color: c.surface2,
         borderRadius: BorderRadius.circular(14),
         border: Border(
           left: BorderSide(color: color, width: 3),
@@ -1007,11 +1232,11 @@ class _StepTile extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: FlowColors.white,
+                color: c.surface,
                 borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: FlowColors.line),
+                border: Border.all(color: c.line),
               ),
-              child: const Icon(LucideIcons.footprints, size: 14, color: FlowColors.ink),
+              child: Icon(LucideIcons.footprints, size: 14, color: c.text),
             ),
           const SizedBox(width: 12),
           Expanded(
@@ -1020,12 +1245,12 @@ class _StepTile extends StatelessWidget {
               children: [
                 Text(
                   step.instruction,
-                  style: FlowText.rowTitle.copyWith(fontSize: 14),
+                  style: _rowTitleStyle(c).copyWith(fontSize: 14),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${step.departureStop} → ${step.arrivalStop}',
-                  style: FlowText.rowSub,
+                  style: _rowSubStyle(c),
                 ),
               ],
             ),
@@ -1034,15 +1259,15 @@ class _StepTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             decoration: BoxDecoration(
-              color: FlowColors.white,
+              color: c.surface,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               '${step.durationMinutes} min',
-              style: const TextStyle(
+              style: GoogleFonts.hankenGrotesk(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: FlowColors.ink,
+                color: c.text,
               ),
             ),
           ),

@@ -40,9 +40,12 @@ CREATE INDEX IF NOT EXISTS idx_passenger_announcements_active ON passenger_annou
 CREATE INDEX IF NOT EXISTS idx_passenger_announcements_incident ON passenger_announcements(incident_id);
 
 -- Journal d'actions incidents (INSERT staff)
-CREATE POLICY IF NOT EXISTS incident_actions_insert_staff ON incident_actions_log
-    FOR INSERT TO authenticated
-    WITH CHECK (public.is_staff());
+DO $$ BEGIN
+    CREATE POLICY incident_actions_insert_staff ON incident_actions_log
+        FOR INSERT TO authenticated
+        WITH CHECK (public.is_staff());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- RPC : journaliser une action incident
 CREATE OR REPLACE FUNCTION public.log_incident_action(
@@ -61,38 +64,62 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+GRANT EXECUTE ON FUNCTION public.log_incident_action(UUID, TEXT, JSONB) TO authenticated;
+
 -- RLS staff_messages
 ALTER TABLE staff_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY staff_messages_select ON staff_messages
-    FOR SELECT TO authenticated
-    USING (
-        public.is_staff()
-        OR sender_id = auth.uid()
-        OR recipient_id = auth.uid()
-    );
+DO $$ BEGIN
+    CREATE POLICY staff_messages_select ON staff_messages
+        FOR SELECT TO authenticated
+        USING (
+            public.is_staff()
+            OR sender_id = auth.uid()
+            OR recipient_id = auth.uid()
+        );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY staff_messages_insert ON staff_messages
-    FOR INSERT TO authenticated
-    WITH CHECK (public.is_staff() AND sender_id = auth.uid());
+DO $$ BEGIN
+    CREATE POLICY staff_messages_insert ON staff_messages
+        FOR INSERT TO authenticated
+        WITH CHECK (public.is_staff() AND sender_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY staff_messages_update_read ON staff_messages
-    FOR UPDATE TO authenticated
-    USING (recipient_id = auth.uid())
-    WITH CHECK (recipient_id = auth.uid());
+DO $$ BEGIN
+    CREATE POLICY staff_messages_update_read ON staff_messages
+        FOR UPDATE TO authenticated
+        USING (recipient_id = auth.uid())
+        WITH CHECK (recipient_id = auth.uid());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- RLS passenger_announcements
 ALTER TABLE passenger_announcements ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY passenger_announcements_select ON passenger_announcements
-    FOR SELECT TO authenticated, anon
-    USING (true);
+DO $$ BEGIN
+    CREATE POLICY passenger_announcements_select ON passenger_announcements
+        FOR SELECT TO authenticated, anon
+        USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY passenger_announcements_manage_staff ON passenger_announcements
-    FOR ALL TO authenticated
-    USING (public.is_staff())
-    WITH CHECK (public.is_staff());
+DO $$ BEGIN
+    CREATE POLICY passenger_announcements_manage_staff ON passenger_announcements
+        FOR ALL TO authenticated
+        USING (public.is_staff())
+        WITH CHECK (public.is_staff());
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
--- Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE staff_messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE passenger_announcements;
+-- Realtime (idempotent)
+DO $$ BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE staff_messages;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE passenger_announcements;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

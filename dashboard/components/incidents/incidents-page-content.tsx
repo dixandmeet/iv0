@@ -1,10 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useIncidentsData } from "@/hooks/use-incidents-data";
+import { useGtfsData } from "@/hooks/use-gtfs-data";
 import type { IncidentSeverityFilter, IncidentStatusFilter } from "@/hooks/use-incidents-data";
 import { FleetMap, type FleetMapHandle } from "@/components/map/fleet-map";
 import { IncidentsPanel } from "@/components/incidents/incidents-panel";
+import { IncidentDetailPanel } from "@/components/incidents/incident-detail-panel";
+import { IncidentCreateForm } from "@/components/incidents/incident-create-form";
 import { ErrorBanner } from "@/components/dashboard/error-banner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +30,10 @@ const SEVERITY_OPTIONS: { value: IncidentSeverityFilter; label: string }[] = [
 ];
 
 export function IncidentsPageContent() {
+  const searchParams = useSearchParams();
+  const defaultRoute = searchParams.get("route") ?? "";
+  const showCreate = searchParams.get("create") === "1";
+
   const [statusFilter, setStatusFilter] = useState<IncidentStatusFilter>("all");
   const [severityFilter, setSeverityFilter] =
     useState<IncidentSeverityFilter>("all");
@@ -36,6 +44,9 @@ export function IncidentsPageContent() {
     statusFilter,
     severityFilter,
   });
+  const { routes } = useGtfsData();
+
+  const selectedIncident = incidents.find((i) => i.id === selectedId) ?? null;
 
   const handleSelect = (id: string | null) => {
     setSelectedId(id);
@@ -53,11 +64,26 @@ export function IncidentsPageContent() {
         <div>
           <h1 className="text-xl font-semibold">Incidents réseau</h1>
           <p className="text-sm text-muted-foreground">
-            Consultation en lecture seule — actions d&apos;acquittement en Phase 6.
+            Création, suivi et résolution des incidents opérationnels.
           </p>
         </div>
-        <Badge variant="secondary">{incidents.length} incident(s)</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">{incidents.length} incident(s)</Badge>
+          <IncidentCreateForm
+            routes={routes}
+            defaultRouteId={defaultRoute}
+            onCreated={() => refresh()}
+          />
+        </div>
       </div>
+
+      {showCreate && (
+        <div className="border-b border-border px-6 py-3">
+          <p className="text-xs text-muted-foreground">
+            Création rapide depuis la fiche véhicule — utilisez le bouton ci-dessus.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 border-b border-border px-6 py-3">
         <span className="self-center text-xs text-muted-foreground">Statut :</span>
@@ -101,6 +127,14 @@ export function IncidentsPageContent() {
           />
         </div>
         <div className="overflow-auto p-4">
+          {selectedIncident && (
+            <IncidentDetailPanel
+              incident={selectedIncident}
+              onClose={() => setSelectedId(null)}
+              onUpdated={refresh}
+              onCenter={() => mapRef.current?.flyToIncident(selectedIncident.id)}
+            />
+          )}
           <IncidentsPanel
             incidents={incidents}
             selectedId={selectedId}

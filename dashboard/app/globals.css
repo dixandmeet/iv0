@@ -277,9 +277,66 @@
 .section-title {
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: hsl(var(--muted-foreground));
-  margin: 16px 0 8px;
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 1200px) {
+  .dashboard-shell {
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: 56px 1fr;
+  }
+
+  .dashboard-panel {
+    grid-column: 1 / -1;
+    border-left: none;
+    border-top: 1px solid hsl(var(--border));
+    max-height: 45vh;
+  }
+
+  .dashboard-map {
+    grid-column: 2;
+    min-height: 50vh;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: 56px auto 1fr;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .dashboard-sidebar {
+    border-right: none;
+    border-bottom: 1px solid hsl(var(--border));
+    padding: 12px;
+  }
+
+  .dashboard-sidebar .nav-link {
+    display: inline-block;
+    margin-right: 4px;
+    margin-bottom: 4px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .dashboard-sidebar .section-title,
+  .dashboard-sidebar p.text-xs {
+    display: none;
+  }
+
+  .dashboard-map {
+    grid-column: 1;
+    min-height: 50vh;
+  }
+
+  .dashboard-panel {
+    max-height: none;
+  }
 }
 
 .muted {

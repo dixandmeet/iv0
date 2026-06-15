@@ -18,6 +18,11 @@ interface FleetPanelProps {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   loading?: boolean;
+  routeFilter?: string;
+  onRouteFilterChange?: (route: string) => void;
+  routes?: string[];
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
 }
 
 export function FleetPanel({
@@ -25,6 +30,11 @@ export function FleetPanel({
   selectedId,
   onSelect,
   loading,
+  routeFilter = "all",
+  onRouteFilterChange,
+  routes = [],
+  searchQuery = "",
+  onSearchChange,
 }: FleetPanelProps) {
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("reliability");
@@ -33,6 +43,18 @@ export function FleetPanel({
     let items = [...fleet];
     if (sourceFilter !== "all") {
       items = items.filter((v) => v.source === sourceFilter);
+    }
+    if (routeFilter !== "all") {
+      items = items.filter((v) => v.route_id === routeFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter(
+        (v) =>
+          v.route_id.toLowerCase().includes(q) ||
+          v.transport_type.toLowerCase().includes(q) ||
+          v.trip_id?.toLowerCase().includes(q),
+      );
     }
     items.sort((a, b) => {
       switch (sortKey) {
@@ -45,7 +67,7 @@ export function FleetPanel({
       }
     });
     return items;
-  }, [fleet, sourceFilter, sortKey]);
+  }, [fleet, sourceFilter, sortKey, routeFilter, searchQuery]);
 
   const sources: SourceFilter[] = ["all", "driver", "community", "operator"];
 
@@ -55,6 +77,40 @@ export function FleetPanel({
         <h2 className="text-base font-semibold">Flotte live</h2>
         <Badge variant="secondary">{fleet.length}</Badge>
       </div>
+
+      {onSearchChange && (
+        <input
+          type="search"
+          placeholder="Rechercher ligne, trajet…"
+          value={searchQuery}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="mb-3 h-8 w-full rounded-lg border border-border bg-background px-3 text-xs"
+        />
+      )}
+
+      {onRouteFilterChange && routes.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1">
+          <Button
+            variant={routeFilter === "all" ? "default" : "outline"}
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={() => onRouteFilterChange("all")}
+          >
+            Toutes lignes
+          </Button>
+          {routes.slice(0, 8).map((r) => (
+            <Button
+              key={r}
+              variant={routeFilter === r ? "default" : "outline"}
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => onRouteFilterChange(r)}
+            >
+              {r}
+            </Button>
+          ))}
+        </div>
+      )}
 
       <div className="mb-3 flex flex-wrap gap-1">
         {sources.map((s) => (

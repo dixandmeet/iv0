@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import '../theme/flow_theme.dart';
 import '../models/community_vehicle.dart';
+import '../models/transport_visuals.dart';
+
+// Couleurs sémantiques fixes pour les tracés / badges carte (alignées Aule).
+const Color _mapBlue = Color(0xFF1B66F5);
+const Color _mapOrange = Color(0xFFF59E0B);
+const Color _mapGreen = Color(0xFF16A34A);
+const Color _mapRed = Color(0xFFDC2626);
+const Color _mapGrey = Color(0xFF9AA4B2);
 
 class MapService with ChangeNotifier {
-  // Identité FLOW
-  static const Color brandPrimary = FlowColors.ink;
-  static const Color brandAccent = FlowColors.blue;
+  static const Color brandPrimary = Color(0xFF0B1220);
+  static const Color brandAccent = _mapBlue;
 
-  // Couleurs associées aux modes de transport (teintes FLOW sobres,
-  // utilisées surtout pour les tracés ; les badges restent encre foncée).
+  // Couleurs associées aux modes de transport (utilisées surtout pour les
+  // tracés ; les badges portent la couleur de ligne réelle quand elle existe).
   Color getTransportColor(String transportType, {String? routeColorHex}) {
     if (routeColorHex != null && routeColorHex.isNotEmpty) {
       try {
@@ -20,14 +26,14 @@ class MapService with ChangeNotifier {
 
     switch (transportType.toLowerCase()) {
       case 'tram':
-        return FlowColors.blue;
+        return _mapBlue;
       case 'busway':
-        return FlowColors.orange;
+        return _mapOrange;
       case 'navibus':
         return const Color(0xFF2FA9C4);
       case 'bus':
       default:
-        return FlowColors.blue;
+        return _mapBlue;
     }
   }
 
@@ -61,16 +67,16 @@ class MapService with ChangeNotifier {
     }
   }
 
-  // Couleur du niveau de fiabilité (sémantique FLOW)
+  // Couleur du niveau de fiabilité
   Color getReliabilityColor(String level) {
     switch (level.toLowerCase()) {
       case 'fort':
-        return FlowColors.green;
+        return _mapGreen;
       case 'moyen':
-        return FlowColors.orange;
+        return _mapOrange;
       case 'faible':
       default:
-        return FlowColors.gWeak;
+        return _mapGrey;
     }
   }
 }
@@ -84,16 +90,16 @@ class VehicleStatus {
 
 VehicleStatus vehicleStatus(CommunityVehicle v) {
   final delay = v.estimatedDelaySeconds;
-  if (delay == null) return const VehicleStatus("à l'heure", FlowColors.green);
+  if (delay == null) return const VehicleStatus("à l'heure", _mapGreen);
   if (delay > 30) {
     final min = (delay / 60).ceil();
-    return VehicleStatus('+$min min', min >= 4 ? FlowColors.red : FlowColors.orange);
+    return VehicleStatus('+$min min', min >= 4 ? _mapRed : _mapOrange);
   }
   if (delay < -30) {
     final min = (delay.abs() / 60).ceil();
-    return VehicleStatus("-$min min", FlowColors.green);
+    return VehicleStatus("-$min min", _mapGreen);
   }
-  return const VehicleStatus("à l'heure", FlowColors.green);
+  return const VehicleStatus("à l'heure", _mapGreen);
 }
 
 /// Niveau d'affluence estimé à partir du nombre de co-voyageurs détectés.
