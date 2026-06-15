@@ -74,13 +74,15 @@ supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
   Le « home en Flow » supposé était en réalité le `home_screen` supprimé.
 - Sur les **85 fichiers atteignables** depuis `main.dart`, **Flow ne subsiste que dans 5** :
 
-  | Fichier vivant en Flow | Ampleur | Note |
+  | Fichier vivant en Flow | Ampleur | État |
   |---|---|---|
-  | `screens/route_result_screen.dart` | ~54 refs, 1053 l. | écran central, **à migrer avec rendu visible** |
-  | `screens/itinerary_guidance_page.dart` | ~48 refs, 1450 l. | guidage, **à migrer avec rendu visible** |
-  | `screens/settings_screen.dart` | ~31 refs, 307 l. | mécanique |
-  | `screens/station_search_screen.dart` | ~25 refs, 279 l. | mécanique |
-  | `services/map_service.dart` | 13 refs (constantes couleur) | trivial |
+  | `screens/route_result_screen.dart` | ~54 refs, 1053 l. | **reste** — écran central, migrer avec rendu visible |
+  | `screens/itinerary_guidance_page.dart` | ~48 refs, 1450 l. | **reste** — guidage, migrer avec rendu visible |
+  | `services/map_service.dart` | 13 refs (constantes couleur) | **reste** — entrelacé avec `route_result` via l'enum `CrowdLevel`/`flowWaitColor` ; migrer avec le cluster guidage |
+  | ~~`screens/station_search_screen.dart`~~ | ~25 refs | ✅ migré Aule (vérifié à l'écran) |
+  | ~~`screens/settings_screen.dart`~~ | ~31 refs | ✅ migré Aule (vérifié à l'écran) |
+
+  > Reste un **cluster guidage** interdépendant : `route_result` + `itinerary_guidance` + `map_service` partagent les primitives Flow (`FlowCard`, `FlowText.bigNumber`…) et les helpers `CrowdLevel`/`flowWaitColor`. Se migre d'un bloc, avec vérification visuelle par état (liste d'itinéraires, comparaison, étapes de guidage). Les bottom sheets orphelins encore en Flow (`vehicle_details`, `tracked_vehicle`, `report_incident`, `line_plan_sheet`) seront rebâtis en Aule lors de la reconnexion des features véhicule/incident.
 
   → migrer ces 5 fichiers vers Aule = pré-requis pour supprimer `flow_theme` / `flow_widgets` / `flow_primitives`.
 
