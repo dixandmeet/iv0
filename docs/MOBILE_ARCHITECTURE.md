@@ -62,6 +62,8 @@ Chemin d'exécution réel : `main.dart → app/ModeGate → app/AppShell` (ongle
 | Alertes et perturbations (retards, travaux, déviations, interruptions) | `alerts` | bandeau accueil + détail |
 | Favoris (arrêts, lignes, trajets récurrents) | `favorites` | gestion favoris |
 
+> **Modes couverts** : tram, busway/chronobus, navibus (navette fluviale), bus, marche. **Le « train » ne fait pas partie du périmètre** : le réseau urbain Naolib n'exploite pas de train ; le tram-train Nantes–Châteaubriant/Clisson relève de la SNCF/Région (flux GTFS distinct non ingéré). Voir la décision de périmètre datée plus bas.
+
 ---
 
 ## 4. État réel après nettoyage (2026-06-16)
@@ -106,10 +108,29 @@ supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
 | Fiche arrêt | ✅ `stop_detail_page` |
 | Suivi véhicule en direct | ✅ `line_detail_page → ImmersiveNavigationPage` |
 | **Alertes & perturbations** | ✅ **NEW** `disruptions_page.dart` (DisruptionService réel), branché depuis le Menu |
-| **Favoris** | ✅ **NEW** arrêts favoris persistés (`FavoritesService` + `shared_preferences`), étoile sur `stop_detail`, `favorites_page.dart`, entrée Menu |
+| **Favoris** | ✅ arrêts **et lignes** favoris persistés (`FavoritesService` + `shared_preferences`), étoile sur `stop_detail` et `line_detail`, `favorites_page.dart` à onglets Arrêts/Lignes, entrée Menu |
 | **Carte interactive** | ✅ **NEW** `network_map_page.dart` (réseau complet : lignes + arrêts + position, tap arrêt → fiche), entrée Menu « Plan du réseau » |
 
 > **Toutes les features MVP listées sont désormais présentes et vérifiées à l'écran**, y compris les **trajets récurrents domicile/travail** (puces « Domicile »/« Travail » de l'écran Itinéraire, configurables + persistées). Restes possibles (polish) : UI « signaler un incident » (backend `ReportService` prêt) ; enrichissement de l'accueil (bannière alertes / départs imminents) ; migration physique vers `features/`.
+
+### Complétions 2026-06-16 (lot 2)
+
+| Ajout | Détail |
+|---|---|
+| **Lignes favorites** | `FavoritesService` étendu (clé `favorite_route_ids`, `toggleLine`/`isFavoriteLine`) ; étoile de `line_detail_page` persistée (était un `bool` local) ; `favorites_page` à sélecteur **Arrêts · Lignes** ; helper `GtfsService.representativeDeparture()` pour ouvrir une ligne favorite sans contexte d'arrêt |
+| **Perturbations par ligne** | `DisruptionService` devenu `ChangeNotifier` à **cache partagé** (TTL 2 min, dédup. concurrente) + `disruptionsForLine`/`hasDisruptionForLine` ; provider global ; bandeau `LineDisruptionBanner` sur **fiche arrêt** (lignes impactées → page Alertes) et **fiche ligne** (descriptions) |
+| **Trajet récurrent École** | 3ᵉ puce d'accès rapide (`quick_school_destination`) dans `itinerary_page`, même logique tap/long-press que Domicile/Travail |
+| **Accès & services d'arrêt** | PMR passé à **3 états** (`accessibilityLabel`) ; `StopServicesCard` (PMR + modes desservis, données réelles) sur la fiche arrêt ; **suppression des équipements fabriqués** (« Abri / Distributeur / Affichage temps réel » codés en dur) de `stop_info_card` |
+
+> Validation : `flutter analyze lib/` propre (hors `info` préexistantes) ; `flutter test` vert.
+
+### Décision de périmètre — « Train » (2026-06-16)
+
+L'export TAN embarqué (`assets/data/tan_routes.json`) compte **109 lignes / 4 modes** : bus (100), navibus (4), tram (3), busway (2). **Aucune ligne train / tram-train / TER** (`route_type` 2 = Rail absent). Le tram-train Nantes–Châteaubriant/Clisson est opéré par la SNCF/Région et vit dans un **flux GTFS séparé**.
+
+**Décision : « train » est hors périmètre du MVP** (réseau urbain Naolib). On ne crée pas de mode/onglet vide. Pour l'ajouter ultérieurement → **projet data dédié** : ingestion d'un second feed GTFS (SNCF TER), fusion multi-réseau, correspondances train ↔ tram. À cadrer séparément, ce n'est pas un simple ajout d'écran.
+
+> **Équipements matériels d'arrêt** (ascenseur, distributeur, abri, écran temps réel) : non présents dans le GTFS actuel (seul le PMR existe). Même logique — nécessite une source de données Naolib dédiée. Ne pas fabriquer.
 
   → migrer ces 5 fichiers vers Aule = pré-requis pour supprimer `flow_theme` / `flow_widgets` / `flow_primitives`.
 
