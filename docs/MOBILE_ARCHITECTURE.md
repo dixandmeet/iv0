@@ -109,7 +109,7 @@ supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
 | **Favoris** | ✅ **NEW** arrêts favoris persistés (`FavoritesService` + `shared_preferences`), étoile sur `stop_detail`, `favorites_page.dart`, entrée Menu |
 | **Carte interactive** | ✅ **NEW** `network_map_page.dart` (réseau complet : lignes + arrêts + position, tap arrêt → fiche), entrée Menu « Plan du réseau » |
 
-> **Toutes les features MVP listées sont désormais présentes et vérifiées à l'écran.** Restes possibles (polish) : persistance des trajets récurrents (domicile/travail) dans les favoris ; UI « signaler un incident » (backend `ReportService` prêt) ; migration physique vers `features/`.
+> **Toutes les features MVP listées sont désormais présentes et vérifiées à l'écran**, y compris les **trajets récurrents domicile/travail** (puces « Domicile »/« Travail » de l'écran Itinéraire, configurables + persistées). Restes possibles (polish) : UI « signaler un incident » (backend `ReportService` prêt) ; enrichissement de l'accueil (bannière alertes / départs imminents) ; migration physique vers `features/`.
 
   → migrer ces 5 fichiers vers Aule = pré-requis pour supprimer `flow_theme` / `flow_widgets` / `flow_primitives`.
 
