@@ -9,6 +9,7 @@ import 'services/report_service.dart';
 import 'services/map_service.dart';
 import 'services/aule_theme_service.dart';
 import 'services/auth_service.dart';
+import 'services/favorites_service.dart';
 import 'services/driver_session_service.dart';
 import 'theme/aule_theme.dart';
 import 'screens/mode_gate.dart';
@@ -57,6 +58,7 @@ void main() async {
         ),
         ChangeNotifierProvider(create: (_) => MapService()),
         ChangeNotifierProvider(create: (_) => AuleThemeService()),
+        ChangeNotifierProvider(create: (_) => FavoritesService()..load()),
         ChangeNotifierProvider(create: (_) => AuleClock()),
         ChangeNotifierProxyProvider<SupabaseService, AuthService>(
           create: (context) => AuthService(

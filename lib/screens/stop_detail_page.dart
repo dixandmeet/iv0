@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../models/gtfs.dart';
+import '../services/favorites_service.dart';
 import '../services/gtfs_service.dart';
 import '../theme/aule_theme.dart';
 import '../widgets/line_detail/theoretical_schedule_bottom_sheet.dart';
@@ -112,6 +113,8 @@ class _StopDetailPageState extends State<StopDetailPage> {
     final colors = isDark ? AuleColors.dark : AuleColors.light;
 
     final gtfs = context.watch<GtfsService>();
+    final favorites = context.watch<FavoritesService>();
+    final stopId = widget.station.stop.stopId;
     final groups = gtfs.stationLineGroups(widget.station);
 
     return AuleTheme(
@@ -127,6 +130,8 @@ class _StopDetailPageState extends State<StopDetailPage> {
                 meta: _meta,
                 accessible: widget.station.stop.isWheelchairAccessible,
                 onBack: () => Navigator.pop(context),
+                isFavorite: favorites.isFavorite(stopId),
+                onToggleFavorite: () => favorites.toggle(stopId),
               ),
               Expanded(
                 child: SingleChildScrollView(

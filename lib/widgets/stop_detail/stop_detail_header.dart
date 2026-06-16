@@ -13,12 +13,19 @@ class StopDetailHeader extends StatelessWidget {
   /// Affiche le pictogramme d'accessibilité PMR à côté du sous-titre.
   final bool accessible;
 
+  /// État favori et bascule. Si [onToggleFavorite] est nul, l'étoile n'est pas
+  /// affichée.
+  final bool isFavorite;
+  final VoidCallback? onToggleFavorite;
+
   const StopDetailHeader({
     super.key,
     required this.stopName,
     required this.onBack,
     this.meta,
     this.accessible = false,
+    this.isFavorite = false,
+    this.onToggleFavorite,
   });
 
   @override
@@ -118,6 +125,38 @@ class StopDetailHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (onToggleFavorite != null) ...[
+            const SizedBox(width: 12),
+            Semantics(
+              button: true,
+              label: isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris',
+              child: Material(
+                color: cardBg,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  onTap: onToggleFavorite,
+                  customBorder: const CircleBorder(),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: borderCol),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      LucideIcons.star,
+                      size: 20,
+                      color: isFavorite
+                          ? const Color(0xFFF59E0B)
+                          : mutedTextColor,
+                      fill: isFavorite ? 1.0 : 0.0,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

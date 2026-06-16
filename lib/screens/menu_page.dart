@@ -10,6 +10,7 @@ import '../widgets/aule/aule_icons.dart';
 import '../widgets/nearby_stops/tab_page_header.dart';
 import 'auth/staff_login_screen.dart';
 import 'disruptions_page.dart';
+import 'favorites_page.dart';
 import 'settings_screen.dart';
 
 class MenuPage extends StatelessWidget {
@@ -34,8 +35,9 @@ class MenuPage extends StatelessWidget {
       action: _MenuAction.itinerary,
     ),
     _MenuRow(
-      label: 'Mes lignes suivies',
-      icon: LucideIcons.bus,
+      label: 'Favoris',
+      icon: LucideIcons.star,
+      action: _MenuAction.favorites,
     ),
     _MenuRow(
       label: 'Accessibilité',
@@ -188,7 +190,7 @@ class MenuPage extends StatelessWidget {
   }
 }
 
-enum _MenuAction { horaires, itinerary, settings, staffLogin, disruptions }
+enum _MenuAction { horaires, itinerary, settings, staffLogin, disruptions, favorites }
 
 class _MenuRow {
   final String label;
@@ -329,6 +331,11 @@ class _MenuTile extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const DisruptionsPage()),
+        );
+      case _MenuAction.favorites:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const FavoritesPage()),
         );
       case _MenuAction.staffLogin:
         if (context.read<AuthService>().isAuthenticatedStaff) {
