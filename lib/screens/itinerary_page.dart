@@ -22,6 +22,8 @@ class ItineraryPage extends StatefulWidget {
 
 class _ItineraryPageState extends State<ItineraryPage> {
   static const _recentsKey = 'itinerary_recent_destinations';
+  static const _homeKey = 'quick_home_destination';
+  static const _workKey = 'quick_work_destination';
 
   final TextEditingController _originController =
       TextEditingController(text: 'Ma position');
@@ -33,6 +35,8 @@ class _ItineraryPageState extends State<ItineraryPage> {
   List<String> _suggestions = [];
   _FocusedField _focusedField = _FocusedField.destination;
   List<String> _recents = [];
+  String? _home;
+  String? _work;
 
   final List<String> _popularStops = [
     'Commerce',
@@ -45,17 +49,8 @@ class _ItineraryPageState extends State<ItineraryPage> {
     'Duchesse Anne - Château',
   ];
 
-  static const _quickAccess = [
-    _QuickAccessItem(
-      icon: LucideIcons.house,
-      label: 'Maison',
-      destination: 'Commerce',
-    ),
-    _QuickAccessItem(
-      icon: LucideIcons.briefcase,
-      label: 'Travail',
-      destination: 'Cité des Congrès',
-    ),
+  // Raccourcis fixes (en complément de Domicile/Travail, configurables).
+  static const _staticQuickAccess = [
     _QuickAccessItem(
       icon: LucideIcons.trainFront,
       label: 'Gare Sud',
@@ -102,7 +97,59 @@ class _ItineraryPageState extends State<ItineraryPage> {
     setState(() {
       _recents = prefs.getStringList(_recentsKey) ??
           ['Gare Sud', 'Chantiers Navals', 'Beaulieu'];
+      _home = prefs.getString(_homeKey);
+      _work = prefs.getString(_workKey);
     });
+  }
+
+  /// Domicile/Travail : tap d'une puce non configurée -> enregistre la
+  /// destination saisie ; tap d'une puce configurée -> lance l'itinéraire ;
+  /// appui long -> efface.
+  Future<void> _onQuickSlotTap(String key, String? current) async {
+    if (current != null) {
+      _performSearch(dest: current);
+      return;
+    }
+    final dest = _destinationController.text.trim();
+    if (dest.isEmpty || dest.toLowerCase() == 'ma position') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+              'Saisissez une destination, puis touchez Domicile ou Travail pour l\'enregistrer.'),
+        ),
+      );
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, dest);
+    if (!mounted) return;
+    setState(() {
+      if (key == _homeKey) _home = dest;
+      if (key == _workKey) _work = dest;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('Enregistré : $dest'),
+      ),
+    );
+  }
+
+  Future<void> _clearQuickSlot(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
+    if (!mounted) return;
+    setState(() {
+      if (key == _homeKey) _home = null;
+      if (key == _workKey) _work = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        content: Text('Raccourci effacé.'),
+      ),
+    );
   }
 
   Future<void> _saveRecent(String destination) async {
@@ -349,22 +396,45 @@ class _ItineraryPageState extends State<ItineraryPage> {
         const SizedBox(height: 10),
         SizedBox(
           height: 44,
-          child: ListView.separated(
+          child: ListView(
             scrollDirection: Axis.horizontal,
-            itemCount: _quickAccess.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final item = _quickAccess[index];
-              return _QuickChip(
-                icon: item.icon,
-                label: item.label,
-                onTap: () => _performSearch(dest: item.destination),
+            children: [
+              _QuickChip(
+                icon: LucideIcons.house,
+                label: _home ?? 'Domicile',
+                onTap: () => _onQuickSlotTap(_homeKey, _home),
+                onLongPress:
+                    _home == null ? null : () => _clearQuickSlot(_homeKey),
                 cardBg: cardBg,
                 borderCol: borderCol,
                 textColor: primaryTextColor,
                 compact: true,
-              );
-            },
+              ),
+              const SizedBox(width: 8),
+              _QuickChip(
+                icon: LucideIcons.briefcase,
+                label: _work ?? 'Travail',
+                onTap: () => _onQuickSlotTap(_workKey, _work),
+                onLongPress:
+                    _work == null ? null : () => _clearQuickSlot(_workKey),
+                cardBg: cardBg,
+                borderCol: borderCol,
+                textColor: primaryTextColor,
+                compact: true,
+              ),
+              for (final item in _staticQuickAccess) ...[
+                const SizedBox(width: 8),
+                _QuickChip(
+                  icon: item.icon,
+                  label: item.label,
+                  onTap: () => _performSearch(dest: item.destination),
+                  cardBg: cardBg,
+                  borderCol: borderCol,
+                  textColor: primaryTextColor,
+                  compact: true,
+                ),
+              ],
+            ],
           ),
         ),
         const SizedBox(height: 24),
@@ -853,6 +923,7 @@ class _QuickChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final Color cardBg;
   final Color borderCol;
   final Color textColor;
@@ -862,6 +933,7 @@ class _QuickChip extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.onLongPress,
     required this.cardBg,
     required this.borderCol,
     required this.textColor,
@@ -875,6 +947,7 @@ class _QuickChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(compact ? 22 : 14),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(compact ? 22 : 14),
         child: Container(
           padding: EdgeInsets.symmetric(

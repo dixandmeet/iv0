@@ -1,6 +1,12 @@
-export function DashboardLogo() {
+"use client";
+
+interface DashboardLogoProps {
+  collapsed?: boolean;
+}
+
+export function DashboardLogo({ collapsed = false }: DashboardLogoProps) {
   return (
-    <div className="dashboard-logo">
+    <div className={`dashboard-logo${collapsed ? " dashboard-logo--collapsed" : ""}`}>
       <div className="dashboard-logo-icon" aria-hidden>
         <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
           <path
@@ -17,7 +23,7 @@ export function DashboardLogo() {
           />
         </svg>
       </div>
-      <div>
+      <div className="dashboard-logo-text">
         <p className="dashboard-logo-title">Aule</p>
         <p className="dashboard-logo-subtitle">Poste de contrôle · BLX · TTX · SHX</p>
       </div>

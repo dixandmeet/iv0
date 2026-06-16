@@ -41,7 +41,11 @@ const links: NavLink[] = [
   { href: "#", label: "Paramètres", icon: Settings },
 ];
 
-export function DashboardNav() {
+interface DashboardNavProps {
+  collapsed?: boolean;
+}
+
+export function DashboardNav({ collapsed = false }: DashboardNavProps) {
   const pathname = usePathname();
 
   return (
@@ -57,10 +61,11 @@ export function DashboardNav() {
           <Link
             key={`${link.href}-${link.label}`}
             href={link.href}
-            className={`dashboard-nav-link${isActive ? " active" : ""}`}
+            className={`dashboard-nav-link${isActive ? " active" : ""}${collapsed ? " dashboard-nav-link--collapsed" : ""}`}
+            title={collapsed ? link.label : undefined}
           >
             <link.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
-            <span className="flex-1 truncate">{link.label}</span>
+            <span className="dashboard-nav-link-label flex-1 truncate">{link.label}</span>
           </Link>
         );
       })}

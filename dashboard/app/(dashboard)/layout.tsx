@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { DashboardNav } from "@/components/layout/dashboard-nav";
-import { DashboardLogo } from "@/components/layout/dashboard-logo";
-import { DashboardUserCard } from "@/components/layout/dashboard-user-card";
+import { DashboardShell } from "@/components/layout/dashboard-shell";
 
 export default async function DashboardLayout({
   children,
@@ -26,16 +24,8 @@ export default async function DashboardLayout({
   const role = profile?.role ?? "regulator";
 
   return (
-    <div className="dashboard-shell dark">
-      <aside className="dashboard-sidebar">
-        <DashboardLogo />
-        <DashboardNav />
-        <div className="dashboard-sidebar-footer">
-          <DashboardUserCard displayName={displayName} role={role} />
-        </div>
-      </aside>
-
-      <div className="dashboard-content">{children}</div>
-    </div>
+    <DashboardShell displayName={displayName} role={role}>
+      {children}
+    </DashboardShell>
   );
 }

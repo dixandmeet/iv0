@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Ban, Plus, TrainFront, Trash2, Undo2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Ban, ChevronLeft, ChevronRight, Plus, TrainFront, Trash2, Undo2 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
   type RegulationLine,
@@ -61,6 +61,42 @@ export function OperationalTimeline({
   const [addingAtIndex, setAddingAtIndex] = useState<number | null>(null);
   const [newStopName, setNewStopName] = useState("");
   const addInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    updateScrollState();
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+
+    const observer = new ResizeObserver(updateScrollState);
+    observer.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", updateScrollState);
+      observer.disconnect();
+    };
+  }, [stopCount, updateScrollState]);
+
+  const scrollTimeline = useCallback((direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const amount = Math.max(el.clientWidth * 0.55, 240);
+    el.scrollBy({
+      left: direction === "left" ? -amount : amount,
+      behavior: "smooth",
+    });
+  }, []);
 
   const commitAdd = useCallback(
     (afterIndex: number) => {
@@ -106,14 +142,62 @@ export function OperationalTimeline({
         <p className="regulation-timeline-label mb-0">
           Frise des arrêts · {stopCount} arrêts
         </p>
-        {onStopsChange && (
-          <p className="regulation-timeline-hint">
-            Cliquez sur un arrêt pour le gérer
-          </p>
-        )}
+        <div className="regulation-timeline-toolbar-actions">
+          {(canScrollLeft || canScrollRight) && (
+            <div className="regulation-timeline-nav">
+              <button
+                type="button"
+                className="regulation-timeline-nav-btn"
+                onClick={() => scrollTimeline("left")}
+                disabled={!canScrollLeft}
+                aria-label="Défiler vers la gauche"
+              >
+                <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+              <button
+                type="button"
+                className="regulation-timeline-nav-btn"
+                onClick={() => scrollTimeline("right")}
+                disabled={!canScrollRight}
+                aria-label="Défiler vers la droite"
+              >
+                <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            </div>
+          )}
+          {onStopsChange && (
+            <p className="regulation-timeline-hint">
+              Cliquez sur un arrêt pour le gérer
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="regulation-timeline-scroll flex-1 min-h-0">
+      <div className="regulation-timeline-scroll-wrap">
+        {canScrollLeft && (
+          <button
+            type="button"
+            className="regulation-timeline-scroll-overlay left"
+            onClick={() => scrollTimeline("left")}
+            aria-label="Défiler vers la gauche"
+          >
+            <ChevronLeft className="h-4 w-4" strokeWidth={2} />
+          </button>
+        )}
+        {canScrollRight && (
+          <button
+            type="button"
+            className="regulation-timeline-scroll-overlay right"
+            onClick={() => scrollTimeline("right")}
+            aria-label="Défiler vers la droite"
+          >
+            <ChevronRight className="h-4 w-4" strokeWidth={2} />
+          </button>
+        )}
+        <div
+          ref={scrollRef}
+          className="regulation-timeline-scroll flex-1 min-h-0"
+        >
         <div className="regulation-timeline-inner" style={{ minWidth }}>
           <div className="regulation-stops-grid" style={{ gridTemplateColumns: gridColumns }}>
             <div className="regulation-sticky-col" />
@@ -309,6 +393,7 @@ export function OperationalTimeline({
               );
             })}
           </div>
+        </div>
         </div>
       </div>
     </div>
