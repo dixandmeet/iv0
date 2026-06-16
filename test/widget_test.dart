@@ -12,7 +12,6 @@ import 'package:latlong2/latlong.dart';
 import 'package:wazibus_nantes/models/community_vehicle.dart';
 import 'package:wazibus_nantes/models/report.dart';
 import 'package:wazibus_nantes/services/map_service.dart';
-import 'package:wazibus_nantes/theme/flow_theme.dart';
 
 void main() {
   group('CommunityVehicle.reliabilityLevel', () {
@@ -65,8 +64,9 @@ void main() {
     final mapService = MapService();
 
     test('associe la bonne couleur de marque au type de transport', () {
-      expect(mapService.getTransportColor('tram'), FlowColors.blue);
-      expect(mapService.getTransportColor('busway'), FlowColors.orange);
+      // Couleurs sémantiques carte alignées Aule (cf. map_service.dart).
+      expect(mapService.getTransportColor('tram'), const Color(0xFF1B66F5));
+      expect(mapService.getTransportColor('busway'), const Color(0xFFF59E0B));
       expect(mapService.getTransportColor('navibus'), const Color(0xFF2FA9C4));
     });
 
