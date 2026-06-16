@@ -24,6 +24,7 @@ class _ItineraryPageState extends State<ItineraryPage> {
   static const _recentsKey = 'itinerary_recent_destinations';
   static const _homeKey = 'quick_home_destination';
   static const _workKey = 'quick_work_destination';
+  static const _schoolKey = 'quick_school_destination';
 
   final TextEditingController _originController =
       TextEditingController(text: 'Ma position');
@@ -37,6 +38,7 @@ class _ItineraryPageState extends State<ItineraryPage> {
   List<String> _recents = [];
   String? _home;
   String? _work;
+  String? _school;
 
   final List<String> _popularStops = [
     'Commerce',
@@ -99,6 +101,7 @@ class _ItineraryPageState extends State<ItineraryPage> {
           ['Gare Sud', 'Chantiers Navals', 'Beaulieu'];
       _home = prefs.getString(_homeKey);
       _work = prefs.getString(_workKey);
+      _school = prefs.getString(_schoolKey);
     });
   }
 
@@ -127,6 +130,7 @@ class _ItineraryPageState extends State<ItineraryPage> {
     setState(() {
       if (key == _homeKey) _home = dest;
       if (key == _workKey) _work = dest;
+      if (key == _schoolKey) _school = dest;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -143,6 +147,7 @@ class _ItineraryPageState extends State<ItineraryPage> {
     setState(() {
       if (key == _homeKey) _home = null;
       if (key == _workKey) _work = null;
+      if (key == _schoolKey) _school = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -417,6 +422,18 @@ class _ItineraryPageState extends State<ItineraryPage> {
                 onTap: () => _onQuickSlotTap(_workKey, _work),
                 onLongPress:
                     _work == null ? null : () => _clearQuickSlot(_workKey),
+                cardBg: cardBg,
+                borderCol: borderCol,
+                textColor: primaryTextColor,
+                compact: true,
+              ),
+              const SizedBox(width: 8),
+              _QuickChip(
+                icon: LucideIcons.graduationCap,
+                label: _school ?? 'École',
+                onTap: () => _onQuickSlotTap(_schoolKey, _school),
+                onLongPress:
+                    _school == null ? null : () => _clearQuickSlot(_schoolKey),
                 cardBg: cardBg,
                 borderCol: borderCol,
                 textColor: primaryTextColor,
