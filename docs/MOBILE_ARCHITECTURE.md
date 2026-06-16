@@ -85,7 +85,17 @@ supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
   | `services/map_service.dart` | ✅ migré (couleurs sémantiques locales) |
   | `models/transport_visuals.dart` | NEW — `enum CrowdLevel` extrait de `flow_theme` (ré-exporté par `flow_theme` pour les orphelins) |
 
-  > **Flow ne subsiste plus que dans des écrans orphelins** : `vehicle_details_bottom_sheet`, `tracked_vehicle_sheet`, `report_incident_bottom_sheet`, `line_plan_sheet`, plus l'infra `flow_theme`/`flow_widgets`/`flow_primitives`. Ces sheets seront rebâtis en Aule lors de la reconnexion des features véhicule/incident (étape 4), après quoi `flow_*` pourra être supprimé.
+  > **✅ Flow entièrement supprimé du codebase** (`flow_theme`/`flow_widgets`/`flow_primitives` + tous les écrans qui en dépendaient). Plus aucune référence à Flow dans `lib/`.
+
+### Audit étape 4 — les features MVP « manquantes » étaient des doublons
+
+| Orphelin supprimé | Verdict |
+|---|---|
+| `vehicle_tracking_page` + `trip_in_progress_page` | doublons de `ImmersiveNavigationPage` (vivant) — le suivi véhicule en direct existe déjà via `stop → LineDetailPage → ImmersiveNavigationPage` (vérifié à l'écran) |
+| `nearby_stops_page` | alias déprécié (« préférer AppShell ») — les arrêts à proximité sont sur `home_tab` |
+| sheets Flow (`vehicle_details`, `tracked_vehicle`, `report_incident`, `line_plan_sheet`) | cluster orphelin fermé, jamais branché |
+
+> ⚠️ **Feature à rebâtir** : l'UI « signaler un incident » (`report_incident_bottom_sheet`) était dans le cluster Flow supprimé. Le backend `ReportService` reste vivant (utilisé par `app_shell`). Quand la feature « signalement communautaire » sera priorisée, recréer le bottom sheet en Aule et le brancher (carte / fiche véhicule). Récupérable via git.
 
   → migrer ces 5 fichiers vers Aule = pré-requis pour supprimer `flow_theme` / `flow_widgets` / `flow_primitives`.
 
@@ -119,9 +129,13 @@ d'où l'incohérence visuelle subtile. Finir la migration Aule de ces écrans su
 2. ~~**Supprimer le code mort** (prototype parallèle)~~ ✅ fait (11 fichiers)
 3. ~~**Unifier sur Aule** : migrer les fichiers Flow vivants~~ ✅ fait — tout l'arbre atteignable
    est en Aule (vérifié à l'écran). Reste à supprimer `flow_*` après migration des sheets orphelins.
-4. **Reconnecter** les features MVP orphelines : suivi véhicule, arrêts à proximité, temps réel opérateur.
-5. **Trancher l'accueil** : dashboard riche (reconstruit en Aule) vs accueil simple actuel.
-6. **Fusionner** les écrans de recherche/navigation redondants.
-7. **Déplacer vers `features/`** une feature à la fois (commencer par les plus autonomes).
+4. ~~**Reconnecter** les features MVP orphelines~~ ✅ audit fait — c'étaient des doublons morts
+   (suivi véhicule & arrêts proximité déjà vivants), supprimés. Reste à rebâtir l'UI « signaler
+   un incident » en Aule quand priorisée.
+5. ~~**Supprimer `flow_*`**~~ ✅ fait — codebase 100 % sans Flow.
+6. **Trancher l'accueil** : dashboard riche (reconstruit en Aule) vs accueil simple actuel.
+7. **Fusionner** les écrans de recherche/navigation redondants (reste : `station_search` vs
+   recherche d'itinéraire ; `immersive_navigation` vs `itinerary_guidance` se recoupent en partie).
+8. **Déplacer vers `features/`** une feature à la fois (commencer par les plus autonomes).
 
 Chaque étape doit laisser l'app compilable et lançable.
