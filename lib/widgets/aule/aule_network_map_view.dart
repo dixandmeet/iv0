@@ -14,6 +14,7 @@ class AuleNetworkMapView extends StatelessWidget {
   final List<GtfsStop> stops;
   final String? selectedLine;
   final LatLng? userPosition;
+  final void Function(GtfsStop stop)? onStopTap;
 
   const AuleNetworkMapView({
     super.key,
@@ -22,6 +23,7 @@ class AuleNetworkMapView extends StatelessWidget {
     required this.stops,
     this.selectedLine,
     this.userPosition,
+    this.onStopTap,
   });
 
   Color _routeColor(GtfsRoute route) {
@@ -62,14 +64,23 @@ class AuleNetworkMapView extends StatelessWidget {
       for (final stop in stops)
         Marker(
           point: stop.position,
-          width: 14,
-          height: 14,
+          width: onStopTap != null ? 26 : 14,
+          height: onStopTap != null ? 26 : 14,
           alignment: Alignment.center,
-          child: Container(
-            decoration: BoxDecoration(
-              color: c.surface,
-              shape: BoxShape.circle,
-              border: Border.all(color: c.muted.withValues(alpha: 0.7), width: 2),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onStopTap == null ? null : () => onStopTap!(stop),
+            child: Center(
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  shape: BoxShape.circle,
+                  border:
+                      Border.all(color: c.muted.withValues(alpha: 0.7), width: 2),
+                ),
+              ),
             ),
           ),
         ),

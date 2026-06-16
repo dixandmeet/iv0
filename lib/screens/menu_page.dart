@@ -11,6 +11,7 @@ import '../widgets/nearby_stops/tab_page_header.dart';
 import 'auth/staff_login_screen.dart';
 import 'disruptions_page.dart';
 import 'favorites_page.dart';
+import 'network_map_page.dart';
 import 'settings_screen.dart';
 
 class MenuPage extends StatelessWidget {
@@ -33,6 +34,11 @@ class MenuPage extends StatelessWidget {
       label: 'Calculer un itinéraire',
       icon: LucideIcons.route,
       action: _MenuAction.itinerary,
+    ),
+    _MenuRow(
+      label: 'Plan du réseau',
+      icon: LucideIcons.map,
+      action: _MenuAction.networkMap,
     ),
     _MenuRow(
       label: 'Favoris',
@@ -190,7 +196,7 @@ class MenuPage extends StatelessWidget {
   }
 }
 
-enum _MenuAction { horaires, itinerary, settings, staffLogin, disruptions, favorites }
+enum _MenuAction { horaires, itinerary, networkMap, settings, staffLogin, disruptions, favorites }
 
 class _MenuRow {
   final String label;
@@ -336,6 +342,11 @@ class _MenuTile extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const FavoritesPage()),
+        );
+      case _MenuAction.networkMap:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NetworkMapPage()),
         );
       case _MenuAction.staffLogin:
         if (context.read<AuthService>().isAuthenticatedStaff) {

@@ -106,8 +106,8 @@ supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
 | Fiche arrêt | ✅ `stop_detail_page` |
 | Suivi véhicule en direct | ✅ `line_detail_page → ImmersiveNavigationPage` |
 | **Alertes & perturbations** | ✅ **NEW** `disruptions_page.dart` (DisruptionService réel), branché depuis le Menu |
-| Favoris | ⚠️ incomplet — étoiles locales non persistées, pas de liste ; à construire (persistance `shared_preferences` + écran) |
-| Carte interactive (dédiée) | ⚠️ manquant — `AuleNetworkMapView` (widget prêt) à brancher dans un écran plein écran (entrée Menu ou onglet) |
+| **Favoris** | ✅ **NEW** arrêts favoris persistés (`FavoritesService` + `shared_preferences`), étoile sur `stop_detail`, `favorites_page.dart`, entrée Menu |
+| Carte interactive (dédiée) | ⚠️ manquant — `AuleNetworkMapView` (widget prêt) à brancher dans un écran plein écran (entrée Menu ou onglet). Attention aux pièges flutter_map ([[flutter-map-tiles-pieges]]) : MapOptions/TileLayer figés, pas de fitCamera programmatique. |
 
   → migrer ces 5 fichiers vers Aule = pré-requis pour supprimer `flow_theme` / `flow_widgets` / `flow_primitives`.
 
