@@ -167,6 +167,20 @@ export function LinesPanel({
                 {depot.name}
               </button>
             ))}
+            <button
+              type="button"
+              className={`regulation-network-chip${depotFilter === "TRAM" ? " active" : ""}`}
+              onClick={() => setDepotFilter("TRAM")}
+            >
+              Tramway
+            </button>
+            <button
+              type="button"
+              className={`regulation-network-chip${depotFilter === "NAV" ? " active" : ""}`}
+              onClick={() => setDepotFilter("NAV")}
+            >
+              Navibus
+            </button>
           </div>
 
           <p className="regulation-filters-label">Réseau</p>
@@ -211,7 +225,7 @@ export function LinesPanel({
       <p className="regulation-lines-count">
         {loading
           ? "Chargement…"
-          : `${filtered.length} / ${lines.length} lignes · ${DEPOTS.map((d) => d.code).join(", ")}`}
+          : `${filtered.length} / ${lines.length} lignes · BLX, TTX, SHX, Tram, Navibus`}
       </p>
 
       <div className="regulation-lines-list">

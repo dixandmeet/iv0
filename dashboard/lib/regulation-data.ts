@@ -127,6 +127,68 @@ function routeTypeLabel(routeType: number): string {
   return "Bus";
 }
 
+export function isTramRoute(route: GtfsRoute): boolean {
+  if (route.route_type === 0) return true;
+  const label = `${route.route_short_name ?? ""} ${route.route_long_name ?? ""}`.toLowerCase();
+  return label.includes("tram");
+}
+
+export function isNavibusRoute(route: GtfsRoute): boolean {
+  if (route.route_type === 4) return true;
+  const label = `${route.route_short_name ?? ""} ${route.route_long_name ?? ""}`.toLowerCase();
+  return label.includes("navibus") || label.includes("bateau") || label.includes("ferry");
+}
+
+function networkDepotCode(route: GtfsRoute): "TRAM" | "NAV" {
+  return isNavibusRoute(route) ? "NAV" : "TRAM";
+}
+
+function sortRegulationLines(lines: RegulationLine[]): RegulationLine[] {
+  return [...lines].sort((a, b) => {
+    if (b.vehicleCount !== a.vehicleCount) return b.vehicleCount - a.vehicleCount;
+    if (a.depotCode !== b.depotCode) return a.depotCode.localeCompare(b.depotCode);
+    return a.shortName.localeCompare(b.shortName, "fr", { numeric: true });
+  });
+}
+
+function buildLineFromRoute(
+  route: GtfsRoute,
+  fleetByRoute: Map<string, LiveFleetPosition[]>,
+  incidentsByRoute: Map<string, number>,
+  overrides: Partial<RegulationLine> & Pick<RegulationLine, "id" | "depotCode" | "routeId">,
+): RegulationLine {
+  const vehicles = fleetByRoute.get(route.route_id) ?? [];
+  const parsed = parseRouteTerminals(route.route_long_name);
+  const delays = vehicles.map((v) => delayMinutes(v.estimated_delay_seconds));
+  const avgDelay =
+    delays.length > 0
+      ? Math.round(delays.reduce((a, b) => a + b, 0) / delays.length)
+      : 0;
+  const incidentCount = incidentsByRoute.get(route.route_id) ?? 0;
+  const punctuality = vehicles.length > 0 ? computePunctualityRate(vehicles) : 100;
+
+  return {
+    shortName: route.route_short_name ?? route.route_id,
+    origin: overrides.origin ?? parsed.origin,
+    destination: overrides.destination ?? parsed.destination,
+    status: computeLineStatus(avgDelay, incidentCount, vehicles),
+    vehicleCount: vehicles.length,
+    avgDelay,
+    incidentCount,
+    transportType: routeTypeLabel(route.route_type),
+    stopCount: overrides.stopCount ?? 0,
+    maxVehicles: Math.max(vehicles.length, 1),
+    punctuality,
+    firstDeparture: "—",
+    lastDeparture: "—",
+    stops: [],
+    segmentQuality: [],
+    vehicles: [],
+    lineColor: overrides.lineColor ?? lineColorFromRoute(route),
+    ...overrides,
+  };
+}
+
 function lineColorFromRoute(route: GtfsRoute): string {
   if (route.route_color) return `#${route.route_color.replace("#", "")}`;
   if (route.route_type === 0) return "#22C55E";
@@ -340,52 +402,44 @@ export function buildRegulationLines(
     incidentsByRoute.set(inc.route_id, (incidentsByRoute.get(inc.route_id) ?? 0) + 1);
   }
 
-  return routes
-    .filter((route) => isDepotRoute(route.route_id))
-    .flatMap((route) => {
-      const depotLines = getDepotLinesForRoute(route.route_id);
-      return depotLines.map((depotLine) => {
-        const vehicles = fleetByRoute.get(route.route_id) ?? [];
-        const parsed = parseRouteTerminals(route.route_long_name);
-        const origin = depotLine.origin ?? parsed.origin;
-        const destination = depotLine.destination ?? parsed.destination;
-        const delays = vehicles.map((v) => delayMinutes(v.estimated_delay_seconds));
-        const avgDelay =
-          delays.length > 0
-            ? Math.round(delays.reduce((a, b) => a + b, 0) / delays.length)
-            : 0;
-        const incidentCount = incidentsByRoute.get(route.route_id) ?? 0;
-        const punctuality =
-          vehicles.length > 0 ? computePunctualityRate(vehicles) : 100;
+  const lines: RegulationLine[] = [];
 
-        return {
-          id: makeLineId(depotLine.depotCode, route.route_id),
-          routeId: route.route_id,
-          depotCode: depotLine.depotCode,
-          shortName: route.route_short_name ?? route.route_id,
-          origin,
-          destination,
-          status: computeLineStatus(avgDelay, incidentCount, vehicles),
-          vehicleCount: vehicles.length,
-          avgDelay,
-          incidentCount,
-          transportType: routeTypeLabel(route.route_type),
-          stopCount: depotLine.stops.length,
-          maxVehicles: Math.max(vehicles.length, 1),
-          punctuality,
-          firstDeparture: "—",
-          lastDeparture: "—",
-          stops: [],
-          segmentQuality: [],
-          vehicles: [],
-          lineColor: depotLine.lineColor ?? lineColorFromRoute(route),
-        };
-      });
-    })
-    .sort((a, b) => {
-      if (b.vehicleCount !== a.vehicleCount) return b.vehicleCount - a.vehicleCount;
-      return a.shortName.localeCompare(b.shortName, "fr", { numeric: true });
-    });
+  for (const route of routes) {
+    const depot = isDepotRoute(route.route_id);
+    const tram = isTramRoute(route);
+    const navibus = isNavibusRoute(route);
+
+    if (!depot && !tram && !navibus) continue;
+
+    if (depot) {
+      for (const depotLine of getDepotLinesForRoute(route.route_id)) {
+        lines.push(
+          buildLineFromRoute(route, fleetByRoute, incidentsByRoute, {
+            id: makeLineId(depotLine.depotCode, route.route_id),
+            routeId: route.route_id,
+            depotCode: depotLine.depotCode,
+            origin: depotLine.origin,
+            destination: depotLine.destination,
+            stopCount: depotLine.stops.length,
+            lineColor: depotLine.lineColor ?? lineColorFromRoute(route),
+          }),
+        );
+      }
+      continue;
+    }
+
+    const networkCode = networkDepotCode(route);
+    lines.push(
+      buildLineFromRoute(route, fleetByRoute, incidentsByRoute, {
+        id: makeLineId(networkCode, route.route_id),
+        routeId: route.route_id,
+        depotCode: networkCode,
+        transportType: navibus ? "Navibus" : "Tramway",
+      }),
+    );
+  }
+
+  return sortRegulationLines(lines);
 }
 
 export function enrichLineWithTimeline(

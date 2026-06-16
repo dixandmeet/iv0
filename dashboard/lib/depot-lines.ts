@@ -77,6 +77,8 @@ export function getAllDepotLineIds(): string[] {
 }
 
 export function depotLabel(code: string): string {
+  if (code === "TRAM") return "Tramway";
+  if (code === "NAV") return "Navibus";
   const depot = getDepot(code);
   return depot ? `${depot.name} (${depot.code})` : code;
 }

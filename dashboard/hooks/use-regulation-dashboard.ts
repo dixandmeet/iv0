@@ -23,12 +23,23 @@ export function useRegulationDashboard(selectedLineId: string | null) {
 
   const lines = useMemo(() => {
     const schemaLines = buildDepotRegulationLines(fleet, incidents);
-    if (routes.length === 0) return schemaLines;
+
+    if (routes.length === 0) {
+      return schemaLines;
+    }
 
     const gtfsLines = buildRegulationLines(routes, fleet, incidents);
     const gtfsById = new Map(gtfsLines.map((line) => [line.id, line]));
+    const schemaIds = new Set(schemaLines.map((line) => line.id));
 
-    return schemaLines.map((line) => gtfsById.get(line.id) ?? line);
+    const depotMerged = schemaLines.map((line) => gtfsById.get(line.id) ?? line);
+    const networkLines = gtfsLines.filter((line) => !schemaIds.has(line.id));
+
+    return [...depotMerged, ...networkLines].sort((a, b) => {
+      if (b.vehicleCount !== a.vehicleCount) return b.vehicleCount - a.vehicleCount;
+      if (a.depotCode !== b.depotCode) return a.depotCode.localeCompare(b.depotCode);
+      return a.shortName.localeCompare(b.shortName, "fr", { numeric: true });
+    });
   }, [routes, fleet, incidents]);
 
   const effectiveLineId = useMemo(

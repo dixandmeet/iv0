@@ -9,6 +9,7 @@ import '../services/supabase_service.dart';
 import '../widgets/aule/aule_icons.dart';
 import '../widgets/nearby_stops/tab_page_header.dart';
 import 'auth/staff_login_screen.dart';
+import 'disruptions_page.dart';
 import 'settings_screen.dart';
 
 class MenuPage extends StatelessWidget {
@@ -41,8 +42,9 @@ class MenuPage extends StatelessWidget {
       icon: LucideIcons.accessibility,
     ),
     _MenuRow(
-      label: 'Notifications trafic',
-      icon: LucideIcons.bell,
+      label: 'Alertes & perturbations',
+      icon: LucideIcons.triangleAlert,
+      action: _MenuAction.disruptions,
     ),
     _MenuRow(
       label: 'Espace conducteur / MSR',
@@ -186,7 +188,7 @@ class MenuPage extends StatelessWidget {
   }
 }
 
-enum _MenuAction { horaires, itinerary, settings, staffLogin }
+enum _MenuAction { horaires, itinerary, settings, staffLogin, disruptions }
 
 class _MenuRow {
   final String label;
@@ -322,6 +324,11 @@ class _MenuTile extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const SettingsScreen()),
+        );
+      case _MenuAction.disruptions:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const DisruptionsPage()),
         );
       case _MenuAction.staffLogin:
         if (context.read<AuthService>().isAuthenticatedStaff) {
