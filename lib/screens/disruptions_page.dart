@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:provider/provider.dart';
 
 import '../models/report.dart';
 import '../services/disruption_service.dart';
@@ -16,25 +17,21 @@ class DisruptionsPage extends StatefulWidget {
 }
 
 class _DisruptionsPageState extends State<DisruptionsPage> {
-  final DisruptionService _service = DisruptionService();
-  late Future<List<Report>> _future;
-
   @override
   void initState() {
     super.initState();
-    _future = _service.fetchActiveDisruptions();
-  }
-
-  Future<void> _refresh() async {
-    final next = _service.fetchActiveDisruptions();
-    setState(() => _future = next);
-    await next;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<DisruptionService>().load();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final c = isDark ? AuleColors.dark : AuleColors.light;
+
+    final service = context.watch<DisruptionService>();
+    final items = service.cached;
 
     return AuleTheme(
       colors: c,
@@ -46,35 +43,28 @@ class _DisruptionsPageState extends State<DisruptionsPage> {
             children: [
               _Header(colors: c),
               Expanded(
-                child: FutureBuilder<List<Report>>(
-                  future: _future,
-                  builder: (context, snap) {
-                    if (snap.connectionState == ConnectionState.waiting) {
-                      return Center(
-                        child: CircularProgressIndicator(color: c.brand),
-                      );
-                    }
-                    final items = snap.data ?? const <Report>[];
-                    if (items.isEmpty) {
-                      return _EmptyState(colors: c);
-                    }
-                    return RefreshIndicator(
-                      onRefresh: _refresh,
-                      color: c.brand,
-                      backgroundColor: c.surface,
-                      child: ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(
-                          parent: BouncingScrollPhysics(),
-                        ),
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                        itemCount: items.length,
-                        itemBuilder: (_, i) =>
-                            _DisruptionCard(report: items[i], colors: c),
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                child: service.isLoading && items.isEmpty
+                    ? Center(child: CircularProgressIndicator(color: c.brand))
+                    : RefreshIndicator(
+                        onRefresh: () =>
+                            context.read<DisruptionService>().load(force: true),
+                        color: c.brand,
+                        backgroundColor: c.surface,
+                        child: items.isEmpty
+                            ? _EmptyState(colors: c)
+                            : ListView.separated(
+                                physics: const AlwaysScrollableScrollPhysics(
+                                  parent: BouncingScrollPhysics(),
+                                ),
+                                padding:
+                                    const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                                itemCount: items.length,
+                                itemBuilder: (_, i) => _DisruptionCard(
+                                    report: items[i], colors: c),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                              ),
                       ),
-                    );
-                  },
-                ),
               ),
             ],
           ),

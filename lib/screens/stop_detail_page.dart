@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../models/gtfs.dart';
+import '../services/disruption_service.dart';
 import '../services/favorites_service.dart';
 import '../services/gtfs_service.dart';
 import '../theme/aule_theme.dart';
@@ -12,6 +13,9 @@ import '../widgets/line_detail/theoretical_schedule_bottom_sheet.dart';
 import '../widgets/nearby_stops/line_badge.dart';
 import '../widgets/stop_detail/departure_card.dart';
 import '../widgets/stop_detail/stop_detail_header.dart';
+import '../widgets/stop_detail/line_disruption_banner.dart';
+import '../widgets/stop_detail/stop_services_card.dart';
+import 'disruptions_page.dart';
 import 'line_detail_page.dart';
 
 /// Page détail d'un arrêt : prochains départs.
@@ -41,6 +45,9 @@ class _StopDetailPageState extends State<StopDetailPage> {
     super.initState();
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() {});
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<DisruptionService>().load();
     });
   }
 
@@ -114,8 +121,17 @@ class _StopDetailPageState extends State<StopDetailPage> {
 
     final gtfs = context.watch<GtfsService>();
     final favorites = context.watch<FavoritesService>();
+    final disruptions = context.watch<DisruptionService>();
     final stopId = widget.station.stop.stopId;
     final groups = gtfs.stationLineGroups(widget.station);
+
+    // Perturbations touchant une des lignes desservies par cet arrêt.
+    final stopDisruptions = [
+      for (final route in widget.station.routes)
+        ...disruptions.disruptionsForLine(
+          route.routeShortName ?? route.routeId,
+        ),
+    ];
 
     return AuleTheme(
       colors: colors,
@@ -139,6 +155,20 @@ class _StopDetailPageState extends State<StopDetailPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (stopDisruptions.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: LineDisruptionBanner(
+                            reports: stopDisruptions,
+                            colors: colors,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => const DisruptionsPage(),
+                              ),
+                            ),
+                          ),
+                        ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Container(
@@ -178,6 +208,13 @@ class _StopDetailPageState extends State<StopDetailPage> {
                                       ),
                                   ],
                                 ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: StopServicesCard(
+                          station: widget.station,
+                          colors: colors,
                         ),
                       ),
                       const SizedBox(height: 24),

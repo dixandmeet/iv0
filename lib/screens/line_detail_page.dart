@@ -9,6 +9,8 @@ import 'package:provider/provider.dart';
 import '../models/gtfs.dart';
 import '../models/line_detail_models.dart';
 import '../services/aule_data_adapter.dart';
+import '../services/disruption_service.dart';
+import '../services/favorites_service.dart';
 import '../services/gtfs_service.dart';
 import '../services/location_service.dart';
 import '../services/realtime_config.dart';
@@ -23,6 +25,7 @@ import '../widgets/line_detail/stop_info_card.dart';
 import '../widgets/line_detail/line_take_vehicle_button.dart';
 import '../widgets/line_detail/vehicle_info_section.dart';
 import '../widgets/nearby_stops/bottom_nav_bar.dart';
+import '../widgets/stop_detail/line_disruption_banner.dart';
 import 'app_shell.dart';
 import 'immersive_navigation_page.dart';
 
@@ -51,7 +54,6 @@ class _LineDetailPageState extends State<LineDetailPage> {
   static const _fallbackPosition = LatLng(47.25156, -1.53026);
 
   Timer? _ticker;
-  bool _isFavorite = false;
   final bool _boardingRegistered = false;
 
   @override
@@ -59,6 +61,9 @@ class _LineDetailPageState extends State<LineDetailPage> {
     super.initState();
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() {});
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<DisruptionService>().load();
     });
   }
 
@@ -219,6 +224,12 @@ class _LineDetailPageState extends State<LineDetailPage> {
 
     final location = context.watch<LocationService>();
     final gtfs = context.watch<GtfsService>();
+    final favorites = context.watch<FavoritesService>();
+    final isFavoriteLine = favorites.isFavoriteLine(widget.route.routeId);
+    final disruptions = context.watch<DisruptionService>();
+    final lineDisruptions = disruptions.disruptionsForLine(
+      widget.route.routeShortName ?? widget.route.routeId,
+    );
     final pos = location.currentPosition;
     final userPos = pos != null
         ? LatLng(pos.latitude, pos.longitude)
@@ -281,11 +292,11 @@ class _LineDetailPageState extends State<LineDetailPage> {
                     ),
                     lineColor: lineColor,
                     nextWaitMinutes: widget.departure.waitMinutes,
-                    isFavorite: _isFavorite,
+                    isFavorite: isFavoriteLine,
                     isRealtime: RealtimeConfig.isLiveEnabled,
                     onBack: () => Navigator.pop(context),
                     onFavoriteToggle: () =>
-                        setState(() => _isFavorite = !_isFavorite),
+                        favorites.toggleLine(widget.route.routeId),
                     vehicleIcon: _vehicleIcon(widget.route.transportType),
                   ),
                   Expanded(
@@ -295,6 +306,15 @@ class _LineDetailPageState extends State<LineDetailPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                      if (lineDisruptions.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                          child: LineDisruptionBanner(
+                            reports: lineDisruptions,
+                            colors: colors,
+                            showDescriptions: true,
+                          ),
+                        ),
                       NextDeparturesRow(
                         departures: departures,
                         lineColor: lineColor,

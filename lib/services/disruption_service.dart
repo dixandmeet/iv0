@@ -12,12 +12,19 @@ import '../models/report.dart';
 /// clé). Renvoie les perturbations en cours sous forme de [Report] marqués
 /// [Report.isOfficial], fusionnés ensuite avec les signalements
 /// communautaires par le [ReportService].
-class DisruptionService {
+///
+/// Expose en plus un cache partagé (via [ChangeNotifier]) pour que les fiches
+/// d'arrêt et de ligne puissent savoir, sans nouvelle requête, si une ligne
+/// est perturbée ([hasDisruptionForLine] / [disruptionsForLine]).
+class DisruptionService extends ChangeNotifier {
   static const String _endpoint =
       'https://data.nantesmetropole.fr/api/explore/v2.1/catalog/datasets/'
       '244400404_info-trafic-tan-temps-reel/records';
 
   static const Duration _timeout = Duration(seconds: 8);
+
+  /// Durée de fraîcheur du cache partagé.
+  static const Duration _cacheTtl = Duration(minutes: 2);
 
   /// Position de repli (Place du Commerce) : l'info-trafic ne fournit pas de
   /// coordonnées exploitables, ces perturbations ne sont donc pas épinglées
@@ -27,6 +34,58 @@ class DisruptionService {
   final http.Client _client;
 
   DisruptionService({http.Client? client}) : _client = client ?? http.Client();
+
+  // --- Cache partagé --------------------------------------------------------
+  List<Report> _cached = const [];
+  DateTime? _fetchedAt;
+  bool _loading = false;
+  Future<void>? _inFlight;
+
+  List<Report> get cached => List.unmodifiable(_cached);
+  bool get isLoading => _loading;
+
+  bool get _isFresh =>
+      _fetchedAt != null && DateTime.now().difference(_fetchedAt!) < _cacheTtl;
+
+  /// Charge (ou rafraîchit) le cache partagé. Dédoublonne les appels
+  /// concurrents et ne refait pas de requête tant que le cache est frais.
+  Future<void> load({bool force = false}) {
+    if (!force && _isFresh) return Future.value();
+    if (_inFlight != null) return _inFlight!;
+    _loading = true;
+    notifyListeners();
+    final future = fetchActiveDisruptions().then((reports) {
+      _cached = reports;
+      _fetchedAt = DateTime.now();
+    }).whenComplete(() {
+      _loading = false;
+      _inFlight = null;
+      notifyListeners();
+    });
+    _inFlight = future;
+    return future;
+  }
+
+  /// Codes de lignes (normalisés majuscules) touchés par une perturbation
+  /// rattachée à une ligne précise (les perturbations « Réseau » globales sont
+  /// exclues pour ne pas signaler toutes les lignes comme perturbées).
+  Set<String> get impactedLineCodes => {
+        for (final r in _cached)
+          if (r.routeId != 'Réseau') r.routeId.toUpperCase(),
+      };
+
+  /// Vrai si la ligne de code [lineCode] est actuellement perturbée.
+  bool hasDisruptionForLine(String lineCode) =>
+      impactedLineCodes.contains(lineCode.toUpperCase());
+
+  /// Perturbations rattachées à la ligne [lineCode].
+  List<Report> disruptionsForLine(String lineCode) {
+    final code = lineCode.toUpperCase();
+    return [
+      for (final r in _cached)
+        if (r.routeId.toUpperCase() == code) r,
+    ];
+  }
 
   /// Perturbations actives aujourd'hui, une entrée par ligne impactée.
   Future<List<Report>> fetchActiveDisruptions({DateTime? now}) async {
