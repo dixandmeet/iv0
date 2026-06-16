@@ -2,35 +2,33 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { GtfsRoute, GtfsStop } from "@/lib/types";
+import type { GtfsRoute } from "@/lib/types";
 
 export function useGtfsData() {
   const [routes, setRoutes] = useState<GtfsRoute[]>([]);
-  const [stops, setStops] = useState<GtfsStop[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
+    setError(null);
 
-    const [routesRes, stopsRes] = await Promise.all([
-      supabase
-        .from("gtfs_routes")
-        .select("route_id, route_short_name, route_long_name, route_type, route_color")
-        .order("route_short_name"),
-      supabase
-        .from("gtfs_stops")
-        .select("stop_id, stop_name, geom")
-        .limit(500),
-    ]);
+    const { data, error: routesError } = await supabase
+      .from("gtfs_routes")
+      .select("route_id, route_short_name, route_long_name, route_type, route_color")
+      .order("route_short_name");
 
-    if (routesRes.data) setRoutes(routesRes.data as GtfsRoute[]);
-    if (stopsRes.data) setStops(stopsRes.data as GtfsStop[]);
+    if (routesError) {
+      setError(routesError.message);
+    } else if (data) {
+      setRoutes(data as GtfsRoute[]);
+    }
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
-  return { routes, stops, loading, refresh: loadData };
+  return { routes, loading, error, refresh: loadData };
 }

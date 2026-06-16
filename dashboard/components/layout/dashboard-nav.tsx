@@ -2,32 +2,68 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  AlertTriangle,
+  BarChart3,
+  Bus,
+  Megaphone,
+  MessageSquare,
+  Radio,
+  Settings,
+  Shield,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 
-const links = [
-  { href: "/dashboard", label: "Vue réseau" },
-  { href: "/alertes", label: "Alertes" },
-  { href: "/incidents", label: "Incidents" },
-  { href: "/conducteurs", label: "Conducteurs" },
-  { href: "/communication", label: "Communication" },
-  { href: "/info-voyageur", label: "Info voyageur" },
-  { href: "/missions", label: "Missions MSR" },
-  { href: "/reporting", label: "Reporting" },
+interface NavLink {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  isActive?: (pathname: string) => boolean;
+}
+
+const links: NavLink[] = [
+  {
+    href: "/dashboard",
+    label: "Lignes du réseau",
+    icon: Radio,
+    isActive: (pathname) =>
+      pathname === "/dashboard" || pathname.startsWith("/dashboard/"),
+  },
+  { href: "/alertes", label: "Alertes", icon: AlertTriangle },
+  { href: "/incidents", label: "Incidents", icon: Shield },
+  { href: "/conducteurs", label: "Conducteurs", icon: Users },
+  { href: "/dashboard", label: "Véhicules", icon: Bus },
+  { href: "/communication", label: "Communication", icon: MessageSquare },
+  { href: "/info-voyageur", label: "Info voyageurs", icon: Megaphone },
+  { href: "/reporting", label: "Reporting", icon: BarChart3 },
+  { href: "/missions", label: "Missions MSR", icon: Shield },
+  { href: "#", label: "Paramètres", icon: Settings },
 ];
 
 export function DashboardNav() {
   const pathname = usePathname();
 
   return (
-    <nav>
-      {links.map((link) => (
-        <Link
-          key={link.href}
-          href={link.href}
-          className={`nav-link${pathname.startsWith(link.href) ? " active" : ""}`}
-        >
-          {link.label}
-        </Link>
-      ))}
+    <nav className="dashboard-nav">
+      {links.map((link) => {
+        const isActive =
+          link.isActive?.(pathname) ??
+          (link.href !== "#" &&
+            link.href !== "/dashboard" &&
+            (pathname === link.href || pathname.startsWith(`${link.href}/`)));
+
+        return (
+          <Link
+            key={`${link.href}-${link.label}`}
+            href={link.href}
+            className={`dashboard-nav-link${isActive ? " active" : ""}`}
+          >
+            <link.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+            <span className="flex-1 truncate">{link.label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "lsof -ti :3001 | xargs kill -9 2>/dev/null; next dev --port 3001",
+    "dev": "lsof -ti :3001 | xargs kill -9 2>/dev/null; rm -rf .next/cache node_modules/.cache 2>/dev/null; next dev --port 3001",
     "dev:clean": "lsof -ti :3001 | xargs kill -9 2>/dev/null; sleep 1; rm -rf .next && next dev --port 3001",
     "dev:fresh": "lsof -ti :3001 | xargs kill -9 2>/dev/null; sleep 1; rm -rf .next node_modules/.cache && next dev --port 3001",
     "build": "next build",

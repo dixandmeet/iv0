@@ -1,157 +1,120 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
-import { useOperationsData } from "@/hooks/use-operations-data";
-import { useDriversData } from "@/hooks/use-drivers-data";
-import { useGtfsData } from "@/hooks/use-gtfs-data";
-import { FleetMap, type FleetMapHandle } from "@/components/map/fleet-map";
-import { FleetPanel } from "@/components/fleet/fleet-panel";
-import { IncidentsPanel } from "@/components/incidents/incidents-panel";
-import { IncidentDetailPanel } from "@/components/incidents/incident-detail-panel";
-import { KpiBar } from "@/components/dashboard/kpi-bar";
-import { AlertsBanner } from "@/components/dashboard/alerts-banner";
-import { VehicleDetailPanel } from "@/components/dashboard/vehicle-detail-panel";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ErrorBanner } from "@/components/dashboard/error-banner";
-import { computeOperationalAlerts } from "@/lib/alerts";
-import type { OperationalAlert } from "@/lib/types";
+import { RegulationKpiBar } from "@/components/dashboard/regulation-kpi-bar";
+import { LinesPanel } from "@/components/dashboard/lines-panel";
+import { LineDetailHeader } from "@/components/dashboard/line-detail-header";
+import { OperationalTimeline } from "@/components/dashboard/operational-timeline";
+import { TimelineLegend } from "@/components/dashboard/timeline-legend";
+import { useRegulationDashboard } from "@/hooks/use-regulation-dashboard";
+import { applyEditedStops } from "@/lib/regulation-stop-edits";
+import type { RegulationStop } from "@/lib/regulation-mock-data";
 
 export function OperationsDashboard() {
-  const { fleet, incidents, loading, error, lastUpdated, refresh } =
-    useOperationsData();
-  const { drivers } = useDriversData();
-  const { stops } = useGtfsData();
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [editedStopsByLine, setEditedStopsByLine] = useState<
+    Record<string, RegulationStop[]>
+  >({});
 
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
-  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
-  const [routeFilter, setRouteFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [bannerDismissed, setBannerDismissed] = useState(false);
-  const mapRef = useRef<FleetMapHandle>(null);
+  const {
+    lines,
+    selectedLine,
+    loading,
+    timelineLoading,
+    error,
+    lastUpdated,
+    refresh,
+    kpis,
+    alerts,
+  } = useRegulationDashboard(selectedLineId);
 
-  const alerts = useMemo(
-    () => computeOperationalAlerts(fleet, incidents, drivers),
-    [fleet, incidents, drivers],
+  const defaultLineId = useMemo(
+    () =>
+      lines.find((line) => line.vehicleCount > 0)?.id ??
+      lines[0]?.id ??
+      null,
+    [lines],
   );
 
-  const activeRoutes = useMemo(
-    () => [...new Set(fleet.map((v) => v.route_id))].sort(),
-    [fleet],
-  );
-
-  const selectedVehicle = fleet.find((v) => v.id === selectedVehicleId) ?? null;
-  const selectedIncident =
-    incidents.find((i) => i.id === selectedIncidentId) ?? null;
-
-  const linkedDriver = selectedVehicle?.driver_session_id
-    ? drivers.find((d) => d.id === selectedVehicle.driver_session_id)
-    : drivers.find(
-        (d) =>
-          d.route_id === selectedVehicle?.route_id &&
-          (d.status === "active" || d.status === "paused"),
-      );
-
-  const connectedDrivers = drivers.filter(
-    (d) => d.status === "active" || d.status === "paused",
-  ).length;
-
-  const handleSelectVehicle = useCallback((id: string | null) => {
-    setSelectedVehicleId(id);
-    if (id) setSelectedIncidentId(null);
-  }, []);
-
-  const handleSelectIncident = useCallback((id: string | null) => {
-    setSelectedIncidentId(id);
-    if (id) setSelectedVehicleId(null);
-  }, []);
-
-  const handleCenterVehicle = useCallback(() => {
-    if (selectedVehicleId) {
-      mapRef.current?.flyToVehicle(selectedVehicleId);
+  useEffect(() => {
+    if (selectedLineId == null && defaultLineId) {
+      setSelectedLineId(defaultLineId);
     }
-  }, [selectedVehicleId]);
+  }, [selectedLineId, defaultLineId]);
 
-  const handleAlertSelect = useCallback(
-    (alert: OperationalAlert) => {
-      if (alert.vehicle_id) {
-        handleSelectVehicle(alert.vehicle_id);
-        mapRef.current?.flyToVehicle(alert.vehicle_id);
-      } else if (alert.incident_id) {
-        handleSelectIncident(alert.incident_id);
-        mapRef.current?.flyToIncident(alert.incident_id);
-      }
+  const activeLineId = selectedLineId ?? defaultLineId;
+
+  const displayLine = useMemo(() => {
+    if (!selectedLine) return null;
+    const edited = activeLineId ? editedStopsByLine[activeLineId] : undefined;
+    if (!edited) return selectedLine;
+    return applyEditedStops(selectedLine, edited);
+  }, [selectedLine, activeLineId, editedStopsByLine]);
+
+  const handleStopsChange = useCallback(
+    (stops: RegulationStop[]) => {
+      if (!activeLineId) return;
+      setEditedStopsByLine((prev) => ({ ...prev, [activeLineId]: stops }));
     },
-    [handleSelectVehicle, handleSelectIncident],
+    [activeLineId],
   );
 
   return (
-    <>
-      <div className="dashboard-map flex flex-col">
-        {error && <ErrorBanner message={error} onRetry={refresh} />}
-        <KpiBar
-          fleet={fleet}
-          incidents={incidents}
-          connectedDrivers={connectedDrivers}
-          alertCount={alerts.length}
-          loading={loading}
-          lastUpdated={lastUpdated}
-        />
-        {!bannerDismissed && alerts.length > 0 && (
-          <AlertsBanner
-            alerts={alerts}
-            onSelectAlert={handleAlertSelect}
-            onDismiss={() => setBannerDismissed(true)}
-          />
+    <div className="regulation-workspace">
+      <RegulationKpiBar
+        onRefresh={refresh}
+        loading={loading}
+        kpis={kpis}
+        alertCount={alerts.length}
+      />
+
+      <LinesPanel
+        lines={lines}
+        selectedLineId={activeLineId ?? ""}
+        onSelectLine={setSelectedLineId}
+        loading={loading}
+      />
+
+      <main className="regulation-main">
+        {error && (
+          <div className="px-4 pt-2">
+            <ErrorBanner message={error} onRetry={refresh} />
+          </div>
         )}
-        <div className="relative min-h-0 flex-1">
-          <FleetMap
-            ref={mapRef}
-            fleet={fleet}
-            incidents={incidents}
-            stops={stops}
-            selectedVehicleId={selectedVehicleId}
-            selectedIncidentId={selectedIncidentId}
-            onSelectVehicle={handleSelectVehicle}
-            onSelectIncident={handleSelectIncident}
-            routeFilter={routeFilter}
-            showStops
-          />
-        </div>
-      </div>
-      <aside className="dashboard-panel p-4">
-        <FleetPanel
-          fleet={fleet}
-          selectedId={selectedVehicleId}
-          onSelect={handleSelectVehicle}
-          loading={loading}
-          routeFilter={routeFilter}
-          onRouteFilterChange={setRouteFilter}
-          routes={activeRoutes}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
-        {selectedVehicle && (
-          <VehicleDetailPanel
-            vehicle={selectedVehicle}
-            driver={linkedDriver}
-            onCenter={handleCenterVehicle}
-            onClose={() => setSelectedVehicleId(null)}
-          />
+
+        {!displayLine || loading ? (
+          <div className="flex flex-1 items-center justify-center p-8">
+            <p className="text-sm text-[#94A3B8]">Chargement du réseau…</p>
+          </div>
+        ) : displayLine.stops.length > 0 ? (
+          <>
+            <LineDetailHeader line={displayLine} />
+            <OperationalTimeline
+              line={displayLine}
+              loading={timelineLoading}
+              onStopsChange={handleStopsChange}
+            />
+          </>
+        ) : timelineLoading ? (
+          <div className="flex flex-1 items-center justify-center p-8">
+            <p className="text-sm text-[#94A3B8]">
+              Construction de la frise pour la ligne {displayLine.shortName}…
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
+            <LineDetailHeader line={displayLine} />
+            <p className="text-sm text-[#94A3B8]">
+              {displayLine.vehicleCount === 0
+                ? "Aucun véhicule en circulation sur cette ligne."
+                : "Impossible de reconstruire la frise — tracé GTFS indisponible."}
+            </p>
+          </div>
         )}
-        {selectedIncident && (
-          <IncidentDetailPanel
-            incident={selectedIncident}
-            onClose={() => setSelectedIncidentId(null)}
-            onUpdated={refresh}
-            onCenter={() => mapRef.current?.flyToIncident(selectedIncident.id)}
-          />
-        )}
-        <IncidentsPanel
-          incidents={incidents}
-          selectedId={selectedIncidentId}
-          onSelect={handleSelectIncident}
-          loading={loading}
-        />
-      </aside>
-    </>
+      </main>
+
+      <TimelineLegend lastUpdated={lastUpdated} onRefresh={refresh} />
+    </div>
   );
 }

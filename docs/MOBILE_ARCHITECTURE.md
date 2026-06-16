@@ -74,15 +74,18 @@ supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
   Le « home en Flow » supposé était en réalité le `home_screen` supprimé.
 - Sur les **85 fichiers atteignables** depuis `main.dart`, **Flow ne subsiste que dans 5** :
 
-  | Fichier vivant en Flow | Ampleur | État |
-  |---|---|---|
-  | `screens/route_result_screen.dart` | ~54 refs, 1053 l. | **reste** — écran central, migrer avec rendu visible |
-  | `screens/itinerary_guidance_page.dart` | ~48 refs, 1450 l. | **reste** — guidage, migrer avec rendu visible |
-  | `services/map_service.dart` | 13 refs (constantes couleur) | **reste** — entrelacé avec `route_result` via l'enum `CrowdLevel`/`flowWaitColor` ; migrer avec le cluster guidage |
-  | ~~`screens/station_search_screen.dart`~~ | ~25 refs | ✅ migré Aule (vérifié à l'écran) |
-  | ~~`screens/settings_screen.dart`~~ | ~31 refs | ✅ migré Aule (vérifié à l'écran) |
+  **✅ Migration terminée — tout l'arbre atteignable depuis `main.dart` est désormais 100 % Aule.**
 
-  > Reste un **cluster guidage** interdépendant : `route_result` + `itinerary_guidance` + `map_service` partagent les primitives Flow (`FlowCard`, `FlowText.bigNumber`…) et les helpers `CrowdLevel`/`flowWaitColor`. Se migre d'un bloc, avec vérification visuelle par état (liste d'itinéraires, comparaison, étapes de guidage). Les bottom sheets orphelins encore en Flow (`vehicle_details`, `tracked_vehicle`, `report_incident`, `line_plan_sheet`) seront rebâtis en Aule lors de la reconnexion des features véhicule/incident.
+  | Fichier | État |
+  |---|---|
+  | `screens/station_search_screen.dart` | ✅ migré Aule (vérifié à l'écran) |
+  | `screens/settings_screen.dart` | ✅ migré Aule (vérifié à l'écran) |
+  | `screens/route_result_screen.dart` | ✅ migré Aule (vérifié à l'écran) |
+  | `screens/itinerary_guidance_page.dart` | ✅ migré Aule (vérifié — guidage volontairement clair / sombre à bord) |
+  | `services/map_service.dart` | ✅ migré (couleurs sémantiques locales) |
+  | `models/transport_visuals.dart` | NEW — `enum CrowdLevel` extrait de `flow_theme` (ré-exporté par `flow_theme` pour les orphelins) |
+
+  > **Flow ne subsiste plus que dans des écrans orphelins** : `vehicle_details_bottom_sheet`, `tracked_vehicle_sheet`, `report_incident_bottom_sheet`, `line_plan_sheet`, plus l'infra `flow_theme`/`flow_widgets`/`flow_primitives`. Ces sheets seront rebâtis en Aule lors de la reconnexion des features véhicule/incident (étape 4), après quoi `flow_*` pourra être supprimé.
 
   → migrer ces 5 fichiers vers Aule = pré-requis pour supprimer `flow_theme` / `flow_widgets` / `flow_primitives`.
 
@@ -114,8 +117,8 @@ d'où l'incohérence visuelle subtile. Finir la migration Aule de ces écrans su
 
 1. ~~**Filet de sécurité** : `git init` + commit initial~~ ✅ fait
 2. ~~**Supprimer le code mort** (prototype parallèle)~~ ✅ fait (11 fichiers)
-3. **Unifier sur Aule** : migrer les 5 fichiers Flow vivants (§4). Les 2 gros écrans de guidage
-   doivent être migrés **app lancée** (vérification visuelle), pas à l'aveugle. Puis supprimer Flow.
+3. ~~**Unifier sur Aule** : migrer les fichiers Flow vivants~~ ✅ fait — tout l'arbre atteignable
+   est en Aule (vérifié à l'écran). Reste à supprimer `flow_*` après migration des sheets orphelins.
 4. **Reconnecter** les features MVP orphelines : suivi véhicule, arrêts à proximité, temps réel opérateur.
 5. **Trancher l'accueil** : dashboard riche (reconstruit en Aule) vs accueil simple actuel.
 6. **Fusionner** les écrans de recherche/navigation redondants.
