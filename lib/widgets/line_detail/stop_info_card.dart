@@ -9,18 +9,12 @@ class StopInfoCard extends StatelessWidget {
   final GtfsStop stop;
   final Color lineColor;
   final List<String> connections;
-  final bool hasShelter;
-  final bool hasTicketMachine;
-  final bool hasRealtimeDisplay;
 
   const StopInfoCard({
     super.key,
     required this.stop,
     required this.lineColor,
     this.connections = const [],
-    this.hasShelter = true,
-    this.hasTicketMachine = true,
-    this.hasRealtimeDisplay = true,
   });
 
   @override
@@ -35,10 +29,10 @@ class StopInfoCard extends StatelessWidget {
     final borderCol =
         isDark ? const Color(0x17FFFFFF) : const Color(0xFFE7EAF0);
 
+    // Uniquement des informations adossées aux données réelles : accessibilité
+    // PMR (3 états GTFS) et correspondances. Pas d'équipement fabriqué.
     final details = <String>[
-      if (hasShelter) 'Abri',
-      if (hasRealtimeDisplay) 'Affichage en temps réel',
-      if (hasTicketMachine) 'Distributeur à proximité',
+      stop.accessibilityLabel,
       if (connections.isNotEmpty) 'Correspondances : ${connections.join(', ')}',
     ].join(' • ');
 

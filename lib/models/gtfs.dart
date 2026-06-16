@@ -99,6 +99,21 @@ class GtfsStop {
 
   bool get isWheelchairAccessible => wheelchairBoarding == 1;
 
+  /// Accessibilité PMR explicitement signalée comme impossible (valeur 2).
+  bool get isWheelchairInaccessible => wheelchairBoarding == 2;
+
+  /// Libellé d'accessibilité PMR couvrant les 3 états GTFS.
+  String get accessibilityLabel {
+    switch (wheelchairBoarding) {
+      case 1:
+        return 'Accès PMR';
+      case 2:
+        return 'Non accessible PMR';
+      default:
+        return 'Accessibilité non renseignée';
+    }
+  }
+
   factory GtfsStop.fromJson(Map<String, dynamic> json) {
     // GeoJSON point or coordinate fields from PostgreSQL
     double lat = 0.0;
