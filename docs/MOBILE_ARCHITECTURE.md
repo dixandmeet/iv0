@@ -97,6 +97,18 @@ supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
 
 > ⚠️ **Feature à rebâtir** : l'UI « signaler un incident » (`report_incident_bottom_sheet`) était dans le cluster Flow supprimé. Le backend `ReportService` reste vivant (utilisé par `app_shell`). Quand la feature « signalement communautaire » sera priorisée, recréer le bottom sheet en Aule et le brancher (carte / fiche véhicule). Récupérable via git.
 
+### Statut des features MVP (audit + complétions)
+
+| Feature MVP | Statut |
+|---|---|
+| Recherche d'itinéraires | ✅ `itinerary_page → route_result_screen → itinerary_guidance_page` |
+| Horaires temps réel | ✅ `horaires_page`, `stop_detail_page`, `line_detail_page` (Live) |
+| Fiche arrêt | ✅ `stop_detail_page` |
+| Suivi véhicule en direct | ✅ `line_detail_page → ImmersiveNavigationPage` |
+| **Alertes & perturbations** | ✅ **NEW** `disruptions_page.dart` (DisruptionService réel), branché depuis le Menu |
+| Favoris | ⚠️ incomplet — étoiles locales non persistées, pas de liste ; à construire (persistance `shared_preferences` + écran) |
+| Carte interactive (dédiée) | ⚠️ manquant — `AuleNetworkMapView` (widget prêt) à brancher dans un écran plein écran (entrée Menu ou onglet) |
+
   → migrer ces 5 fichiers vers Aule = pré-requis pour supprimer `flow_theme` / `flow_widgets` / `flow_primitives`.
 
 ### Orphelins révélés par le nettoyage (~40, non atteignables depuis `main.dart`)
