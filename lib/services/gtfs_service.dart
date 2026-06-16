@@ -545,6 +545,28 @@ class GtfsService with ChangeNotifier {
     );
   }
 
+  /// Construit une entrée « détail ligne » représentative pour une ligne
+  /// favorite ouverte sans contexte d'arrêt : choisit le premier arrêt
+  /// desservi qui expose un départ, puis sa direction la plus imminente.
+  ({NearbyStation station, StationDeparture departure})? representativeDeparture(
+      GtfsRoute route,
+      {LatLng? from}) {
+    _buildNetworkGraph();
+    final served = _servedStopsByRouteId[route.routeId];
+    if (served == null || served.isEmpty) return null;
+    for (final h in served) {
+      final station = nearbyStationFor(h.stop, from: from);
+      if (station == null) continue;
+      for (final group in stationLineGroups(station)) {
+        if (group.route.routeId == route.routeId &&
+            group.directions.isNotEmpty) {
+          return (station: station, departure: group.directions.first);
+        }
+      }
+    }
+    return null;
+  }
+
   /// Lignes triées pour l'affichage : structurantes (tram/busway/navibus)
   /// d'abord, puis par code de ligne.
   List<GtfsRoute> _sortedRoutes(List<GtfsRoute> routes) {
