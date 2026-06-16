@@ -107,7 +107,9 @@ supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
 | Suivi véhicule en direct | ✅ `line_detail_page → ImmersiveNavigationPage` |
 | **Alertes & perturbations** | ✅ **NEW** `disruptions_page.dart` (DisruptionService réel), branché depuis le Menu |
 | **Favoris** | ✅ **NEW** arrêts favoris persistés (`FavoritesService` + `shared_preferences`), étoile sur `stop_detail`, `favorites_page.dart`, entrée Menu |
-| Carte interactive (dédiée) | ⚠️ manquant — `AuleNetworkMapView` (widget prêt) à brancher dans un écran plein écran (entrée Menu ou onglet). Attention aux pièges flutter_map ([[flutter-map-tiles-pieges]]) : MapOptions/TileLayer figés, pas de fitCamera programmatique. |
+| **Carte interactive** | ✅ **NEW** `network_map_page.dart` (réseau complet : lignes + arrêts + position, tap arrêt → fiche), entrée Menu « Plan du réseau » |
+
+> **Toutes les features MVP listées sont désormais présentes et vérifiées à l'écran.** Restes possibles (polish) : persistance des trajets récurrents (domicile/travail) dans les favoris ; UI « signaler un incident » (backend `ReportService` prêt) ; migration physique vers `features/`.
 
   → migrer ces 5 fichiers vers Aule = pré-requis pour supprimer `flow_theme` / `flow_widgets` / `flow_primitives`.
 
