@@ -11,12 +11,9 @@ import 'services/aule_theme_service.dart';
 import 'services/auth_service.dart';
 import 'services/favorites_service.dart';
 import 'services/disruption_service.dart';
-import 'services/driver/driver_service.dart';
-import 'services/driver/driver_report_service.dart';
-import 'services/driver/driver_message_service.dart';
 import 'services/traveler_comment_service.dart';
 import 'theme/aule_theme.dart';
-import 'screens/mode_gate.dart';
+import 'screens/app_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -82,36 +79,6 @@ void main() async {
           update: (context, supabase, previous) =>
               previous ?? AuthService(supabaseService: supabase),
         ),
-        ChangeNotifierProxyProvider2<SupabaseService, AuthService,
-            DriverService>(
-          create: (context) => DriverService(
-            supabaseService: context.read<SupabaseService>(),
-            authService: context.read<AuthService>(),
-            locationService: context.read<LocationService>(),
-          ),
-          update: (context, supabase, auth, previous) {
-            final service = previous ??
-                DriverService(
-                  supabaseService: supabase,
-                  authService: auth,
-                  locationService: context.read<LocationService>(),
-                );
-            service.syncWithAuth(auth);
-            return service;
-          },
-        ),
-        ChangeNotifierProxyProvider<SupabaseService, DriverReportService>(
-          create: (context) =>
-              DriverReportService(supabaseService: supabaseService),
-          update: (context, supabase, previous) =>
-              previous ?? DriverReportService(supabaseService: supabase),
-        ),
-        ChangeNotifierProxyProvider<SupabaseService, DriverMessageService>(
-          create: (context) =>
-              DriverMessageService(supabaseService: supabaseService),
-          update: (context, supabase, previous) =>
-              previous ?? DriverMessageService(supabaseService: supabase),
-        ),
       ],
       child: const AuleApp(),
     ),
@@ -131,7 +98,7 @@ class AuleApp extends StatelessWidget {
           theme: buildAuleTheme(isDark: false),
           darkTheme: buildAuleTheme(isDark: true),
           themeMode: themeService.mode,
-          home: const ModeGate(),
+          home: const AppShell(),
         );
       },
     );

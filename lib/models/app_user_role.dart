@@ -24,6 +24,4 @@ extension AppUserRoleX on AppUserRole {
         return AppUserRole.passenger;
     }
   }
-
-  bool get isMobileStaff => this == AppUserRole.driver || this == AppUserRole.msrAgent;
 }

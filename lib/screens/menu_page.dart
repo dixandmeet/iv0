@@ -9,7 +9,6 @@ import '../services/supabase_service.dart';
 import '../widgets/aule/aule_icons.dart';
 import '../widgets/nearby_stops/tab_page_header.dart';
 import 'auth/account_screen.dart';
-import 'auth/staff_login_screen.dart';
 import 'accessibility_page.dart';
 import 'disruptions_page.dart';
 import 'favorites_page.dart';
@@ -58,11 +57,6 @@ class MenuPage extends StatelessWidget {
       action: _MenuAction.disruptions,
     ),
     _MenuRow(
-      label: 'Espace conducteur / MSR',
-      icon: LucideIcons.badgeCheck,
-      action: _MenuAction.staffLogin,
-    ),
-    _MenuRow(
       label: 'Paramètres',
       icon: LucideIcons.settings,
       action: _MenuAction.settings,
@@ -85,16 +79,6 @@ class MenuPage extends StatelessWidget {
     final auth = context.watch<AuthService>();
     final themeService = context.watch<AuleThemeService>();
     final shortId = supabase.deviceUuid.split('-').first;
-
-    // Un voyageur connecté (compte passager, hors personnel terrain) n'a pas à
-    // voir l'accès à l'espace conducteur / MSR. On le garde pour les sessions
-    // anonymes (pour permettre la connexion personnel) et le personnel terrain.
-    final isTraveler = auth.isSignedIn && !auth.isAuthenticatedStaff;
-    final rows = isTraveler
-        ? _rows
-            .where((row) => row.action != _MenuAction.staffLogin)
-            .toList(growable: false)
-        : _rows;
 
     return SafeArea(
       child: ListView(
@@ -135,11 +119,11 @@ class MenuPage extends StatelessWidget {
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
-                children: List.generate(rows.length, (i) {
-                  final row = rows[i];
+                children: List.generate(_rows.length, (i) {
+                  final row = _rows[i];
                   return _MenuTile(
                     row: row,
-                    showDivider: i < rows.length - 1,
+                    showDivider: i < _rows.length - 1,
                     borderCol: borderCol,
                     primaryTextColor: primaryTextColor,
                     onOpenHoraires: onOpenHoraires,
@@ -168,7 +152,7 @@ class MenuPage extends StatelessWidget {
   }
 }
 
-enum _MenuAction { horaires, itinerary, networkMap, settings, staffLogin, disruptions, favorites, accessibility }
+enum _MenuAction { horaires, itinerary, networkMap, settings, disruptions, favorites, accessibility }
 
 class _MenuRow {
   final String label;
@@ -456,17 +440,6 @@ class _MenuTile extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AccessibilityPage()),
-        );
-      case _MenuAction.staffLogin:
-        if (context.read<AuthService>().isAuthenticatedStaff) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Vous êtes déjà connecté en mode terrain')),
-          );
-          break;
-        }
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const StaffLoginScreen()),
         );
       case null:
         break;

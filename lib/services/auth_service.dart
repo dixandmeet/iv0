@@ -19,8 +19,6 @@ class AuthService with ChangeNotifier {
 
   UserProfile? get profile => _profile;
   bool get loading => _loading;
-  bool get isAuthenticatedStaff =>
-      _profile != null && _profile!.role.isMobileStaff;
   AppUserRole get role => _profile?.role ?? AppUserRole.passenger;
 
   /// Utilisateur connecté avec un vrai compte (≠ session anonyme).
@@ -97,28 +95,6 @@ class AuthService with ChangeNotifier {
 
     _loading = false;
     notifyListeners();
-  }
-
-  Future<String?> signIn(String email, String password) async {
-    final client = _supabaseService.client;
-    if (client == null || _supabaseService.isOfflineMode) {
-      return 'Connexion indisponible hors ligne';
-    }
-
-    try {
-      await client.auth.signInWithPassword(email: email, password: password);
-      await _loadProfile();
-      if (_profile == null) return 'Profil utilisateur introuvable';
-      if (!_profile!.role.isMobileStaff) {
-        await signOut();
-        return 'Ce compte n\'est pas autorisé sur l\'app mobile terrain';
-      }
-      return null;
-    } on AuthException catch (e) {
-      return e.message;
-    } catch (e) {
-      return 'Erreur de connexion ($e)';
-    }
   }
 
   /// Inscription passager (email + mot de passe). Retourne `null` en cas de
