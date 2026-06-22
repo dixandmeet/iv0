@@ -1,8 +1,10 @@
 # App mobile voyageur — Structure de référence
 
 > **Statut** : référence active — à respecter pour tout nouvel écran/widget.
-> **Périmètre** : surface **voyageur** de l'app Flutter (`lib/`).
-> Pour la plateforme d'exploitation (conducteur, MSR, dashboard Web), voir [`ARCHITECTURE.md`](ARCHITECTURE.md).
+> **Périmètre** : surface **voyageur** de l'app Flutter (`lib/`, app `aule`).
+> Le conducteur et l'agent MSR vivent désormais dans une app séparée (`/pro_app`,
+> app `aule_pro`) — voir [`AULE_APP_SPLIT.md`](AULE_APP_SPLIT.md).
+> Pour la plateforme d'exploitation (dashboard Web), voir [`ARCHITECTURE.md`](ARCHITECTURE.md).
 >
 > **Décision design actée** : design system unique = **Aule** (dark-aware, déjà thème global dans `main.dart`). Flow est en voie de retrait.
 
