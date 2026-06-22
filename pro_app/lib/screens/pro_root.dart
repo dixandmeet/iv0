@@ -5,6 +5,7 @@ import 'package:shared/shared.dart';
 import '../services/auth_service.dart';
 import '../services/driver/driver_service.dart';
 import 'driver/driver_shell.dart';
+import 'msr/msr_shell.dart';
 import 'pro_login_screen.dart';
 
 /// Racine de l'app Pro : gère la connexion puis route selon le rôle.
@@ -40,11 +41,7 @@ class ProRoot extends StatelessWidget {
 
     switch (auth.role) {
       case AppUserRole.msrAgent:
-        // Espace agent MSR — scaffold complété au lot MSR.
-        return const _ProPlaceholder(
-          title: 'Espace agent MSR',
-          message: 'Espace agent MSR — bientôt disponible.',
-        );
+        return const MsrShell();
       default:
         return const _ProPlaceholder(
           title: 'Accès refusé',

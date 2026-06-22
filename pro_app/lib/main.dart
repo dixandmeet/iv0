@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'services/supabase_service.dart';
@@ -12,6 +13,7 @@ import 'screens/pro_root.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('fr_FR', null);
 
   final supabaseService = SupabaseService();
   await supabaseService.initialize();
