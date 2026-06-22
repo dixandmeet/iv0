@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared/shared.dart';
 
-import '../models/app_user_role.dart';
 import '../services/auth_service.dart';
 import '../services/driver/driver_service.dart';
 import 'driver/driver_shell.dart';

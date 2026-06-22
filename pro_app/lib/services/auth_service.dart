@@ -1,10 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared/shared.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../models/app_user_role.dart';
-import '../models/user_profile.dart';
 import 'supabase_service.dart';
 
 class AuthService with ChangeNotifier {

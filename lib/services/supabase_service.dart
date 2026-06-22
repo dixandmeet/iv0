@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:shared/shared.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 class SupabaseService with ChangeNotifier {
-  static const String _urlKey = 'https://zxxqrrsrvptkhfvasnco.supabase.co';
-  static const String _publishableKey = 'sb_publishable_cz5EJQygeHF9CxW7JcYziA_000zXNvl';
-
   SupabaseClient? _client;
   // Vrai quand aucun backend live n'est joignable. Dans ce cas, l'app affiche
   // les vraies données TAN embarquées en assets, mais sans couche communautaire
@@ -45,14 +43,14 @@ class SupabaseService with ChangeNotifier {
 
     // Tentative d'initialisation de Supabase
     try {
-      if (_urlKey.contains('your-supabase-project') || _publishableKey.contains('your-anon-public-key')) {
+      if (SupabaseConfig.isPlaceholder) {
         // Aucune clé Supabase configurée : on reste hors-ligne (données TAN locales).
         _isOfflineMode = true;
         debugPrint('Aule: Supabase keys not set. Running offline (local TAN data).');
       } else {
         await Supabase.initialize(
-          url: _urlKey,
-          publishableKey: _publishableKey,
+          url: SupabaseConfig.url,
+          publishableKey: SupabaseConfig.publishableKey,
         );
         _client = Supabase.instance.client;
         _isOfflineMode = false;
