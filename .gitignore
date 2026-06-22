@@ -49,3 +49,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets CLI Supabase (ne pas committer)
+supabase/.env.local

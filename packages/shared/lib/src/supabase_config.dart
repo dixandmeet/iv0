@@ -7,11 +7,11 @@ class SupabaseConfig {
   const SupabaseConfig._();
 
   /// URL du projet Supabase.
-  static const String url = 'https://zxxqrrsrvptkhfvasnco.supabase.co';
+  static const String url = 'https://rllcdvuqduuyhdcifiwp.supabase.co';
 
   /// Clé publishable (anon) du projet.
   static const String publishableKey =
-      'sb_publishable_cz5EJQygeHF9CxW7JcYziA_000zXNvl';
+      'sb_publishable_SoVrtwgKHm3lkFaW8r5fmA_HEH7VpL6';
 
   /// Vrai tant que les identifiants n'ont pas été renseignés.
   static bool get isPlaceholder =>
