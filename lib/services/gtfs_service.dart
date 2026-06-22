@@ -108,17 +108,54 @@ class StationLineGroup {
       directions.map((d) => d.waitMinutes).reduce((a, b) => a < b ? a : b);
 }
 
+/// Un passage théorique d'une fiche horaire : son heure et son terminus réel.
+/// [partial] = service partiel (n'atteint pas le terminus principal du sens) ;
+/// fiable seulement quand l'index horaire chaîne les trajets (cf. block_id).
+class ScheduledPassage {
+  final DateTime time;
+  final String terminus;
+  final bool partial;
+
+  const ScheduledPassage({
+    required this.time,
+    required this.terminus,
+    this.partial = false,
+  });
+}
+
+/// Fiche horaire d'un SENS de circulation à un arrêt (= un quai physique),
+/// regroupant tous les terminus desservis dans ce sens. Corrige le découpage
+/// erroné « un terminus = une direction » des lignes à branches/services
+/// partiels (ex. tram 1 où l'ouest se répartit sur Commerce/Jamet/Mitterrand).
+class StopDirectionSchedule {
+  final String quayId;
+
+  /// Libellé du sens, dérivé des terminus réels (« François Mitterrand / Jamet »).
+  final String label;
+
+  /// Passages triés en ordre de service (la nuit après minuit en dernier).
+  final List<ScheduledPassage> passages;
+
+  const StopDirectionSchedule({
+    required this.quayId,
+    required this.label,
+    required this.passages,
+  });
+}
+
 class GtfsService with ChangeNotifier {
   final SupabaseService _supabaseService;
 
   // Cache local des lignes, arrêts et tracés
   List<GtfsRoute> _cachedRoutes = [];
-  List<GtfsStop> _cachedStops = []; // dédupliqués par nom (pour la carte)
+  List<GtfsStop> _cachedStops = []; // stations voyageur (carte)
   List<GtfsStop> _allStops = []; // tous les arrêts physiques (pour le routage)
+  List<GtfsStation> _cachedStations = [];
   final Map<String, List<LatLng>> _cachedShapes = {}; // shape_id -> Points
 
   List<GtfsRoute> get cachedRoutes => _cachedRoutes;
   List<GtfsStop> get cachedStops => _cachedStops;
+  List<GtfsStation> get cachedStations => _cachedStations;
   Map<String, List<LatLng>> get cachedShapes => _cachedShapes;
 
   // --- Graphe d'adjacence approché (routage hors-ligne, sans horaires GTFS) ---
@@ -140,6 +177,11 @@ class GtfsService with ChangeNotifier {
   //   sched[routeShort][stopNorm][terminusNorm] = {q, d:[min], s:[min], u:[min]}
   // (d=semaine, s=samedi, u=dimanche/férié ; minutes depuis minuit, >1440 = nuit)
   bool _schedulesLoaded = false;
+
+  /// Tentative de chargement des horaires terminée (succès ou échec). Le graphe
+  /// réseau attend ce signal : construit avant, il figerait un rattachement
+  /// ligne→station purement géométrique, sans le filtre par horaires réels.
+  bool _schedulesReady = false;
   Map<String, dynamic>? _sched;
   Map<String, String> _gtfsRouteIdByShort = {};
 
@@ -197,6 +239,8 @@ class GtfsService with ChangeNotifier {
     } catch (e) {
       debugPrint('Wazibus: Error loading real schedules ($e)');
       _sched = null;
+    } finally {
+      _schedulesReady = true;
     }
   }
 
@@ -243,6 +287,21 @@ class GtfsService with ChangeNotifier {
     });
     if (merged.isEmpty) return null;
     return merged.toList()..sort();
+  }
+
+  /// Vrai si l'index horaire réel (stop_times GTFS) confirme que [route]
+  /// dessert l'arrêt nommé [stopName]. Sert à écarter les lignes rattachées à
+  /// tort par simple proximité du tracé (ex. la 80 passe près de « Batignolles »
+  /// mais s'arrête à « Haluchère - Batignolles »). Repli permissif : si les
+  /// horaires ne sont pas chargés, ou si la ligne n'a aucun horaire (ex. 3B),
+  /// on ne peut pas trancher et on conserve le rattachement géométrique.
+  bool _scheduleConfirmsService(GtfsRoute route, String stopName) {
+    final sched = _sched;
+    if (sched == null) return true;
+    final short = route.routeShortName ?? route.routeId;
+    final byStop = sched[short];
+    if (byStop is! Map) return true;
+    return byStop.containsKey(_normalizeText(stopName));
   }
 
   static DateTime _atDay(DateTime day, int minutes) =>
@@ -329,20 +388,45 @@ class GtfsService with ChangeNotifier {
     try {
       final raw = await rootBundle.loadString('assets/data/tan_stops.json');
       final List<dynamic> data = jsonDecode(raw) as List<dynamic>;
-      // On conserve tous les arrêts physiques (_allStops) pour le routage,
-      // et une version agrégée par station (_cachedStops) pour une carte
-      // lisible (le jeu TAN sépare quais et sens de circulation).
       final all = <GtfsStop>[
         for (final x in data) GtfsStop.fromAsset(x as Map<String, dynamic>),
       ];
       _allStops = all;
-      _cachedStops = _clusterStations(all);
-      debugPrint('Wazibus: ${all.length} arrêts TAN '
-          '(${_cachedStops.length} stations) chargés (assets).');
+
+      // Stations explicites (tan_stations.json) si disponibles, sinon regroupement legacy.
+      try {
+        final stationsRaw =
+            await rootBundle.loadString('assets/data/tan_stations.json');
+        final List<dynamic> stationData =
+            jsonDecode(stationsRaw) as List<dynamic>;
+        _cachedStations = [
+          for (final x in stationData)
+            GtfsStation.fromAsset(x as Map<String, dynamic>),
+        ];
+        _cachedStops = _cachedStations.map((s) => s.toMapStop()).toList();
+        _stationOfStopId.clear();
+        final stationByKey = {
+          for (final s in _cachedStations) s.stationId: s.toMapStop(),
+        };
+        for (final stop in all) {
+          final sid = stop.stationId;
+          if (sid != null && stationByKey.containsKey(sid)) {
+            _stationOfStopId[stop.stopId] = stationByKey[sid]!;
+          }
+        }
+        debugPrint('Wazibus: ${all.length} arrêts TAN, '
+            '${_cachedStations.length} stations (assets).');
+      } catch (_) {
+        _cachedStations = [];
+        _cachedStops = _clusterStations(all);
+        debugPrint('Wazibus: ${all.length} arrêts TAN '
+            '(${_cachedStops.length} stations cluster) chargés (assets).');
+      }
     } catch (e) {
       debugPrint('Wazibus: Error loading TAN stops asset ($e)');
       _cachedStops = [];
       _allStops = [];
+      _cachedStations = [];
     }
     notifyListeners();
     return _cachedStops;
@@ -811,6 +895,111 @@ class GtfsService with ChangeNotifier {
     return null;
   }
 
+  /// Fiches horaires d'un arrêt sur une ligne, regroupées par SENS (quai) et
+  /// non plus par terminus : un même sens réel (ex. tram 1 vers l'ouest) dont
+  /// les trajets portent plusieurs terminus (Commerce, Jamet, Mitterrand…) est
+  /// présenté comme une seule direction complète. Le libellé reprend les
+  /// terminus réels de la ligne ; [day] fixe le type de jour affiché.
+  ///
+  /// Repli : si aucune donnée réelle n'existe pour ce couple, renvoie vide
+  /// (l'appelant retombe alors sur [theoreticalDepartureTimes]).
+  List<StopDirectionSchedule> stopDirectionSchedules(
+    GtfsRoute route,
+    GtfsStop stop, {
+    DateTime? day,
+  }) {
+    final sched = _sched;
+    if (sched == null) return const [];
+    final short = route.routeShortName ?? route.routeId;
+    final byStop = sched[short];
+    if (byStop is! Map) return const [];
+    final cells = byStop[_normalizeText(stop.stopName)];
+    if (cells is! Map) return const [];
+
+    final ref = day ?? DateTime.now();
+    final base = DateTime(ref.year, ref.month, ref.day);
+    final bucket = _dayBucket(ref.weekday);
+
+    // Terminus réels de la ligne (extrémités desservies) → aident à libeller.
+    final realTermini = <String>{};
+    final rt = _routeTermini(route);
+    if (rt != null) {
+      realTermini.add(_normalizeText(rt.$1));
+      realTermini.add(_normalizeText(rt.$2));
+    }
+
+    // Regroupe les cellules (= un terminus) par quai = sens de circulation.
+    // Un même sens (ex. tram 1 vers l'ouest) dont les trajets portent plusieurs
+    // terminus (Commerce/Jamet/Mitterrand, à cause des scissions du feed) est
+    // ainsi présenté comme une seule direction complète.
+    final byQuay =
+        <String, List<({String norm, String display, int r, bool partial, List<int> mins})>>{};
+    cells.forEach((term, cell) {
+      if (cell is! Map) return;
+      final times = cell[bucket] ?? cell['d'];
+      if (times is! List) return;
+      final mins = <int>[for (final m in times) if (m is int) m];
+      if (mins.isEmpty) return;
+      final q = (cell['q'] as String?) ?? '';
+      final r = (cell['r'] as num?)?.toInt() ?? 0;
+      final disp = (cell['t'] as String?)?.trim();
+      final display = (disp != null && disp.isNotEmpty)
+          ? disp
+          : _displayNameForNorm(term as String);
+      // 'p' : service partiel fiable (build chaîné par block_id). Absent =
+      // inconnu : on ne marque pas (le feed statique scinde les traversants).
+      final partial = cell['p'] == true;
+      byQuay.putIfAbsent(q, () => []).add((
+        norm: term as String,
+        display: display,
+        r: r,
+        partial: partial,
+        mins: mins,
+      ));
+    });
+
+    final result = <StopDirectionSchedule>[];
+    byQuay.forEach((q, terms) {
+      final maxR = terms.fold<int>(0, (a, t) => t.r > a ? t.r : a);
+      // Terminus « bout de ligne » du sens : terminus réel, ou trajet allant
+      // nettement plus loin (≥ 60 % du plus lointain). Sert au libellé.
+      final mainTerms = terms
+          .where((t) =>
+              realTermini.contains(t.norm) || (maxR > 0 && t.r >= maxR * 0.6))
+          .toList()
+        ..sort((a, b) => b.r.compareTo(a.r));
+      final labelParts =
+          (mainTerms.isNotEmpty ? mainTerms : terms).map((t) => t.display);
+      final label = labelParts.toSet().join(' / ');
+
+      // Passages dédoublonnés par minute (préférence au trajet complet).
+      final byMin = <int, ScheduledPassage>{};
+      for (final t in terms) {
+        for (final m in t.mins) {
+          final ex = byMin[m];
+          if (ex != null && !ex.partial) continue;
+          byMin[m] = ScheduledPassage(
+            time: base.add(Duration(minutes: m)),
+            terminus: t.display,
+            partial: t.partial,
+          );
+        }
+      }
+      final entries = byMin.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+
+      result.add(StopDirectionSchedule(
+        quayId: q,
+        label: label.isEmpty ? 'Direction' : label,
+        passages: [for (final e in entries) e.value],
+      ));
+    });
+
+    // Sens le plus desservi en premier.
+    result.sort((a, b) => b.passages.length.compareTo(a.passages.length));
+    return result;
+  }
+
   /// Nom de la station la plus proche d'un point géographique (≤ 250 m).
   String _stopNameNear(LatLng point) {
     GtfsStop? best;
@@ -1135,31 +1324,106 @@ class GtfsService with ChangeNotifier {
     return null;
   }
 
+  /// Directions (terminus) réelles extraites de l'index horaire pour une
+  /// ligne à un arrêt. Chaque clé est le terminus normalisé ; on remonte au
+  /// nom lisible via la table des arrêts. Exclut la direction éponyme de
+  /// l'arrêt (on ne montre pas « → Commerce » quand on est à Commerce).
+  List<String> _scheduleHeadsigns(GtfsRoute route, GtfsStop stop) {
+    final sched = _sched;
+    if (sched == null) return const [];
+    final short = route.routeShortName ?? route.routeId;
+    final byStop = sched[short];
+    if (byStop is! Map) return const [];
+    final cells = byStop[_normalizeText(stop.stopName)];
+    if (cells is! Map) return const [];
+
+    final stopNorm = _normalizeText(stop.stopName);
+    final out = <String>[];
+    cells.forEach((key, cell) {
+      if (key == stopNorm) return;
+      // Libellé propre du build ('t', accents + « / ») sinon repli sur la
+      // table des arrêts.
+      final disp = cell is Map ? (cell['t'] as String?)?.trim() : null;
+      out.add(disp != null && disp.isNotEmpty
+          ? disp
+          : _displayNameForNorm(key as String));
+    });
+    return out;
+  }
+
+  static String _stripNorm(String s) =>
+      _normalizeText(s).replaceAll(RegExp(r'[^a-z0-9 ]'), '').replaceAll(RegExp(r' +'), ' ').trim();
+
+  final Map<String, String> _normToDisplayCache = {};
+
+  /// Nom lisible d'un arrêt à partir de sa forme normalisée (clé schedule).
+  String _displayNameForNorm(String norm) {
+    final cached = _normToDisplayCache[norm];
+    if (cached != null) return cached;
+
+    for (final s in _cachedStops) {
+      if (_normalizeText(s.stopName) == norm) {
+        return _normToDisplayCache[norm] = s.stopName;
+      }
+    }
+    for (final s in _cachedStops) {
+      if (_stripNorm(s.stopName) == norm) {
+        return _normToDisplayCache[norm] = s.stopName;
+      }
+    }
+    final fallback = norm
+        .split(' ')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+    return _normToDisplayCache[norm] = fallback;
+  }
+
   /// Prochains passages estimés à une station : une entrée par couple
   /// (ligne, direction), dans l'ordre des lignes de [NearbyStation.routes].
-  /// Une station terminus n'est desservie que dans un sens.
+  /// Utilise les terminus réels de l'index horaire quand disponibles, sinon
+  /// repli sur les terminus géométriques de la ligne.
   List<StationDeparture> stationDepartures(NearbyStation station,
       {DateTime? now}) {
     final t = now ?? DateTime.now();
     final out = <StationDeparture>[];
     for (final route in station.routes) {
-      final termini = _routeTermini(route);
-      final headsigns = <String>[];
-      if (termini == null) {
-        headsigns.add(route.routeLongName ?? 'Direction inconnue');
-      } else {
-        if (station.stop.stopName != termini.$2) headsigns.add(termini.$2);
-        if (station.stop.stopName != termini.$1) headsigns.add(termini.$1);
+      var headsigns = _scheduleHeadsigns(route, station.stop);
+      if (headsigns.isEmpty) {
+        final termini = _routeTermini(route);
+        if (termini == null) {
+          headsigns = [route.routeLongName ?? 'Direction inconnue'];
+        } else {
+          headsigns = [
+            if (station.stop.stopName != termini.$2) termini.$2,
+            if (station.stop.stopName != termini.$1) termini.$1,
+          ];
+        }
       }
       final headway = _headwayMinutes[route.transportType] ?? 12;
       for (final headsign in headsigns) {
-        final wait = estimateWaitMinutes(route, station.stop,
-            direction: headsign, now: t);
+        final times = _realDepartureTimes(route, station.stop, headsign, t,
+            dayBefore: 1, dayAfter: 1);
+        final cutoff = DateTime(t.year, t.month, t.day, t.hour, t.minute);
+        final upcoming = times.where((dt) => !dt.isBefore(cutoff)).take(2).toList();
+
+        final int wait;
+        final int nextWait;
+        if (upcoming.isNotEmpty) {
+          wait = ((upcoming.first.difference(t).inSeconds) / 60).ceil().clamp(0, 9999);
+          nextWait = upcoming.length >= 2
+              ? ((upcoming[1].difference(t).inSeconds) / 60).ceil().clamp(0, 9999)
+              : wait + headway;
+        } else {
+          wait = estimateWaitMinutes(route, station.stop,
+              direction: headsign, now: t);
+          nextWait = wait + headway;
+        }
+
         out.add(StationDeparture(
           route: route,
           headsign: headsign,
           waitMinutes: wait,
-          nextWaitMinutes: wait + headway,
+          nextWaitMinutes: nextWait,
         ));
       }
     }
@@ -1837,6 +2101,9 @@ class GtfsService with ChangeNotifier {
   void _buildNetworkGraph() {
     if (_graphBuilt) return;
     if (_cachedRoutes.isEmpty) return;
+    // Attendre la fin du chargement des horaires : le rattachement ligne→station
+    // est filtré par les données réelles (cf. _scheduleConfirmsService).
+    if (!_schedulesReady) return;
     final physicalStops = _allStops.isNotEmpty ? _allStops : _cachedStops;
     if (physicalStops.isEmpty) return;
 
@@ -1914,6 +2181,12 @@ class GtfsService with ChangeNotifier {
             order = i;
           }
         }
+        // Une ligne n'est rattachée à une station que si les horaires réels
+        // l'y placent : la proximité du tracé seule sur-rattache des arrêts où
+        // la ligne ne s'arrête pas (et dont les horaires basculeraient en
+        // simulation). Le filtre vaut pour la fiche arrêt (_routesByStationId)
+        // comme pour le plan de ligne et le routage (_servedStopsByRouteId).
+        if (!_scheduleConfirmsService(route, station.stopName)) return;
         hits.add(_RouteStopHit(station, order));
         _routesByStationId.putIfAbsent(id, () => []).add(route);
       });
@@ -1934,6 +2207,7 @@ class _RouteStopHit {
   final int order;
   const _RouteStopHit(this.stop, this.order);
 }
+
 
 /// Tronçon d'itinéraire à dater : ligne, arrêt de montée, terminus visé (pour
 /// retrouver le bon sens dans les horaires) et durée estimée en véhicule.

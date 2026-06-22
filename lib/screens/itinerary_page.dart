@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -659,7 +659,7 @@ class _RouteInputCard extends StatelessWidget {
                   : const Icon(LucideIcons.route, size: 18),
               label: Text(
                 loading ? 'Calcul en cours...' : 'Calculer l\'itinéraire',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -821,7 +821,7 @@ class _MyPositionButton extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               'Ma position',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF16A34A),
@@ -857,7 +857,7 @@ class _RouteField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = GoogleFonts.hankenGrotesk(
+    final textStyle = hankenGrotesk(
       fontSize: 15,
       fontWeight: FontWeight.w600,
       color: textColor,
@@ -886,7 +886,7 @@ class _RouteField extends StatelessWidget {
                 isDense: true,
                 isCollapsed: true,
                 hintText: hint,
-                hintStyle: GoogleFonts.hankenGrotesk(
+                hintStyle: hankenGrotesk(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: mutedColor.withValues(alpha: 0.8),
@@ -926,7 +926,7 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: GoogleFonts.hankenGrotesk(
+      style: hankenGrotesk(
         fontSize: 12,
         fontWeight: FontWeight.w800,
         letterSpacing: 0.4,
@@ -982,7 +982,7 @@ class _QuickChip extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 label,
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: textColor,
@@ -1027,7 +1027,7 @@ class _PopularChip extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: textColor,
@@ -1095,7 +1095,7 @@ class _SuggestionTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                         color: primaryTextColor,
@@ -1106,7 +1106,7 @@ class _SuggestionTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: mutedTextColor,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/report.dart';
@@ -65,7 +65,7 @@ class LineDisruptionBanner extends StatelessWidget {
                         : (reports.length > 1
                             ? '${reports.length} perturbations sur cet arrêt'
                             : 'Perturbation sur cet arrêt'),
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: colors.text,
@@ -78,7 +78,7 @@ class LineDisruptionBanner extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Text(
                           r.description ?? r.typeLabel,
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w500,
                             height: 1.4,
@@ -102,7 +102,7 @@ class LineDisruptionBanner extends StatelessWidget {
                             ),
                             child: Text(
                               line,
-                              style: GoogleFonts.hankenGrotesk(
+                              style: hankenGrotesk(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
                                 color: _accent,

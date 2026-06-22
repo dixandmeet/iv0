@@ -27,12 +27,3 @@ extension AppUserRoleX on AppUserRole {
 
   bool get isMobileStaff => this == AppUserRole.driver || this == AppUserRole.msrAgent;
 }
-
-enum DriverSessionPhase {
-  idle,
-  detecting,
-  ambiguous,
-  active,
-  paused,
-  ended,
-}

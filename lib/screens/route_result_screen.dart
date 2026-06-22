@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -215,7 +215,7 @@ class _RouteResultScreenState extends State<RouteResultScreen> {
                 child: Text(
                   '${displayed.length} itinéraire${displayed.length > 1 ? 's' : ''}'
                   '${fastestMin != null ? ' · dès $fastestMin min' : ''}',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                     color: c.muted,
@@ -284,7 +284,7 @@ void _toast(BuildContext context, String message, {IconData? icon}) {
             ],
             Expanded(
               child: Text(message,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                       color: c.text, fontWeight: FontWeight.w600)),
             ),
           ],
@@ -293,14 +293,14 @@ void _toast(BuildContext context, String message, {IconData? icon}) {
     );
 }
 
-TextStyle _rowTitleStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+TextStyle _rowTitleStyle(AuleColors c) => hankenGrotesk(
       fontSize: 15,
       fontWeight: FontWeight.w700,
       letterSpacing: -0.2,
       color: c.text,
     );
 
-TextStyle _rowSubStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+TextStyle _rowSubStyle(AuleColors c) => hankenGrotesk(
       fontSize: 12.5,
       fontWeight: FontWeight.w500,
       color: c.muted,
@@ -372,7 +372,7 @@ class _SoftBadge extends StatelessWidget {
           ],
           Text(
             text,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.4,
@@ -394,7 +394,7 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text.toUpperCase(),
-      style: GoogleFonts.hankenGrotesk(
+      style: hankenGrotesk(
         fontSize: 10.5,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.1,
@@ -459,7 +459,7 @@ class _EmptyResults extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: colors.muted,
@@ -622,7 +622,7 @@ class _CriteriaChip extends StatelessWidget {
             ],
             Text(
               label,
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                   fontSize: 13, fontWeight: FontWeight.w700, color: fg),
             ),
           ],
@@ -762,7 +762,7 @@ class _ItineraryCard extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   '+$deltaMinutes min',
-                                  style: GoogleFonts.hankenGrotesk(
+                                  style: hankenGrotesk(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                     color: accent.withValues(alpha: 0.85),
@@ -812,7 +812,7 @@ class _ItineraryCard extends StatelessWidget {
                         children: [
                           Text(
                             '${it.totalDurationMinutes}',
-                            style: GoogleFonts.hankenGrotesk(
+                            style: hankenGrotesk(
                               fontSize: 34,
                               height: 0.95,
                               fontWeight: FontWeight.w800,
@@ -825,7 +825,7 @@ class _ItineraryCard extends StatelessWidget {
                             padding: const EdgeInsets.only(bottom: 3),
                             child: Text(
                               'min',
-                              style: GoogleFonts.hankenGrotesk(
+                              style: hankenGrotesk(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: c.muted,
@@ -860,7 +860,7 @@ class _ItineraryCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           '$originStop  →  $destStop',
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                             color: c.muted,
@@ -885,7 +885,7 @@ class _ItineraryCard extends StatelessWidget {
                             const SizedBox(width: 5),
                             Text(
                               crowdLabel(crowd),
-                              style: GoogleFonts.hankenGrotesk(
+                              style: hankenGrotesk(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 color: _crowdColor(c, crowd),
@@ -963,7 +963,7 @@ class _ArrivalPill extends StatelessWidget {
         children: [
           Text(
             'Départ $depart',
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 10,
               color: colors.faint,
               fontWeight: FontWeight.w600,
@@ -971,7 +971,7 @@ class _ArrivalPill extends StatelessWidget {
           ),
           Text(
             arrival,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: accent,
@@ -1061,7 +1061,7 @@ class _MetaPill extends StatelessWidget {
               ],
               Text(
                 label ?? '',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 11,
                   fontWeight: emphasized ? FontWeight.w800 : FontWeight.w700,
                   color: emphasized ? colors.text : colors.muted,
@@ -1161,7 +1161,7 @@ class _StepDetails extends StatelessWidget {
                           const SizedBox(width: 4),
                           Text(
                             'Correspondance',
-                            style: GoogleFonts.hankenGrotesk(
+                            style: hankenGrotesk(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               color: colors.brand,
@@ -1264,7 +1264,7 @@ class _StepTile extends StatelessWidget {
             ),
             child: Text(
               '${step.durationMinutes} min',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
                 color: c.text,

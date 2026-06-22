@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../services/supabase_service.dart';
@@ -167,7 +167,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Center(
               child: Text('Wazibus · Nantes — v1.0.0',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                       fontSize: 11,
                       color: c.faint,
                       fontWeight: FontWeight.w600)),
@@ -232,28 +232,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 // --- Styles Aule -----------------------------------------------------------
 
-TextStyle _titleStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+TextStyle _titleStyle(AuleColors c) => hankenGrotesk(
       fontSize: 28,
       fontWeight: FontWeight.w800,
       letterSpacing: -0.8,
       color: c.text,
     );
 
-TextStyle _h3Style(AuleColors c) => GoogleFonts.hankenGrotesk(
+TextStyle _h3Style(AuleColors c) => hankenGrotesk(
       fontSize: 17,
       fontWeight: FontWeight.w800,
       letterSpacing: -0.3,
       color: c.text,
     );
 
-TextStyle _rowTitleStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+TextStyle _rowTitleStyle(AuleColors c) => hankenGrotesk(
       fontSize: 14.5,
       fontWeight: FontWeight.w700,
       letterSpacing: -0.2,
       color: c.text,
     );
 
-TextStyle _subStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+TextStyle _subStyle(AuleColors c) => hankenGrotesk(
       fontSize: 12.5,
       fontWeight: FontWeight.w500,
       color: c.muted,
@@ -299,7 +299,7 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text.toUpperCase(),
-      style: GoogleFonts.hankenGrotesk(
+      style: hankenGrotesk(
         fontSize: 10.5,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.1,
@@ -327,7 +327,7 @@ class _SoftBadge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: GoogleFonts.hankenGrotesk(
+        style: hankenGrotesk(
           fontSize: 10.5,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.4,

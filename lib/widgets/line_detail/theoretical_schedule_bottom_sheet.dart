@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 import 'theoretical_schedule_list.dart';
 
@@ -112,7 +112,7 @@ class TheoreticalScheduleBottomSheet extends StatelessWidget {
                     ),
                     child: Text(
                       lineCode!,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
@@ -127,7 +127,7 @@ class TheoreticalScheduleBottomSheet extends StatelessWidget {
                     children: [
                       Text(
                         'Horaires théoriques',
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                           color: primaryText,
@@ -138,7 +138,7 @@ class TheoreticalScheduleBottomSheet extends StatelessWidget {
                         stopName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: mutedText,
@@ -148,7 +148,7 @@ class TheoreticalScheduleBottomSheet extends StatelessWidget {
                         'Direction $headsign',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: mutedText.withValues(alpha: 0.85),

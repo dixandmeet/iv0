@@ -26,8 +26,7 @@ function exportCsv(rows: string[][]) {
 }
 
 export function ReportingPageContent() {
-  const { fleet, incidents: liveIncidents, error: fleetError, refresh } =
-    useOperationsData();
+  const { fleet, error: fleetError, refresh } = useOperationsData();
   const { incidents: allIncidents, error: incError } = useIncidentsData({
     statusFilter: "all",
   });

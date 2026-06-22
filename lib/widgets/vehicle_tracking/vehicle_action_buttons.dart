@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Panneau d'actions en bas de l'écran véhicule.
@@ -136,7 +136,7 @@ class _NotificationRow extends StatelessWidget {
                   enabled
                       ? 'Alertes d\'approche actives'
                       : 'Alertes d\'approche',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0B1220),
@@ -146,7 +146,7 @@ class _NotificationRow extends StatelessWidget {
                   enabled
                       ? 'Prévenu à moins d\'1 min'
                       : 'Soyez prévenu avant l\'arrivée',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF9AA4B2),
@@ -253,7 +253,7 @@ class _PrimaryBoardButtonState extends State<_PrimaryBoardButton>
                   children: [
                     Text(
                       label,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -264,7 +264,7 @@ class _PrimaryBoardButtonState extends State<_PrimaryBoardButton>
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Colors.white.withValues(alpha: 0.85),
@@ -308,7 +308,7 @@ class _ShareButton extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 'Partager mon trajet',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF5B6677),

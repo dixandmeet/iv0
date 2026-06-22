@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/line_detail_models.dart';
@@ -86,7 +86,7 @@ class VehicleInfoCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'À l\'arrêt $stopName',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF5B6677),
@@ -105,7 +105,7 @@ class VehicleInfoCard extends StatelessWidget {
                     ),
                     child: Text(
                       'En approche',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFFB45309),
@@ -131,7 +131,7 @@ class VehicleInfoCard extends StatelessWidget {
                   children: [
                     Text(
                       'Direction',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF9AA4B2),
@@ -140,7 +140,7 @@ class VehicleInfoCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       direction,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0B1220),
@@ -150,7 +150,7 @@ class VehicleInfoCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       isApproaching ? 'Arrivée imminente' : 'Prochain passage',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: etaColor,
@@ -168,7 +168,7 @@ class VehicleInfoCard extends StatelessWidget {
                     children: [
                       Text(
                         _etaLabel,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: isApproaching && waitSeconds < 60 ? 26 : 28,
                           fontWeight: FontWeight.w800,
                           color: etaColor,
@@ -186,7 +186,7 @@ class VehicleInfoCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     timeStr,
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF9AA4B2),
@@ -229,7 +229,7 @@ class _ApproachProgressBar extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               'Le véhicule se rapproche',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFF5B6677),
@@ -238,7 +238,7 @@ class _ApproachProgressBar extends StatelessWidget {
             const Spacer(),
             Text(
               '${(progress * 100).round()} %',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: color,
@@ -295,7 +295,7 @@ class _LineBadge extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             code,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -349,7 +349,7 @@ class _OccupancyRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: color,

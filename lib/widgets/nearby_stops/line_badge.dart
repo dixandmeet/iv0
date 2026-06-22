@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 class LineBadge extends StatelessWidget {
   final String label;
@@ -85,7 +85,7 @@ class LineBadge extends StatelessWidget {
     final color = _badgeColor;
     final textWidget = Text(
       label,
-      style: GoogleFonts.hankenGrotesk(
+      style: hankenGrotesk(
         color: Colors.white,
         fontSize: fontSize,
         fontWeight: FontWeight.w800,

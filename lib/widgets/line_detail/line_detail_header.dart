@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/gtfs.dart';
@@ -112,7 +112,7 @@ class LineDetailHeader extends StatelessWidget {
                     children: [
                       Text(
                         label,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
@@ -135,7 +135,7 @@ class LineDetailHeader extends StatelessWidget {
                     children: [
                       Text(
                         'Direction',
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: mutedText,
@@ -147,7 +147,7 @@ class LineDetailHeader extends StatelessWidget {
                         headsign,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                           color: primaryText,
@@ -169,7 +169,7 @@ class LineDetailHeader extends StatelessWidget {
                               'Depuis $fromStopName',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.hankenGrotesk(
+                              style: hankenGrotesk(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: mutedText,
@@ -235,7 +235,7 @@ class LineDetailHeader extends StatelessWidget {
                           children: [
                             Text(
                               '$nextWaitMinutes',
-                              style: GoogleFonts.hankenGrotesk(
+                              style: hankenGrotesk(
                                 fontSize: 32,
                                 fontWeight: FontWeight.w800,
                                 color: waitColor,
@@ -250,7 +250,7 @@ class LineDetailHeader extends StatelessWidget {
                               ),
                               child: Text(
                                 'min',
-                                style: GoogleFonts.hankenGrotesk(
+                                style: hankenGrotesk(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                   color: waitColor.withValues(alpha: 0.9),
@@ -269,7 +269,7 @@ class LineDetailHeader extends StatelessWidget {
                       Text(
                         'Prochain\npassage',
                         textAlign: TextAlign.right,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 9,
                           fontWeight: FontWeight.w600,
                           color: mutedText,
@@ -381,7 +381,7 @@ class _StatusPill extends StatelessWidget {
           ],
           Text(
             label,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 10,
               fontWeight: FontWeight.w700,
               color: fg,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/line_detail_models.dart';
@@ -73,7 +73,7 @@ class VehicleInfoSection extends StatelessWidget {
                 children: [
                   Text(
                     'Informations du véhicule',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: primaryText,
@@ -125,7 +125,7 @@ class VehicleInfoSection extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             lineCode,
-                            style: GoogleFonts.hankenGrotesk(
+                            style: hankenGrotesk(
                               color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w800,
@@ -142,7 +142,7 @@ class VehicleInfoSection extends StatelessWidget {
                         children: [
                           Text(
                             vehicleNumber,
-                            style: GoogleFonts.hankenGrotesk(
+                            style: hankenGrotesk(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
                               color: primaryText,
@@ -152,7 +152,7 @@ class VehicleInfoSection extends StatelessWidget {
                           const SizedBox(height: 3),
                           Text(
                             '$modeLabel · Ligne $lineCode',
-                            style: GoogleFonts.hankenGrotesk(
+                            style: hankenGrotesk(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: mutedText,
@@ -171,7 +171,7 @@ class VehicleInfoSection extends StatelessWidget {
                                 remainingStops <= 1
                                     ? 'Arrive à l\'arrêt'
                                     : '$remainingStops arrêts avant vous',
-                                style: GoogleFonts.hankenGrotesk(
+                                style: hankenGrotesk(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: const Color(0xFF16A34A),
@@ -216,7 +216,7 @@ class VehicleInfoSection extends StatelessWidget {
                           label: 'Retard',
                           child: Text(
                             delayOnTime ? 'À l\'heure' : '+$delayMinutes min',
-                            style: GoogleFonts.hankenGrotesk(
+                            style: hankenGrotesk(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                               color: delayOnTime
@@ -240,7 +240,7 @@ class VehicleInfoSection extends StatelessWidget {
                           label: 'Avant arrivée',
                           child: Text(
                             '$remainingStops',
-                            style: GoogleFonts.hankenGrotesk(
+                            style: hankenGrotesk(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                               color: primaryText,
@@ -260,7 +260,7 @@ class VehicleInfoSection extends StatelessWidget {
                           label: 'Mise à jour',
                           child: Text(
                             updateStr,
-                            style: GoogleFonts.hankenGrotesk(
+                            style: hankenGrotesk(
                               fontSize: 15,
                               fontWeight: FontWeight.w800,
                               color: primaryText,
@@ -322,7 +322,7 @@ class _StatusChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             isRealtime ? 'Temps réel' : 'Estimé',
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 10,
               fontWeight: FontWeight.w700,
               color: fg,
@@ -381,7 +381,7 @@ class _MetricTile extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 label,
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: mutedText,
@@ -432,7 +432,7 @@ class _OccupancyBar extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           label,
-          style: GoogleFonts.hankenGrotesk(
+          style: hankenGrotesk(
             fontSize: 14,
             fontWeight: FontWeight.w800,
             color: color,

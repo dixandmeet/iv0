@@ -114,10 +114,25 @@ class HomeAggregator {
     List<NearbyStation> stations, {
     int limit = 6,
   }) {
-    final now = DateTime.now();
+    final groups = groupsPerStation(gtfs, stations);
+    return imminentFromGroups(stations, groups, limit: limit);
+  }
+
+  /// Variante de [imminentDepartures] s'appuyant sur des groupes déjà calculés
+  /// (évite de relancer [GtfsService.stationLineGroups] une seconde fois quand
+  /// l'appelant les a déjà sous la main — gain net sur la page Horaires).
+  static List<ImminentDeparture> imminentFromGroups(
+    List<NearbyStation> stations,
+    List<List<StationLineGroup>> groupsPerStation, {
+    int limit = 6,
+  }) {
     final all = <ImminentDeparture>[];
-    for (final station in stations) {
-      for (final group in gtfs.stationLineGroups(station, now: now)) {
+    for (var i = 0; i < stations.length; i++) {
+      final station = stations[i];
+      final groups = i < groupsPerStation.length
+          ? groupsPerStation[i]
+          : const <StationLineGroup>[];
+      for (final group in groups) {
         for (final dep in group.directions) {
           all.add(ImminentDeparture(
             route: dep.route,

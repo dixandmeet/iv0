@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Bouton flottant pleine largeur « Prendre ce tram / bus ».
@@ -188,7 +188,7 @@ class _LineTakeVehicleButtonState extends State<LineTakeVehicleButton>
                         const SizedBox(width: 10),
                         AnimatedDefaultTextStyle(
                           duration: const Duration(milliseconds: 280),
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: widget.isRegistered

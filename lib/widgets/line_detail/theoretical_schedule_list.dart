@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -53,7 +53,7 @@ class TheoreticalScheduleList extends StatelessWidget {
       return Center(
         child: Text(
           'Aucun horaire disponible pour cette direction.',
-          style: GoogleFonts.hankenGrotesk(
+          style: hankenGrotesk(
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: mutedText,
@@ -76,7 +76,7 @@ class TheoreticalScheduleList extends StatelessWidget {
             children: [
               Text(
                 '${hour.toString().padLeft(2, '0')}h',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   color: primaryText,
@@ -139,7 +139,7 @@ class TheoreticalScheduleInfoBanner extends StatelessWidget {
               child: Text(
                 'Cadencement estimé toutes les $headwayMinutes min. '
                 'Horaires indicatifs, sans données GTFS officielles.',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: mutedText,
@@ -198,7 +198,7 @@ class _TimeChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 14,
               fontWeight: FontWeight.w800,
               color: textColor,
@@ -209,7 +209,7 @@ class _TimeChip extends StatelessWidget {
           if (isNext)
             Text(
               'Prochain',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 8,
                 fontWeight: FontWeight.w800,
                 color: lineColor,

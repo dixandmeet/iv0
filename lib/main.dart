@@ -11,7 +11,10 @@ import 'services/aule_theme_service.dart';
 import 'services/auth_service.dart';
 import 'services/favorites_service.dart';
 import 'services/disruption_service.dart';
-import 'services/driver_session_service.dart';
+import 'services/driver/driver_service.dart';
+import 'services/driver/driver_report_service.dart';
+import 'services/driver/driver_message_service.dart';
+import 'services/traveler_comment_service.dart';
 import 'theme/aule_theme.dart';
 import 'screens/mode_gate.dart';
 
@@ -47,20 +50,30 @@ void main() async {
         ChangeNotifierProvider.value(value: passiveTrackingService),
         ChangeNotifierProxyProvider<SupabaseService, GtfsService>(
           create: (context) => GtfsService(supabaseService: supabaseService),
-          update: (context, supabase, previous) => GtfsService(supabaseService: supabase),
+          update: (context, supabase, previous) =>
+              GtfsService(supabaseService: supabase),
         ),
         ChangeNotifierProxyProvider<SupabaseService, VehicleDetectionService>(
-          create: (context) => VehicleDetectionService(supabaseService: supabaseService),
-          update: (context, supabase, previous) => VehicleDetectionService(supabaseService: supabase),
+          create: (context) =>
+              VehicleDetectionService(supabaseService: supabaseService),
+          update: (context, supabase, previous) =>
+              VehicleDetectionService(supabaseService: supabase),
         ),
         ChangeNotifierProxyProvider<SupabaseService, ReportService>(
           create: (context) => ReportService(supabaseService: supabaseService),
-          update: (context, supabase, previous) => ReportService(supabaseService: supabase),
+          update: (context, supabase, previous) =>
+              ReportService(supabaseService: supabase),
         ),
         ChangeNotifierProvider(create: (_) => MapService()),
         ChangeNotifierProvider(create: (_) => AuleThemeService()),
-        ChangeNotifierProvider(create: (_) => FavoritesService()..load()),
+        ChangeNotifierProxyProvider<SupabaseService, FavoritesService>(
+          create: (context) =>
+              FavoritesService(supabaseService: supabaseService)..load(),
+          update: (context, supabase, previous) =>
+              previous ?? (FavoritesService(supabaseService: supabase)..load()),
+        ),
         ChangeNotifierProvider(create: (_) => DisruptionService()),
+        ChangeNotifierProvider(create: (_) => TravelerCommentService()),
         ChangeNotifierProvider(create: (_) => AuleClock()),
         ChangeNotifierProxyProvider<SupabaseService, AuthService>(
           create: (context) => AuthService(
@@ -70,19 +83,34 @@ void main() async {
               previous ?? AuthService(supabaseService: supabase),
         ),
         ChangeNotifierProxyProvider2<SupabaseService, AuthService,
-            DriverSessionService>(
-          create: (context) => DriverSessionService(
+            DriverService>(
+          create: (context) => DriverService(
             supabaseService: context.read<SupabaseService>(),
             authService: context.read<AuthService>(),
             locationService: context.read<LocationService>(),
           ),
-          update: (context, supabase, auth, previous) =>
-              previous ??
-              DriverSessionService(
-                supabaseService: supabase,
-                authService: auth,
-                locationService: context.read<LocationService>(),
-              ),
+          update: (context, supabase, auth, previous) {
+            final service = previous ??
+                DriverService(
+                  supabaseService: supabase,
+                  authService: auth,
+                  locationService: context.read<LocationService>(),
+                );
+            service.syncWithAuth(auth);
+            return service;
+          },
+        ),
+        ChangeNotifierProxyProvider<SupabaseService, DriverReportService>(
+          create: (context) =>
+              DriverReportService(supabaseService: supabaseService),
+          update: (context, supabase, previous) =>
+              previous ?? DriverReportService(supabaseService: supabase),
+        ),
+        ChangeNotifierProxyProvider<SupabaseService, DriverMessageService>(
+          create: (context) =>
+              DriverMessageService(supabaseService: supabaseService),
+          update: (context, supabase, previous) =>
+              previous ?? DriverMessageService(supabaseService: supabase),
         ),
       ],
       child: const WazibusApp(),

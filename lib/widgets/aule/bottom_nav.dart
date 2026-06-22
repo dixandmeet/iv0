@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 import '../../theme/aule_theme.dart';
 import 'aule_icons.dart';
@@ -61,7 +61,7 @@ class BottomNav extends StatelessWidget {
                               _labels[i],
                               maxLines: 1,
                               overflow: TextOverflow.clip,
-                              style: GoogleFonts.hankenGrotesk(
+                              style: hankenGrotesk(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 0.1,

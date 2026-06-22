@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../services/aule_data_adapter.dart';
@@ -65,7 +65,7 @@ class StopServicesCard extends StatelessWidget {
         children: [
           Text(
             'Accès & services',
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 14,
               fontWeight: FontWeight.w800,
               color: colors.text,
@@ -89,7 +89,7 @@ class StopServicesCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   station.stop.accessibilityLabel,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: colors.text,
@@ -102,7 +102,7 @@ class StopServicesCard extends StatelessWidget {
             const SizedBox(height: 14),
             Text(
               'Modes desservis',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 0.4,
@@ -124,7 +124,7 @@ class StopServicesCard extends StatelessWidget {
                     ),
                     child: Text(
                       mode,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: colors.brand,

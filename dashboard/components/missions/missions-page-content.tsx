@@ -1,124 +1,130 @@
 "use client";
 
-import { ClipboardList, MapPin } from "lucide-react";
-import { useMissionsData } from "@/hooks/use-missions-data";
-import { ErrorBanner } from "@/components/dashboard/error-banner";
-import { EmptyState, ListSkeleton } from "@/components/ui/empty-state";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { useCallback, useState } from "react";
+import { MsrAddAgentModal } from "@/components/missions/msr-add-agent-modal";
 import {
-  formatRelativeTime,
-  missionStatusColor,
-  statusLabel,
-} from "@/lib/types";
-
-const ZONE_LABELS: Record<string, string> = {
-  sector: "Secteur",
-  line_buffer: "Buffer ligne",
-  custom_polygon: "Zone personnalisée",
-};
+  DEFAULT_MSR_FILTERS,
+  DEFAULT_PLAN_FILTERS,
+  MsrActionBar,
+  type MsrFilters,
+  type PlanFilters,
+} from "@/components/missions/msr-action-bar";
+import { MsrCreateTeamModal } from "@/components/missions/msr-create-team-modal";
+import { MsrMissionsView } from "@/components/missions/msr-missions-view";
+import { MsrPlansView } from "@/components/missions/msr-plans-view";
+import {
+  MsrWorkspaceTabs,
+  type MsrWorkspaceTab,
+} from "@/components/missions/msr-workspace-tabs";
+import { MsrResourcesProvider } from "@/hooks/use-msr-resources";
+import { CONTROL_PLANS } from "@/lib/control-plans/mock-data";
+import { MSR_MISSIONS } from "@/lib/msr-mock-data";
 
 export function MissionsPageContent() {
-  const { missions, loading, error, lastUpdated, refresh } = useMissionsData();
+  return (
+    <MsrResourcesProvider>
+      <MissionsPageInner />
+    </MsrResourcesProvider>
+  );
+}
 
-  const activeCount = missions.filter(
-    (m) => m.status === "in_progress" || m.status === "assigned",
-  ).length;
+function MissionsPageInner() {
+  const [activeTab, setActiveTab] = useState<MsrWorkspaceTab>("plans");
+  const [search, setSearch] = useState("");
+  const [missionFilters, setMissionFilters] = useState<MsrFilters>(DEFAULT_MSR_FILTERS);
+  const [planFilters, setPlanFilters] = useState<PlanFilters>(DEFAULT_PLAN_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
+  const [showAddAgent, setShowAddAgent] = useState(false);
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState(() => new Date());
+
+  const activeCount =
+    activeTab === "plans"
+      ? CONTROL_PLANS.filter((p) => p.status === "active").length
+      : MSR_MISSIONS.filter((m) => m.status === "in_progress").length;
+
+  const handleRefresh = useCallback(() => {
+    setLastUpdated(new Date());
+  }, []);
+
+  function showSuccess(message: string) {
+    setToast(message);
+    setLastUpdated(new Date());
+    window.setTimeout(() => setToast(null), 4000);
+  }
 
   return (
-    <main
-      className="dashboard-panel overflow-auto"
-      style={{ gridColumn: "2 / -1", padding: 24 }}
-    >
-      {error && <ErrorBanner message={error} onRetry={refresh} />}
-
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold">Missions MSR</h1>
-          <p className="text-sm text-muted-foreground">
-            Suivi des patrouilles agents MSR sur le réseau.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="realtime">{activeCount} active(s)</Badge>
-          {lastUpdated && (
-            <span className="text-xs text-muted-foreground">
-              MAJ {lastUpdated.toLocaleTimeString("fr-FR")}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {(["in_progress", "assigned", "draft", "completed"] as const).map(
-          (status) => {
-            const count = missions.filter((m) => m.status === status).length;
-            return (
-              <Card key={status} className="shadow-none">
-                <CardContent className="p-3">
-                  <p className="text-xs text-muted-foreground">
-                    {statusLabel(status)}
-                  </p>
-                  <p className="text-2xl font-semibold">{count}</p>
-                </CardContent>
-              </Card>
-            );
-          },
-        )}
-      </div>
-
-      {loading ? (
-        <ListSkeleton rows={4} />
-      ) : missions.length === 0 ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="Aucune mission MSR"
-          description="Les missions apparaîtront ici une fois planifiées ou assignées."
-        />
-      ) : (
-        <div className="space-y-3">
-          {missions.map((mission) => {
-            const zoneLabel =
-              (mission.zone_config?.label as string) ??
-              (mission.zone_config?.sector_id as string) ??
-              (mission.zone_config?.route_id
-                ? `Ligne ${mission.zone_config.route_id}`
-                : null) ??
-              mission.zone_type;
-
-            return (
-              <Card key={mission.id} className="shadow-none">
-                <CardContent className="flex items-start gap-4 p-4">
-                  <div className="rounded-lg bg-muted p-2">
-                    <MapPin className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <strong className="text-sm">{zoneLabel}</strong>
-                      <Badge
-                        style={{
-                          background: `${missionStatusColor(mission.status)}22`,
-                          color: missionStatusColor(mission.status),
-                        }}
-                      >
-                        {statusLabel(mission.status)}
-                      </Badge>
-                      <Badge variant="outline">
-                        {ZONE_LABELS[mission.zone_type] ?? mission.zone_type}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Créée {formatRelativeTime(mission.created_at)}
-                      {mission.started_at &&
-                        ` · Démarrée ${formatRelativeTime(mission.started_at)}`}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+    <main className="msr-page" style={{ gridColumn: "2 / -1" }}>
+      {toast && (
+        <div className="msr-toast" role="status">
+          {toast}
         </div>
       )}
+
+      <header className="msr-header">
+        <div>
+          <h1 className="msr-title">Missions MSR</h1>
+          <p className="msr-subtitle">
+            Centre de pilotage des patrouilles et de la supervision du réseau.
+          </p>
+        </div>
+        <div className="msr-header-meta">
+          <span className="msr-active-badge">{activeCount} active(s)</span>
+          <span className="msr-timestamp">
+            MAJ {lastUpdated.toLocaleTimeString("fr-FR")}
+          </span>
+        </div>
+      </header>
+
+      <MsrWorkspaceTabs active={activeTab} onChange={setActiveTab} />
+
+      <MsrActionBar
+        mode={activeTab}
+        search={search}
+        onSearchChange={setSearch}
+        missionFilters={missionFilters}
+        onMissionFiltersChange={setMissionFilters}
+        planFilters={planFilters}
+        onPlanFiltersChange={setPlanFilters}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((v) => !v)}
+        onRefresh={handleRefresh}
+        onPrimaryAction={() => setShowWizard(true)}
+        onAddAgent={() => setShowAddAgent(true)}
+        onCreateTeam={() => setShowCreateTeam(true)}
+      />
+
+      {activeTab === "plans" ? (
+        <MsrPlansView
+          search={search}
+          filters={planFilters}
+          showWizard={showWizard}
+          onShowWizard={setShowWizard}
+        />
+      ) : (
+        <MsrMissionsView
+          search={search}
+          filters={missionFilters}
+          showFilters={showFilters}
+          onRefresh={handleRefresh}
+          showWizard={showWizard}
+          onShowWizard={setShowWizard}
+        />
+      )}
+
+      <MsrAddAgentModal
+        open={showAddAgent}
+        onClose={() => setShowAddAgent(false)}
+        onSuccess={(name) => showSuccess(`Agent « ${name} » ajouté avec succès.`)}
+      />
+
+      <MsrCreateTeamModal
+        open={showCreateTeam}
+        onClose={() => setShowCreateTeam(false)}
+        onSuccess={(name) => showSuccess(`Équipe « ${name} » créée avec succès.`)}
+      />
     </main>
   );
 }

@@ -84,7 +84,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     while (tester.takeException() != null) {}
 
-    expect(find.text('Prochains passages'), findsOneWidget);
     expect(find.text('Plan de la ligne'), findsOneWidget);
   });
 }

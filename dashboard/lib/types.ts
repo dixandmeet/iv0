@@ -101,7 +101,17 @@ export interface GtfsRoute {
 export interface GtfsStop {
   stop_id: string;
   stop_name: string;
+  station_id?: string;
+  wheelchair_boarding?: number;
   geom: { type: "Point"; coordinates: [number, number] };
+  status?: "active" | "inactive" | "works" | "relocated";
+  address?: string | null;
+  commune?: string | null;
+  tariff_zone?: string | null;
+  platform_count?: number;
+  transport_modes?: string[];
+  updated_at?: string;
+  updated_by?: string | null;
 }
 
 export interface OperationalAlert {

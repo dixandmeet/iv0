@@ -70,7 +70,7 @@ export function useOperationsData() {
       )
       .subscribe();
 
-    const poll = setInterval(loadData, 15000);
+    const poll = setInterval(loadData, 5000);
 
     return () => {
       clearInterval(poll);

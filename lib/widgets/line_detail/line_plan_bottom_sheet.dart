@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/gtfs.dart';
@@ -129,7 +129,7 @@ class LinePlanBottomSheet extends StatelessWidget {
                     ),
                     child: Text(
                       lineCode!,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
                         fontSize: 13,
@@ -144,7 +144,7 @@ class LinePlanBottomSheet extends StatelessWidget {
                     children: [
                       Text(
                         'Plan de la ligne',
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 17,
                           fontWeight: FontWeight.w800,
                           color: primaryText,
@@ -155,7 +155,7 @@ class LinePlanBottomSheet extends StatelessWidget {
                         'Direction $headsign',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: mutedText,
@@ -166,7 +166,7 @@ class LinePlanBottomSheet extends StatelessWidget {
                 ),
                 Text(
                   '${stops.length} arrêts',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: mutedText,
@@ -250,7 +250,7 @@ class _VehicleRow extends StatelessWidget {
           const SizedBox(width: 12),
           Text(
             'Véhicule en circulation',
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               color: lineColor,
@@ -259,7 +259,7 @@ class _VehicleRow extends StatelessWidget {
           const Spacer(),
           Text(
             RealtimeConfig.isLiveEnabled ? 'Temps réel' : 'Théorique',
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 10,
               fontWeight: FontWeight.w700,
               color: mutedText,
@@ -367,7 +367,7 @@ class _StopRow extends StatelessWidget {
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 13.5,
                           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                           color: isPast
@@ -391,7 +391,7 @@ class _StopRow extends StatelessWidget {
                         ),
                         child: Text(
                           'Terminus',
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 8,
                             fontWeight: FontWeight.w800,
                             color: isDestinationTerminus ? lineColor : mutedText,
@@ -404,7 +404,7 @@ class _StopRow extends StatelessWidget {
                 if (isSelected)
                   Text(
                     'Votre arrêt',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF1B66F5),

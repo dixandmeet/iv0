@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/gtfs.dart';
 import 'line_plan_bottom_sheet.dart';
 
-/// Timeline horizontale scrollable du plan de la ligne.
-class LineTimeline extends StatefulWidget {
+/// Plan de la ligne en liste verticale. À l'ouverture, n'affiche que la
+/// portion utile : de la position du véhicule jusqu'à l'arrêt de l'utilisateur.
+/// Le tracé complet reste accessible via « Voir tout ».
+class LineTimeline extends StatelessWidget {
   final List<GtfsStop> stops;
   final int selectedIndex;
   final int vehicleBetweenIndex;
@@ -17,8 +19,7 @@ class LineTimeline extends StatefulWidget {
   final String? lineCode;
   final IconData vehicleIcon;
 
-  static const nodeWidth = 92.0;
-  static const dotRowHeight = 28.0;
+  static const railWidth = 28.0;
   static const pastGrey = Color(0xFFD1D5DB);
 
   const LineTimeline({
@@ -34,53 +35,18 @@ class LineTimeline extends StatefulWidget {
     this.vehicleIcon = LucideIcons.bus,
   });
 
-  @override
-  State<LineTimeline> createState() => _LineTimelineState();
-}
-
-class _LineTimelineState extends State<LineTimeline> {
-  final _scrollController = ScrollController();
-  bool _didAutoScroll = false;
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _scrollToSelected() {
-    if (_didAutoScroll || widget.stops.isEmpty) return;
-    if (!_scrollController.hasClients) return;
-
-    final selected = widget.selectedIndex.clamp(0, widget.stops.length - 1);
-    final target = selected * LineTimeline.nodeWidth +
-        LineTimeline.nodeWidth / 2 -
-        (_scrollController.position.viewportDimension / 2);
-    final max = _scrollController.position.maxScrollExtent;
-    _scrollController.jumpTo(target.clamp(0.0, max));
-    _didAutoScroll = true;
-  }
-
-  @override
-  void didUpdateWidget(LineTimeline oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedIndex != widget.selectedIndex) {
-      _didAutoScroll = false;
-    }
-  }
-
   void _openFullPlan(BuildContext context) {
     LinePlanBottomSheet.show(
       context,
-      stops: widget.stops,
-      selectedIndex: widget.selectedIndex,
-      vehicleBetweenIndex: widget.vehicleBetweenIndex,
-      lineColor: widget.lineColor,
-      headsign: widget.headsign,
-      lineCode: widget.lineCode,
-      originTerminus: widget.originTerminus,
-      destinationTerminus: widget.destinationTerminus,
-      vehicleIcon: widget.vehicleIcon,
+      stops: stops,
+      selectedIndex: selectedIndex,
+      vehicleBetweenIndex: vehicleBetweenIndex,
+      lineColor: lineColor,
+      headsign: headsign,
+      lineCode: lineCode,
+      originTerminus: originTerminus,
+      destinationTerminus: destinationTerminus,
+      vehicleIcon: vehicleIcon,
     );
   }
 
@@ -96,24 +62,78 @@ class _LineTimelineState extends State<LineTimeline> {
     final borderCol =
         isDark ? const Color(0x17FFFFFF) : const Color(0xFFE7EAF0);
 
-    if (widget.stops.isEmpty) {
+    if (stops.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelected());
+    final lastIndex = stops.length - 1;
+    final selected = selectedIndex.clamp(0, lastIndex);
+    final showVehicle =
+        vehicleBetweenIndex >= 0 && vehicleBetweenIndex < lastIndex;
 
-    final trackWidth = widget.stops.length * LineTimeline.nodeWidth;
-    final selected = widget.selectedIndex.clamp(0, widget.stops.length - 1);
-    final lastIndex = widget.stops.length - 1;
+    // Fenêtre affichée : de la position du véhicule jusqu'à l'arrêt utilisateur.
+    var lo = selected;
+    var hi = selected;
+    if (showVehicle) {
+      lo = lo < vehicleBetweenIndex ? lo : vehicleBetweenIndex;
+      final vehicleNext = vehicleBetweenIndex + 1;
+      hi = hi > vehicleNext ? hi : vehicleNext;
+    }
+    lo = lo.clamp(0, lastIndex);
+    hi = hi.clamp(0, lastIndex);
 
-    final origin = widget.originTerminus ?? widget.stops.first.stopName;
-    final destination =
-        widget.destinationTerminus ?? widget.stops.last.stopName;
+    final origin = originTerminus ?? stops.first.stopName;
+    final destination = destinationTerminus ?? stops.last.stopName;
+
+    final hiddenBefore = lo;
+    final hiddenAfter = lastIndex - hi;
+
+    final rows = <Widget>[];
+    if (hiddenBefore > 0) {
+      rows.add(_MoreStopsHint(count: hiddenBefore, mutedText: mutedText));
+    }
+    for (var i = lo; i <= hi; i++) {
+      final passed = i <= vehicleBetweenIndex;
+      final isFirstInWindow = i == lo;
+      final isLastInWindow = i == hi;
+      // Segment au-dessus / en-dessous d'un arrêt : gris s'il est en amont du
+      // véhicule (déjà parcouru), couleur de ligne s'il reste à parcourir.
+      final topColor = isFirstInWindow
+          ? Colors.transparent
+          : (i <= vehicleBetweenIndex ? pastGrey : lineColor);
+      final bottomColor = isLastInWindow
+          ? Colors.transparent
+          : (i <= vehicleBetweenIndex ? pastGrey : lineColor);
+
+      rows.add(
+        _StopRow(
+          name: stops[i].stopName,
+          isPastDot: passed && i != selected,
+          isSelected: i == selected,
+          isOriginTerminus: i == 0,
+          isDestinationTerminus: i == lastIndex,
+          topColor: topColor,
+          bottomColor: bottomColor,
+          lineColor: lineColor,
+          primaryText: primaryText,
+          mutedText: mutedText,
+        ),
+      );
+
+      if (showVehicle && i == vehicleBetweenIndex) {
+        rows.add(
+          _VehicleRow(lineColor: lineColor, vehicleIcon: vehicleIcon),
+        );
+      }
+    }
+    if (hiddenAfter > 0) {
+      rows.add(_MoreStopsHint(count: hiddenAfter, mutedText: mutedText));
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(24),
@@ -126,7 +146,7 @@ class _LineTimelineState extends State<LineTimeline> {
               children: [
                 Text(
                   'Plan de la ligne',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
                     color: primaryText,
@@ -148,14 +168,14 @@ class _LineTimelineState extends State<LineTimeline> {
                         children: [
                           Text(
                             'Voir tout',
-                            style: GoogleFonts.hankenGrotesk(
+                            style: hankenGrotesk(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                               color: mutedText,
                             ),
                           ),
                           Icon(
-                            LucideIcons.chevronUp,
+                            LucideIcons.chevronRight,
                             size: 14,
                             color: mutedText,
                           ),
@@ -172,7 +192,6 @@ class _LineTimelineState extends State<LineTimeline> {
                 Expanded(
                   child: _TerminusChip(
                     label: origin,
-                    lineColor: mutedText,
                     bg: isDark
                         ? const Color(0xFF1B232F)
                         : const Color(0xFFF3F4F6),
@@ -185,102 +204,22 @@ class _LineTimelineState extends State<LineTimeline> {
                   child: Icon(
                     LucideIcons.arrowRight,
                     size: 14,
-                    color: widget.lineColor,
+                    color: lineColor,
                   ),
                 ),
                 Expanded(
                   child: _TerminusChip(
                     label: destination,
-                    lineColor: widget.lineColor,
-                    bg: widget.lineColor.withValues(alpha: 0.12),
-                    fg: widget.lineColor,
+                    bg: lineColor.withValues(alpha: 0.12),
+                    fg: lineColor,
                     icon: LucideIcons.flag,
                     alignEnd: true,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 98,
-              child: Stack(
-                children: [
-                  SingleChildScrollView(
-                    controller: _scrollController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: SizedBox(
-                      width: trackWidth,
-                      height: 98,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          CustomPaint(
-                            size: Size(trackWidth, LineTimeline.dotRowHeight),
-                            painter: _TimelineLinePainter(
-                              stopCount: widget.stops.length,
-                              selectedIndex: selected,
-                              lineColor: widget.lineColor,
-                              nodeWidth: LineTimeline.nodeWidth,
-                              y: LineTimeline.dotRowHeight / 2,
-                            ),
-                          ),
-                          if (widget.vehicleBetweenIndex >= 0 &&
-                              widget.vehicleBetweenIndex < lastIndex)
-                            Positioned(
-                              left: LineTimeline.nodeWidth *
-                                      (widget.vehicleBetweenIndex + 0.5) +
-                                  LineTimeline.nodeWidth / 2 -
-                                  11,
-                              top: 0,
-                              child: _VehicleMarker(
-                                color: widget.lineColor,
-                                icon: widget.vehicleIcon,
-                              ),
-                            ),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              for (var i = 0; i < widget.stops.length; i++)
-                                _StopColumn(
-                                  name: widget.stops[i].stopName,
-                                  isPast: i < selected,
-                                  isSelected: i == selected,
-                                  isOriginTerminus: i == 0,
-                                  isDestinationTerminus: i == lastIndex,
-                                  lineColor: widget.lineColor,
-                                  primaryText: primaryText,
-                                  mutedText: mutedText,
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: 28,
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                            colors: [
-                              cardBg.withValues(alpha: 0),
-                              cardBg,
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 14),
+            ...rows,
           ],
         ),
       ),
@@ -290,7 +229,6 @@ class _LineTimelineState extends State<LineTimeline> {
 
 class _TerminusChip extends StatelessWidget {
   final String label;
-  final Color lineColor;
   final Color bg;
   final Color fg;
   final IconData icon;
@@ -298,7 +236,6 @@ class _TerminusChip extends StatelessWidget {
 
   const _TerminusChip({
     required this.label,
-    required this.lineColor,
     required this.bg,
     required this.fg,
     required this.icon,
@@ -313,7 +250,7 @@ class _TerminusChip extends StatelessWidget {
       children: [
         Text(
           'Terminus',
-          style: GoogleFonts.hankenGrotesk(
+          style: hankenGrotesk(
             fontSize: 9,
             fontWeight: FontWeight.w700,
             color: fg.withValues(alpha: 0.85),
@@ -326,7 +263,7 @@ class _TerminusChip extends StatelessWidget {
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: lineColor.withValues(alpha: 0.25)),
+            border: Border.all(color: fg.withValues(alpha: 0.25)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -341,7 +278,7 @@ class _TerminusChip extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: alignEnd ? TextAlign.right : TextAlign.left,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: fg,
@@ -360,91 +297,146 @@ class _TerminusChip extends StatelessWidget {
   }
 }
 
-/// Segments horizontaux continus entre les centres des pastilles.
-class _TimelineLinePainter extends CustomPainter {
-  final int stopCount;
-  final int selectedIndex;
-  final Color lineColor;
-  final double nodeWidth;
-  final double y;
+/// Indique le nombre d'arrêts masqués (avant la fenêtre ou après).
+class _MoreStopsHint extends StatelessWidget {
+  final int count;
+  final Color mutedText;
 
-  const _TimelineLinePainter({
-    required this.stopCount,
-    required this.selectedIndex,
-    required this.lineColor,
-    required this.nodeWidth,
-    required this.y,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (stopCount < 2) return;
-
-    for (var i = 0; i < stopCount - 1; i++) {
-      final x1 = nodeWidth * i + nodeWidth / 2;
-      final x2 = nodeWidth * (i + 1) + nodeWidth / 2;
-      final isPastSegment = i < selectedIndex;
-
-      final paint = Paint()
-        ..color = isPastSegment ? LineTimeline.pastGrey : lineColor
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawLine(Offset(x1, y), Offset(x2, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_TimelineLinePainter oldDelegate) =>
-      oldDelegate.stopCount != stopCount ||
-      oldDelegate.selectedIndex != selectedIndex ||
-      oldDelegate.lineColor != lineColor;
-}
-
-class _VehicleMarker extends StatelessWidget {
-  final Color color;
-  final IconData icon;
-
-  const _VehicleMarker({required this.color, required this.icon});
+  const _MoreStopsHint({required this.count, required this.mutedText});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 22,
-      height: 22,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.35),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
+    return SizedBox(
+      height: 26,
+      child: Row(
+        children: [
+          SizedBox(
+            width: LineTimeline.railWidth,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  3,
+                  (_) => Container(
+                    width: 3,
+                    height: 3,
+                    margin: const EdgeInsets.symmetric(vertical: 1),
+                    decoration: BoxDecoration(
+                      color: mutedText.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            count > 1 ? '$count arrêts' : '$count arrêt',
+            style: hankenGrotesk(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: mutedText,
+            ),
           ),
         ],
       ),
-      child: Icon(icon, size: 11, color: Colors.white),
     );
   }
 }
 
-class _StopColumn extends StatelessWidget {
+/// Marqueur véhicule posé sur le tracé, entre deux arrêts.
+class _VehicleRow extends StatelessWidget {
+  final Color lineColor;
+  final IconData vehicleIcon;
+
+  const _VehicleRow({required this.lineColor, required this.vehicleIcon});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 34,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: LineTimeline.railWidth,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Column(
+                  children: [
+                    // Segment déjà parcouru au-dessus du véhicule.
+                    Expanded(
+                      child: Container(
+                        width: 3,
+                        color: LineTimeline.pastGrey,
+                      ),
+                    ),
+                    // Segment restant à parcourir sous le véhicule.
+                    Expanded(child: Container(width: 3, color: lineColor)),
+                  ],
+                ),
+                Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: lineColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: lineColor.withValues(alpha: 0.35),
+                        blurRadius: 6,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                  child: Icon(vehicleIcon, size: 12, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Véhicule ici',
+                style: hankenGrotesk(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: lineColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StopRow extends StatelessWidget {
   final String name;
-  final bool isPast;
+  final bool isPastDot;
   final bool isSelected;
   final bool isOriginTerminus;
   final bool isDestinationTerminus;
+  final Color topColor;
+  final Color bottomColor;
   final Color lineColor;
   final Color primaryText;
   final Color mutedText;
 
-  const _StopColumn({
+  const _StopRow({
     required this.name,
-    required this.isPast,
+    required this.isPastDot,
     required this.isSelected,
     required this.isOriginTerminus,
     required this.isDestinationTerminus,
+    required this.topColor,
+    required this.bottomColor,
     required this.lineColor,
     required this.primaryText,
     required this.mutedText,
@@ -454,59 +446,99 @@ class _StopColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dotSize = isSelected ? 18.0 : (_isTerminus ? 14.0 : 11.0);
+
     return SizedBox(
-      width: LineTimeline.nodeWidth,
-      child: Column(
+      height: isSelected ? 50 : 42,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: LineTimeline.dotRowHeight,
-            child: Center(
-              child: _StopDot(
-                isPast: isPast,
-                isSelected: isSelected,
-                isTerminus: _isTerminus,
-                isDestinationTerminus: isDestinationTerminus,
-                lineColor: lineColor,
-              ),
+            width: LineTimeline.railWidth,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Column(
+                  children: [
+                    Expanded(child: Container(width: 3, color: topColor)),
+                    Expanded(child: Container(width: 3, color: bottomColor)),
+                  ],
+                ),
+                _StopDot(
+                  size: dotSize,
+                  isPast: isPastDot,
+                  isSelected: isSelected,
+                  isTerminus: _isTerminus,
+                  isDestinationTerminus: isDestinationTerminus,
+                  lineColor: lineColor,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 4),
-          if (_isTerminus)
-            Container(
-              margin: const EdgeInsets.only(bottom: 3),
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: isDestinationTerminus
-                    ? lineColor.withValues(alpha: 0.12)
-                    : mutedText.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Text(
-                'Terminus',
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w800,
-                  color: isDestinationTerminus ? lineColor : mutedText,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: hankenGrotesk(
+                          fontSize: 13.5,
+                          fontWeight: isSelected || isDestinationTerminus
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: isPastDot
+                              ? mutedText
+                              : (isSelected
+                                  ? lineColor
+                                  : (isDestinationTerminus
+                                      ? lineColor
+                                      : primaryText)),
+                        ),
+                      ),
+                    ),
+                    if (_isTerminus) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDestinationTerminus
+                              ? lineColor.withValues(alpha: 0.12)
+                              : mutedText.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Terminus',
+                          style: hankenGrotesk(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                            color:
+                                isDestinationTerminus ? lineColor : mutedText,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              name,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.hankenGrotesk(
-                fontSize: 10,
-                fontWeight: isSelected || isDestinationTerminus
-                    ? FontWeight.w800
-                    : FontWeight.w600,
-                color: isPast
-                    ? mutedText
-                    : (isDestinationTerminus ? lineColor : primaryText),
-                height: 1.2,
-              ),
+                if (isSelected)
+                  Text(
+                    'Votre arrêt',
+                    style: hankenGrotesk(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: lineColor,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -516,6 +548,7 @@ class _StopColumn extends StatelessWidget {
 }
 
 class _StopDot extends StatelessWidget {
+  final double size;
   final bool isPast;
   final bool isSelected;
   final bool isTerminus;
@@ -523,6 +556,7 @@ class _StopDot extends StatelessWidget {
   final Color lineColor;
 
   const _StopDot({
+    required this.size,
     required this.isPast,
     required this.isSelected,
     required this.isTerminus,
@@ -534,8 +568,8 @@ class _StopDot extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isSelected) {
       return Container(
-        width: 26,
-        height: 26,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: Colors.white,
@@ -543,8 +577,8 @@ class _StopDot extends StatelessWidget {
         ),
         child: Center(
           child: Container(
-            width: 10,
-            height: 10,
+            width: size / 2.6,
+            height: size / 2.6,
             decoration: BoxDecoration(
               color: lineColor,
               shape: BoxShape.circle,
@@ -555,37 +589,27 @@ class _StopDot extends StatelessWidget {
     }
 
     if (isTerminus) {
+      final col = isPast
+          ? LineTimeline.pastGrey
+          : (isDestinationTerminus ? lineColor : LineTimeline.pastGrey);
       return Container(
-        width: 14,
-        height: 14,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
-          color: isDestinationTerminus ? lineColor : LineTimeline.pastGrey,
+          color: col,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: isDestinationTerminus ? lineColor : LineTimeline.pastGrey,
-            width: 2,
-          ),
-        ),
-      );
-    }
-
-    if (isPast) {
-      return Container(
-        width: 10,
-        height: 10,
-        decoration: const BoxDecoration(
-          color: LineTimeline.pastGrey,
-          shape: BoxShape.circle,
+          border: Border.all(color: col, width: 2),
         ),
       );
     }
 
     return Container(
-      width: 12,
-      height: 12,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        color: lineColor,
+        color: isPast ? LineTimeline.pastGrey : lineColor,
         shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 1.5),
       ),
     );
   }

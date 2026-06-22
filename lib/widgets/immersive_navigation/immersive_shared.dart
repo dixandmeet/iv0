@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../theme/premium_navigation_theme.dart';
@@ -73,7 +73,7 @@ class ImmersiveTopBar extends StatelessWidget {
                             const SizedBox(width: 4),
                             Text(
                               lineCode,
-                              style: GoogleFonts.hankenGrotesk(
+                              style: hankenGrotesk(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
                                 color: Colors.white,
@@ -88,7 +88,7 @@ class ImmersiveTopBar extends StatelessWidget {
                           direction,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: PremiumNavTheme.text,
@@ -195,7 +195,7 @@ class ImmersiveEtaCard extends StatelessWidget {
                   ),
                   child: Text(
                     'En approche',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       color: PremiumNavTheme.warn,
@@ -208,7 +208,7 @@ class ImmersiveEtaCard extends StatelessWidget {
                 children: [
                   Text(
                     remainingSeconds <= 0 ? '0' : '$remainingSeconds',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                       color: PremiumNavTheme.text,
@@ -218,7 +218,7 @@ class ImmersiveEtaCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     's',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: PremiumNavTheme.muted,
@@ -228,7 +228,7 @@ class ImmersiveEtaCard extends StatelessWidget {
               ),
               Text(
                 'Arrive dans',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: PremiumNavTheme.faint,
@@ -290,7 +290,7 @@ class ImmersiveManeuverCard extends StatelessWidget {
                       'Arrêt $stopName',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: PremiumNavTheme.text,
@@ -299,7 +299,7 @@ class ImmersiveManeuverCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Dans $distanceMeters m',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: PremiumNavTheme.brand,
@@ -406,7 +406,7 @@ class _InfoRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: PremiumNavTheme.muted,
@@ -415,7 +415,7 @@ class _InfoRow extends StatelessWidget {
           const Spacer(),
           Text(
             value,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               color: PremiumNavTheme.text,
@@ -457,7 +457,7 @@ class _AlertToggle extends StatelessWidget {
           Expanded(
             child: Text(
               'Alertes d\'approche',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: PremiumNavTheme.text,
@@ -555,7 +555,7 @@ class _PrimaryButtonState extends State<_PrimaryButton>
                   children: [
                     Text(
                       widget.label,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -565,7 +565,7 @@ class _PrimaryButtonState extends State<_PrimaryButton>
                       const SizedBox(height: 2),
                       Text(
                         widget.subtitle!,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: Colors.white.withValues(alpha: 0.85),
@@ -605,7 +605,7 @@ class ImmersiveArrivalCountdown extends StatelessWidget {
             children: [
               Text(
                 '${seconds.clamp(0, 99)}',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 42,
                   fontWeight: FontWeight.w800,
                   color: PremiumNavTheme.brand,
@@ -614,7 +614,7 @@ class ImmersiveArrivalCountdown extends StatelessWidget {
               ),
               Text(
                 'Arrive dans',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: PremiumNavTheme.muted,
@@ -645,7 +645,7 @@ class ImmersivePrepareCard extends StatelessWidget {
       child: Text(
         'Préparez-vous à monter',
         textAlign: TextAlign.center,
-        style: GoogleFonts.hankenGrotesk(
+        style: hankenGrotesk(
           fontSize: 14,
           fontWeight: FontWeight.w800,
           color: PremiumNavTheme.warn,
@@ -691,7 +691,7 @@ class DisembarkAlertOverlay extends StatelessWidget {
                 Text(
                   'Descente dans 1 arrêt',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -700,7 +700,7 @@ class DisembarkAlertOverlay extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   'Préparez-vous à descendre',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.75),
@@ -724,7 +724,7 @@ class DisembarkAlertOverlay extends StatelessWidget {
                         child: Text(
                           'Je suis descendu',
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
@@ -819,7 +819,7 @@ class TripStopsList extends StatelessWidget {
                 Expanded(
                   child: Text(
                     s.$1,
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 14,
                       fontWeight:
                           isNext ? FontWeight.w800 : FontWeight.w600,
@@ -831,7 +831,7 @@ class TripStopsList extends StatelessWidget {
                 ),
                 Text(
                   s.$2,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: PremiumNavTheme.faint,

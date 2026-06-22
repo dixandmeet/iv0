@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -133,7 +133,7 @@ class _StopDetailMapState extends State<StopDetailMap> {
           ),
           child: Text(
             stop.stopName,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 12,
               fontWeight: FontWeight.w800,
               color: primaryText,
@@ -234,7 +234,7 @@ class _StopDetailMapState extends State<StopDetailMap> {
                   children: [
                     Text(
                       'Arrêt le plus proche',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: mutedText,
@@ -243,7 +243,7 @@ class _StopDetailMapState extends State<StopDetailMap> {
                     const SizedBox(height: 2),
                     Text(
                       stop.stopName,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         color: primaryText,
@@ -256,7 +256,7 @@ class _StopDetailMapState extends State<StopDetailMap> {
                         const SizedBox(width: 4),
                         Text(
                           '$distance m • $walkMin min à pied',
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: mutedText,
@@ -269,7 +269,7 @@ class _StopDetailMapState extends State<StopDetailMap> {
                       children: [
                         Text(
                           '${lines.length} lignes disponibles',
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: mutedText,

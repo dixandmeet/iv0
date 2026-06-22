@@ -1,8 +1,5 @@
 import { pointCoordinates } from "@/lib/geo";
-import {
-  computePunctualityRate,
-  sumActiveUsers,
-} from "@/lib/alerts";
+import { computePunctualityRate } from "@/lib/alerts";
 import type {
   GtfsRoute,
   GtfsStop,
@@ -23,6 +20,7 @@ import {
 
 export interface RouteTimelinePoint {
   stopId: string;
+  stationId?: string;
   name: string;
   coordinates: [number, number];
   theoreticalTime: string;
@@ -30,10 +28,9 @@ export interface RouteTimelinePoint {
 }
 
 const NEAR_STOP_METERS = 350;
-const STOP_COLUMN_PX = 72;
 
-export function getTimelineMinWidth(stopCount: number): number {
-  return 72 + stopCount * STOP_COLUMN_PX;
+export function getTimelineMinWidth(stopCount: number, stopColumnPx = 72): number {
+  return 72 + stopCount * stopColumnPx;
 }
 
 function hasValidCoords(coords: [number, number]): boolean {
@@ -264,6 +261,7 @@ export function buildStopsFromShape(
     if (bestDist <= NEAR_STOP_METERS) {
       candidates.push({
         stopId: stop.stop_id,
+        stationId: stop.station_id,
         name: stop.stop_name,
         coordinates: coords,
         theoreticalTime: "—",
@@ -352,7 +350,7 @@ export function projectOnPolyline(
   return { segmentIndex: bestSegment, segmentProgress: bestProgress };
 }
 
-function buildVehicleDelays(
+export function buildVehicleDelays(
   stopCount: number,
   segmentIndex: number,
   delayMin: number,
@@ -442,26 +440,32 @@ export function buildRegulationLines(
   return sortRegulationLines(lines);
 }
 
-export function enrichLineWithTimeline(
-  line: RegulationLine,
+export function formatVehicleService(
+  lineShortName: string,
+  tripId: string | null | undefined,
+  fallbackIndex: number,
+): string {
+  if (tripId) {
+    const suffix = tripId.match(/(\d+)\s*$/);
+    if (suffix) {
+      return `${lineShortName}-${parseInt(suffix[1], 10)}`;
+    }
+  }
+  return `${lineShortName}-${fallbackIndex + 1}`;
+}
+
+export function buildVehiclesFromFleet(
+  fleet: LiveFleetPosition[],
   timelineStops: RouteTimelinePoint[],
-  fleetOnRoute: LiveFleetPosition[],
-): RegulationLine {
+  lineShortName: string,
+): RegulationVehicle[] {
   const displayStops = interpolateTimelineCoordinates(timelineStops);
+  const stopCount = displayStops.length;
+  if (stopCount < 2) return [];
 
-  const regulationStops: RegulationStop[] = displayStops.map((s) => ({
-    stopId: s.stopId,
-    name: s.name,
-    theoreticalTime: s.theoreticalTime,
-    isTerminus: s.isTerminus,
-    unavailable: false,
-  }));
+  const sortedFleet = [...fleet].sort((a, b) => a.id.localeCompare(b.id));
 
-  const sortedFleet = [...fleetOnRoute].sort((a, b) =>
-    a.id.localeCompare(b.id),
-  );
-
-  const vehicles: RegulationVehicle[] = sortedFleet.map((vehicle, index) => {
+  return sortedFleet.map((vehicle, index) => {
     const coords = pointCoordinates(vehicle.geom);
     const delayMin = delayMinutes(vehicle.estimated_delay_seconds);
     const position =
@@ -474,16 +478,45 @@ export function enrichLineWithTimeline(
 
     const segmentIndex = Math.min(
       position.segmentIndex,
-      Math.max(regulationStops.length - 2, 0),
+      Math.max(stopCount - 2, 0),
     );
 
     return {
-      id: `${line.shortName}-${String(index + 1).padStart(2, "0")}`,
-      delays: buildVehicleDelays(regulationStops.length, segmentIndex, delayMin),
+      id: vehicle.id,
+      service: formatVehicleService(lineShortName, vehicle.trip_id, index),
+      currentDelay: delayMin,
+      delays: buildVehicleDelays(stopCount, segmentIndex, delayMin),
       segmentIndex,
       segmentProgress: position.segmentProgress,
     };
   });
+}
+
+export function enrichLineWithTimeline(
+  line: RegulationLine,
+  timelineStops: RouteTimelinePoint[],
+  fleetOnRoute: LiveFleetPosition[],
+): RegulationLine {
+  const displayStops = interpolateTimelineCoordinates(timelineStops);
+
+  const regulationStops: RegulationStop[] = displayStops.map((s) => ({
+    stopId: s.stopId,
+    stationId: s.stationId,
+    name: s.name,
+    theoreticalTime: s.theoreticalTime,
+    isTerminus: s.isTerminus,
+    unavailable: false,
+  }));
+
+  const sortedFleet = [...fleetOnRoute].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  );
+
+  const vehicles: RegulationVehicle[] = buildVehiclesFromFleet(
+    sortedFleet,
+    timelineStops,
+    line.shortName,
+  );
 
   const segmentCount = Math.max(regulationStops.length - 1, 0);
 
@@ -504,28 +537,28 @@ export function mapStopTimesToTimeline(
     stop_sequence: number;
     arrival_time: unknown;
     stop_id: string;
-    gtfs_stops:
-      | { stop_name: string; geom: unknown }
-      | { stop_name: string; geom: unknown }[]
+    stop:
+      | { code: string; name: string; geom: unknown; stationId?: string }
       | null;
   }>,
 ): RouteTimelinePoint[] {
+  type PointWithSequence = RouteTimelinePoint & { stopSequence: number };
+
   const points = rows
-    .map((row) => {
-      const stopRow = Array.isArray(row.gtfs_stops)
-        ? row.gtfs_stops[0]
-        : row.gtfs_stops;
+    .map((row): PointWithSequence | null => {
+      const stopRow = row.stop;
       const coords = pointCoordinates(stopRow?.geom);
       if (!coords || !stopRow) return null;
       return {
         stopId: row.stop_id,
-        name: stopRow.stop_name,
+        stationId: stopRow.stationId,
+        name: stopRow.name,
         coordinates: coords,
         theoreticalTime: formatIntervalTime(row.arrival_time),
         stopSequence: row.stop_sequence,
       };
     })
-    .filter((p): p is RouteTimelinePoint & { stopSequence: number } => p !== null)
+    .filter((p): p is PointWithSequence => p !== null)
     .sort((a, b) => a.stopSequence - b.stopSequence);
 
   if (points.length >= 2) {
@@ -538,4 +571,33 @@ export function mapStopTimesToTimeline(
 
 export function formatKpiNumber(value: number): string {
   return new Intl.NumberFormat("fr-FR").format(value);
+}
+
+/** Véhicules fictifs pour prévisualiser la frise sans flotte en direct. */
+export function buildDemoVehicles(
+  stopCount: number,
+  lineShortName = "—",
+): RegulationVehicle[] {
+  if (stopCount < 2) return [];
+
+  const samples = [
+    { segmentIndex: 1, segmentProgress: 0.35, delay: 0 },
+    { segmentIndex: 4, segmentProgress: 0.6, delay: 3 },
+    { segmentIndex: 7, segmentProgress: 0.25, delay: -1 },
+    { segmentIndex: 10, segmentProgress: 0.55, delay: 6 },
+  ];
+
+  return samples
+    .filter((s) => s.segmentIndex < stopCount - 1)
+    .map((sample, index) => {
+      const segmentIndex = Math.min(sample.segmentIndex, stopCount - 2);
+      return {
+        id: `${lineShortName}-${String(index + 1).padStart(2, "0")}`,
+        service: `${lineShortName}-${index + 1}`,
+        currentDelay: sample.delay,
+        delays: buildVehicleDelays(stopCount, segmentIndex, sample.delay),
+        segmentIndex,
+        segmentProgress: sample.segmentProgress,
+      };
+    });
 }

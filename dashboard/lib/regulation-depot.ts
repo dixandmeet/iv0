@@ -98,6 +98,7 @@ export function resolveDepotStopsToTimeline(
 
     points.push({
       stopId: gtfsStop?.stop_id ?? `${depotCode.toLowerCase()}-${i}`,
+      stationId: gtfsStop?.station_id,
       name,
       coordinates: coords ?? [0, 0],
       theoreticalTime: "—",

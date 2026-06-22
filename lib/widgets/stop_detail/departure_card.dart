@@ -1,35 +1,82 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../models/gtfs.dart';
 import '../../services/gtfs_service.dart';
+import '../../theme/aule_theme.dart';
+import '../live_dot.dart';
 import '../nearby_stops/line_badge.dart';
-import '../schedule_source_badge.dart';
 
-typedef DirectionTapCallback = void Function(
-  GtfsRoute route,
-  StationDeparture departure,
-);
-
-/// Carte de départ d'une ligne à l'arrêt (style maquette).
-class DepartureCard extends StatelessWidget {
-  final StationLineGroup group;
-  final bool showDivider;
-
-  /// Tap sur une direction → grille horaire du jour de cette ligne à l'arrêt.
-  final DirectionTapCallback? onDirectionTap;
-
-  /// Tap sur le badge de ligne → page ligne (tracé, carte, temps réel).
-  final DirectionTapCallback? onLineTap;
+/// Carte d'un prochain départ (une ligne, une direction) à l'arrêt.
+///
+/// Hiérarchie : badge de ligne › destination › temps d'attente. La carte
+/// entière est cliquable et ouvre la fiche véhicule (page ligne). Une bande
+/// d'accent latérale reprend la couleur de la ligne pour un repérage immédiat.
+/// Quand le véhicule est en approche (< 1 min), la carte pulse avec un halo
+/// coloré pour alerter visuellement l'utilisateur.
+class DepartureCard extends StatefulWidget {
+  final StationDeparture departure;
+  final AuleColors colors;
+  final VoidCallback onTap;
 
   const DepartureCard({
     super.key,
-    required this.group,
-    this.showDivider = true,
-    this.onDirectionTap,
-    this.onLineTap,
+    required this.departure,
+    required this.colors,
+    required this.onTap,
   });
+
+  @override
+  State<DepartureCard> createState() => _DepartureCardState();
+}
+
+class _DepartureCardState extends State<DepartureCard>
+    with SingleTickerProviderStateMixin {
+  AnimationController? _pulse;
+  Animation<double>? _glowAnim;
+
+  bool get _isApproaching => widget.departure.waitMinutes < 1;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isApproaching) _startPulse();
+  }
+
+  @override
+  void didUpdateWidget(DepartureCard old) {
+    super.didUpdateWidget(old);
+    final wasApproaching = old.departure.waitMinutes < 1;
+    if (_isApproaching && !wasApproaching) {
+      _startPulse();
+    } else if (!_isApproaching && wasApproaching) {
+      _stopPulse();
+    }
+  }
+
+  void _startPulse() {
+    _pulse ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+    _glowAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulse!, curve: Curves.easeInOut),
+    );
+    _pulse!.repeat(reverse: true);
+  }
+
+  void _stopPulse() {
+    _pulse?.stop();
+    _pulse?.dispose();
+    _pulse = null;
+    _glowAnim = null;
+  }
+
+  @override
+  void dispose() {
+    _pulse?.dispose();
+    super.dispose();
+  }
 
   IconData _vehicleIcon(String transportType) {
     switch (transportType.toLowerCase()) {
@@ -45,69 +92,91 @@ class DepartureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryText =
-        isDark ? const Color(0xFFEFF3F9) : const Color(0xFF0B1220);
-    final mutedText =
-        isDark ? const Color(0xFF9BA7B7) : const Color(0xFF5B6677);
-    final cardBg = isDark ? const Color(0xFF141A23) : Colors.white;
-    final borderCol =
-        isDark ? const Color(0x17FFFFFF) : const Color(0xFFE7EAF0);
-
-    final route = group.route;
+    final departure = widget.departure;
+    final colors = widget.colors;
+    final route = departure.route;
     final label = route.routeShortName ?? route.routeId;
     final color = LineBadge.colorFor(label);
-    final multi = group.directions.length > 1;
 
-    return Container(
+    Widget card = Container(
       decoration: BoxDecoration(
-        color: cardBg,
-        border: showDivider
-            ? Border(bottom: BorderSide(color: borderCol, width: 1))
-            : null,
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: _isApproaching ? _WaitPill._imminent.withValues(alpha: 0.5) : colors.line,
+          width: _isApproaching ? 1.5 : 1,
+        ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        crossAxisAlignment:
-            multi ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        children: [
-          _LineBadge(
-            label: label,
-            color: color,
-            transportType: route.transportType,
-            vehicleIcon: _vehicleIcon,
-            onTap: onLineTap == null
-                ? null
-                : () => onLineTap!(route, group.directions.first),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          child: IntrinsicHeight(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (var i = 0; i < group.directions.length; i++) ...[
-                  if (i > 0) ...[
-                    const SizedBox(height: 12),
-                    Divider(height: 1, thickness: 1, color: borderCol),
-                    const SizedBox(height: 12),
-                  ],
-                  _DirectionRow(
-                    departure: group.directions[i],
-                    route: route,
-                    primaryText: primaryText,
-                    mutedText: mutedText,
-                    compact: multi,
-                    onTap: onDirectionTap == null
-                        ? null
-                        : () => onDirectionTap!(route, group.directions[i]),
+                Container(width: 4, color: color),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 9, 10, 9),
+                    child: Row(
+                      children: [
+                        _LineBadge(
+                          label: label,
+                          color: color,
+                          icon: _vehicleIcon(route.transportType),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            departure.headsign,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: hankenGrotesk(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: colors.text,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _WaitPill(minutes: departure.waitMinutes, animate: _isApproaching),
+                        const SizedBox(width: 6),
+                        Icon(LucideIcons.chevronRight,
+                            size: 18, color: colors.faint),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ],
             ),
           ),
-        ],
+        ),
       ),
+    );
+
+    if (!_isApproaching || _glowAnim == null) return card;
+
+    return AnimatedBuilder(
+      animation: _glowAnim!,
+      builder: (_, __) {
+        final t = _glowAnim!.value;
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: _WaitPill._imminent.withValues(alpha: 0.12 + 0.14 * t),
+                blurRadius: 10 + 8 * t,
+                spreadRadius: 1 + 2 * t,
+              ),
+            ],
+          ),
+          child: card,
+        );
+      },
     );
   }
 }
@@ -115,193 +184,120 @@ class DepartureCard extends StatelessWidget {
 class _LineBadge extends StatelessWidget {
   final String label;
   final Color color;
-  final String transportType;
-  final IconData Function(String) vehicleIcon;
-  final VoidCallback? onTap;
+  final IconData icon;
 
   const _LineBadge({
     required this.label,
     required this.color,
-    required this.transportType,
-    required this.vehicleIcon,
-    this.onTap,
+    required this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
-    final badge = Container(
-      width: 52,
-      height: 52,
+    return Container(
+      width: 42,
+      height: 42,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(13),
+        // Ombre colorée : légère profondeur qui renforce la couleur de ligne.
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             label,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.w800,
               height: 1,
             ),
           ),
           const SizedBox(height: 2),
-          Icon(
-            vehicleIcon(transportType),
-            color: Colors.white.withValues(alpha: 0.9),
-            size: 14,
-          ),
+          Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 13),
         ],
-      ),
-    );
-    if (onTap == null) return badge;
-    return Semantics(
-      button: true,
-      label: 'Voir la ligne $label',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: badge,
       ),
     );
   }
 }
 
-class _DirectionRow extends StatelessWidget {
-  final StationDeparture departure;
-  final GtfsRoute route;
-  final Color primaryText;
-  final Color mutedText;
-  final bool compact;
-  final VoidCallback? onTap;
+/// Temps d'attente principal dans une pastille teintée, color-codée selon
+/// l'imminence : vert (≥ 5 min), orange (1–4 min), « À l'approche » avec point
+/// « live » pulsant (< 1 min).
+class _WaitPill extends StatelessWidget {
+  final int minutes;
+  final bool animate;
+  const _WaitPill({required this.minutes, this.animate = false});
 
-  const _DirectionRow({
-    required this.departure,
-    required this.route,
-    required this.primaryText,
-    required this.mutedText,
-    required this.compact,
-    this.onTap,
-  });
+  static const _green = Color(0xFF22C55E);
+  static const _orange = Color(0xFFF59E0B);
+  static const _imminent = Color(0xFFEF4444);
 
   @override
   Widget build(BuildContext context) {
-    final wait = departure.waitMinutes;
-    final nextWait = departure.nextWaitMinutes;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                departure.headsign,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: compact ? 14 : 16,
-                  fontWeight: FontWeight.w800,
-                  color: primaryText,
-                  letterSpacing: -0.2,
-                ),
-              ),
-              if (route.routeLongName != null &&
-                  route.routeLongName!.isNotEmpty &&
-                  route.routeLongName != departure.headsign) ...[
-                const SizedBox(height: 2),
-                Text(
-                  '→ ${route.routeLongName}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: mutedText,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 6),
-              const ScheduleSourceBadge(),
-            ],
-          ),
+    if (minutes < 1) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: _imminent.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(11),
         ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$wait min',
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: compact ? 18 : 20,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF16A34A),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const _RealTimeSignal(color: Color(0xFF16A34A)),
-              ],
-            ),
-            const SizedBox(height: 2),
+            LiveDot(animate: animate),
+            const SizedBox(width: 6),
             Text(
-              '• $nextWait min',
-              style: GoogleFonts.hankenGrotesk(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: mutedText,
+              "À l'approche",
+              style: hankenGrotesk(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: _imminent,
               ),
             ),
           ],
         ),
-        const SizedBox(width: 8),
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Icon(
-            onTap != null ? LucideIcons.chevronRight : LucideIcons.ellipsisVertical,
-            size: 18,
-            color: mutedText,
-          ),
-        ),
-      ],
-    ),
-    );
-  }
-}
-
-class _RealTimeSignal extends StatelessWidget {
-  final Color color;
-  const _RealTimeSignal({required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        _bar(4),
-        const SizedBox(width: 1.5),
-        _bar(7),
-        const SizedBox(width: 1.5),
-        _bar(10),
-      ],
-    );
-  }
-
-  Widget _bar(double h) => Container(
-        width: 2,
-        height: h,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(1),
-        ),
       );
+    }
+
+    final color = minutes >= 5 ? _green : _orange;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$minutes',
+              style: hankenGrotesk(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            TextSpan(
+              text: ' min',
+              style: hankenGrotesk(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: color.withValues(alpha: 0.85),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 import '../../theme/aule_theme.dart';
 import 'aule_icons.dart';
@@ -46,7 +46,7 @@ class AuleSearchBar extends StatelessWidget {
                         placeholder,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: c.faint,

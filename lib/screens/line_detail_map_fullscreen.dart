@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -102,7 +102,7 @@ class LineDetailMapFullScreenPage extends StatelessWidget {
                               alignment: Alignment.center,
                               child: Text(
                                 label,
-                                style: GoogleFonts.hankenGrotesk(
+                                style: hankenGrotesk(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w800,
                                   fontSize: 13,
@@ -119,7 +119,7 @@ class LineDetailMapFullScreenPage extends StatelessWidget {
                                     'Direction $headsign',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.hankenGrotesk(
+                                    style: hankenGrotesk(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w800,
                                       color: isDark
@@ -131,7 +131,7 @@ class LineDetailMapFullScreenPage extends StatelessWidget {
                                     '$waitMinutes min · ${stop.stopName}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.hankenGrotesk(
+                                    style: hankenGrotesk(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                       color: isDark

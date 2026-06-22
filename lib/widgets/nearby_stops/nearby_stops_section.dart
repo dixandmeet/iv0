@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class NearbyStopsSection extends StatelessWidget {
@@ -36,7 +36,7 @@ class NearbyStopsSection extends StatelessWidget {
               children: [
                 Text(
                   'Arrêts à proximité',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: primaryTextColor,
@@ -45,7 +45,7 @@ class NearbyStopsSection extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   'Autour de moi • 500 m',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: mutedTextColor,
@@ -70,7 +70,7 @@ class NearbyStopsSection extends StatelessWidget {
                 children: [
                   Text(
                     'Trier par : ',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: mutedTextColor,
@@ -78,7 +78,7 @@ class NearbyStopsSection extends StatelessWidget {
                   ),
                   Text(
                     sortBy, // e.g. "Distance" or "Nom"
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: primaryTextColor,

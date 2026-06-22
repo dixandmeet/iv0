@@ -1,19 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../aule/aule_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:provider/provider.dart';
+
+import '../../services/disruption_service.dart';
+import '../../theme/app_fonts.dart';
 
 class HeaderSection extends StatelessWidget {
   const HeaderSection({super.key});
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 5) return 'Bonne nuit';
+    if (hour < 12) return 'Bonjour';
+    if (hour < 18) return 'Bon après-midi';
+    return 'Bonsoir';
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final primaryTextColor = isDark ? const Color(0xFFEFF3F9) : const Color(0xFF0B1220);
-    final mutedTextColor = isDark ? const Color(0xFF9BA7B7) : const Color(0xFF5B6677);
+    final primaryTextColor =
+        isDark ? const Color(0xFFEFF3F9) : const Color(0xFF0B1220);
+    final mutedTextColor =
+        isDark ? const Color(0xFF9BA7B7) : const Color(0xFF5B6677);
     final cardBg = isDark ? const Color(0xFF141A23) : Colors.white;
     final borderCol = isDark ? const Color(0x17FFFFFF) : const Color(0xFFE7EAF0);
+
+    final disruptions = context.watch<DisruptionService>();
+    final impacted = disruptions.impactedLineCodes.length;
+    final hasDisruptions = impacted > 0;
+
+    final dotColor =
+        hasDisruptions ? const Color(0xFFF59E0B) : const Color(0xFF16A34A);
+    final statusLabel = hasDisruptions ? 'Réseau perturbé' : 'Réseau fluide';
+    final statusDetail = hasDisruptions
+        ? '$impacted ligne${impacted > 1 ? 's' : ''} impactée${impacted > 1 ? 's' : ''}'
+        : 'Trafic normal';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -21,15 +45,14 @@ class HeaderSection extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Left Side: Greetings
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Bonjour 👋',
-                  style: GoogleFonts.hankenGrotesk(
+                  _greeting(),
+                  style: hankenGrotesk(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: primaryTextColor,
@@ -39,7 +62,7 @@ class HeaderSection extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   "Où allez-vous aujourd'hui ?",
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: mutedTextColor,
@@ -49,8 +72,6 @@ class HeaderSection extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-
-          // Right Side: Active Real-time status card
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -68,9 +89,10 @@ class HeaderSection extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AuleIcons.bus(
+                Icon(
+                  hasDisruptions ? LucideIcons.triangleAlert : LucideIcons.bus,
                   size: 16,
-                  color: const Color(0xFF16A34A),
+                  color: dotColor,
                 ),
                 const SizedBox(width: 8),
                 Column(
@@ -83,15 +105,15 @@ class HeaderSection extends StatelessWidget {
                         Container(
                           width: 6,
                           height: 6,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF16A34A),
+                          decoration: BoxDecoration(
+                            color: dotColor,
                             shape: BoxShape.circle,
                           ),
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Temps réel actif',
-                          style: GoogleFonts.hankenGrotesk(
+                          statusLabel,
+                          style: hankenGrotesk(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: primaryTextColor,
@@ -101,8 +123,8 @@ class HeaderSection extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '12 véhicules détectés',
-                      style: GoogleFonts.hankenGrotesk(
+                      statusDetail,
+                      style: hankenGrotesk(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: mutedTextColor,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -176,7 +176,7 @@ class _Header extends StatelessWidget {
             children: [
               Text(
                 'Favoris',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.4,
@@ -185,7 +185,7 @@ class _Header extends StatelessWidget {
               ),
               Text(
                 '$total enregistré${total > 1 ? 's' : ''}',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                   color: colors.muted,
@@ -279,7 +279,7 @@ class _SegmentButton extends StatelessWidget {
           alignment: Alignment.center,
           child: Text(
             '$label · $count',
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 13.5,
               fontWeight: FontWeight.w700,
               color: selected ? Colors.white : colors.muted,
@@ -314,7 +314,7 @@ class _EmptyState extends StatelessWidget {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: GoogleFonts.hankenGrotesk(
+          style: hankenGrotesk(
             fontSize: 16,
             fontWeight: FontWeight.w700,
             color: colors.text,
@@ -324,7 +324,7 @@ class _EmptyState extends StatelessWidget {
         Text(
           hint,
           textAlign: TextAlign.center,
-          style: GoogleFonts.hankenGrotesk(
+          style: hankenGrotesk(
             fontSize: 13,
             fontWeight: FontWeight.w500,
             color: colors.muted,
@@ -471,7 +471,7 @@ class _StopRow extends StatelessWidget {
                           station.stop.stopName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             letterSpacing: -0.2,
@@ -491,7 +491,7 @@ class _StopRow extends StatelessWidget {
                     _sub,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w500,
                       color: colors.muted,
@@ -547,7 +547,7 @@ class _LineRow extends StatelessWidget {
               alignment: Alignment.center,
               child: Text(
                 label,
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
@@ -560,7 +560,7 @@ class _LineRow extends StatelessWidget {
                 name.isEmpty ? 'Ligne $label' : name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 14.5,
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.2,

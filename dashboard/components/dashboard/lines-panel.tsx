@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { DEPOTS, depotLabel } from "@/lib/depot-lines";
+import {
+  ADD_LINE_DEPOT_OPTIONS,
+  isCustomRegulationLine,
+  type NewLineInput,
+} from "@/lib/regulation-custom-line";
 import {
   type NetworkMode,
   type RegulationLine,
@@ -18,6 +23,8 @@ interface LinesPanelProps {
   lines: RegulationLine[];
   selectedLineId: string;
   onSelectLine: (lineId: string) => void;
+  onAddLine?: (input: NewLineInput) => void;
+  onDeleteLine?: (lineId: string) => void;
   loading?: boolean;
 }
 
@@ -47,14 +54,23 @@ export function LinesPanel({
   lines,
   selectedLineId,
   onSelectLine,
+  onAddLine,
+  onDeleteLine,
   loading,
 }: LinesPanelProps) {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
   const [modeFilter, setModeFilter] = useState<ModeFilter>("all");
   const [depotFilter, setDepotFilter] = useState<DepotFilter>("all");
   const [lineNumber, setLineNumber] = useState("");
+  const [newShortName, setNewShortName] = useState("");
+  const [newOrigin, setNewOrigin] = useState("");
+  const [newDestination, setNewDestination] = useState("");
+  const [newTransportType, setNewTransportType] = useState<NetworkMode>("bus");
+  const [newDepotCode, setNewDepotCode] = useState(DEPOTS[0]?.code ?? "BLX");
   const lineNumberRef = useRef<HTMLInputElement>(null);
+  const shortNameRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -99,6 +115,39 @@ export function LinesPanel({
     }
   }, [showFilters]);
 
+  useEffect(() => {
+    if (showAddForm) {
+      requestAnimationFrame(() => shortNameRef.current?.focus());
+    }
+  }, [showAddForm]);
+
+  const canAddLine =
+    newShortName.trim().length > 0 &&
+    newOrigin.trim().length > 0 &&
+    newDestination.trim().length > 0;
+
+  const resetAddForm = () => {
+    setNewShortName("");
+    setNewOrigin("");
+    setNewDestination("");
+    setNewTransportType("bus");
+    setNewDepotCode(DEPOTS[0]?.code ?? "BLX");
+  };
+
+  const submitAddLine = () => {
+    if (!onAddLine || !canAddLine) return;
+    onAddLine({
+      shortName: newShortName.trim(),
+      origin: newOrigin.trim(),
+      destination: newDestination.trim(),
+      transportType: newTransportType,
+      depotCode: newDepotCode,
+    });
+    resetAddForm();
+    setShowAddForm(false);
+    setShowFilters(false);
+  };
+
   const clearFilters = () => {
     setModeFilter("all");
     setDepotFilter("all");
@@ -122,7 +171,10 @@ export function LinesPanel({
           className={`regulation-filter-btn${showFilters ? " active" : ""}${
             activeFilterCount > 0 ? " has-filters" : ""
           }`}
-          onClick={() => setShowFilters((open) => !open)}
+          onClick={() => {
+            setShowFilters((open) => !open);
+            if (!showFilters) setShowAddForm(false);
+          }}
         >
           <SlidersHorizontal className="h-4 w-4" />
           Filtres
@@ -130,7 +182,121 @@ export function LinesPanel({
             <span className="regulation-filter-count">{activeFilterCount}</span>
           )}
         </button>
+        {onAddLine && (
+          <button
+            type="button"
+            className={`regulation-add-line-btn${showAddForm ? " active" : ""}`}
+            onClick={() => {
+              setShowAddForm((open) => !open);
+              if (!showAddForm) setShowFilters(false);
+            }}
+            aria-label="Ajouter une ligne"
+            title="Ajouter une ligne"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
       </div>
+
+      {showAddForm && onAddLine && (
+        <div className="regulation-add-line-panel">
+          <div className="regulation-filters-header">
+            <span className="regulation-filters-title">Nouvelle ligne</span>
+            <button
+              type="button"
+              className="regulation-filters-clear"
+              onClick={() => {
+                setShowAddForm(false);
+                resetAddForm();
+              }}
+            >
+              <X className="h-3 w-3" />
+              Annuler
+            </button>
+          </div>
+
+          <p className="regulation-filters-label">N° de ligne</p>
+          <input
+            ref={shortNameRef}
+            type="text"
+            className="regulation-line-number-input w-full"
+            placeholder="Ex. 99, Z1…"
+            value={newShortName}
+            onChange={(e) => setNewShortName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitAddLine();
+            }}
+          />
+
+          <p className="regulation-filters-label">Origine</p>
+          <input
+            type="text"
+            className="regulation-line-number-input w-full"
+            placeholder="Terminus de départ"
+            value={newOrigin}
+            onChange={(e) => setNewOrigin(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitAddLine();
+            }}
+          />
+
+          <p className="regulation-filters-label">Destination</p>
+          <input
+            type="text"
+            className="regulation-line-number-input w-full"
+            placeholder="Terminus d'arrivée"
+            value={newDestination}
+            onChange={(e) => setNewDestination(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitAddLine();
+            }}
+          />
+
+          <p className="regulation-filters-label">Réseau</p>
+          <div className="regulation-network-chips">
+            {(
+              [
+                { value: "bus" as const, label: NETWORK_MODE_LABELS.bus },
+                { value: "tram" as const, label: NETWORK_MODE_LABELS.tram },
+                { value: "boat" as const, label: NETWORK_MODE_LABELS.boat },
+              ] as const
+            ).map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                className={`regulation-network-chip${newTransportType === value ? " active" : ""}`}
+                onClick={() => setNewTransportType(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <p className="regulation-filters-label">Dépôt</p>
+          <div className="regulation-network-chips">
+            {ADD_LINE_DEPOT_OPTIONS.map((depot) => (
+              <button
+                key={depot.code}
+                type="button"
+                className={`regulation-network-chip${newDepotCode === depot.code ? " active" : ""}`}
+                onClick={() => setNewDepotCode(depot.code)}
+              >
+                {depot.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            className="regulation-add-line-submit"
+            disabled={!canAddLine}
+            onClick={submitAddLine}
+          >
+            <Plus className="h-4 w-4" />
+            Créer la ligne
+          </button>
+        </div>
+      )}
 
       {showFilters && (
         <div className="regulation-filters-panel">
@@ -238,48 +404,64 @@ export function LinesPanel({
         ) : (
           filtered.map((line) => {
             const selected = line.id === selectedLineId;
+            const canDelete = onDeleteLine && isCustomRegulationLine(line.id);
             return (
-              <motion.button
+              <motion.div
                 key={line.id}
-                type="button"
-                className={`regulation-line-item${selected ? " selected" : ""}`}
-                onClick={() => onSelectLine(line.id)}
+                className="regulation-line-item-row"
                 whileHover={{ scale: 1.005 }}
                 whileTap={{ scale: 0.995 }}
               >
-                <div
-                  className="regulation-line-badge"
-                  style={{ backgroundColor: line.lineColor }}
+                <button
+                  type="button"
+                  className={`regulation-line-item${selected ? " selected" : ""}`}
+                  onClick={() => onSelectLine(line.id)}
                 >
-                  {line.shortName}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white">
-                    {line.origin} ↔ {line.destination}
-                  </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                    <span className="text-[#64748B]">{depotLabel(line.depotCode)}</span>
-                    <span className="text-[#64748B]">{line.transportType}</span>
-                    <span
-                      className="flex items-center gap-1"
-                      style={{ color: lineStatusColor(line.status) }}
-                    >
-                      <span
-                        className="h-1.5 w-1.5 rounded-full"
-                        style={{ backgroundColor: lineStatusColor(line.status) }}
-                      />
-                      {lineStatusLabel(line.status)}
-                    </span>
-                    <span className="text-[#94A3B8]">{line.vehicleCount} véhicules</span>
-                    <span className="text-[#94A3B8]">
-                      {formatDelayMinutes(line.avgDelay)}
-                    </span>
-                    <span className="text-[#94A3B8]">
-                      {line.incidentCount} incident{line.incidentCount !== 1 ? "s" : ""}
-                    </span>
+                  <div
+                    className="regulation-line-badge"
+                    style={{ backgroundColor: line.lineColor }}
+                  >
+                    {line.shortName}
                   </div>
-                </div>
-              </motion.button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-white">
+                      {line.origin} ↔ {line.destination}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                      <span className="text-[#64748B]">{depotLabel(line.depotCode)}</span>
+                      <span className="text-[#64748B]">{line.transportType}</span>
+                      <span
+                        className="flex items-center gap-1"
+                        style={{ color: lineStatusColor(line.status) }}
+                      >
+                        <span
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ backgroundColor: lineStatusColor(line.status) }}
+                        />
+                        {lineStatusLabel(line.status)}
+                      </span>
+                      <span className="text-[#94A3B8]">{line.vehicleCount} véhicules</span>
+                      <span className="text-[#94A3B8]">
+                        {formatDelayMinutes(line.avgDelay)}
+                      </span>
+                      <span className="text-[#94A3B8]">
+                        {line.incidentCount} incident{line.incidentCount !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    className="regulation-line-delete-btn"
+                    onClick={() => onDeleteLine(line.id)}
+                    aria-label={`Supprimer la ligne ${line.shortName}`}
+                    title="Supprimer la ligne"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </motion.div>
             );
           })
         )}

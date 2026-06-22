@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -8,7 +8,9 @@ import '../services/auth_service.dart';
 import '../services/supabase_service.dart';
 import '../widgets/aule/aule_icons.dart';
 import '../widgets/nearby_stops/tab_page_header.dart';
+import 'auth/account_screen.dart';
 import 'auth/staff_login_screen.dart';
+import 'accessibility_page.dart';
 import 'disruptions_page.dart';
 import 'favorites_page.dart';
 import 'network_map_page.dart';
@@ -48,6 +50,7 @@ class MenuPage extends StatelessWidget {
     _MenuRow(
       label: 'Accessibilité',
       icon: LucideIcons.accessibility,
+      action: _MenuAction.accessibility,
     ),
     _MenuRow(
       label: 'Alertes & perturbations',
@@ -79,8 +82,19 @@ class MenuPage extends StatelessWidget {
         isDark ? const Color(0x17FFFFFF) : const Color(0xFFE7EAF0);
 
     final supabase = context.watch<SupabaseService>();
+    final auth = context.watch<AuthService>();
     final themeService = context.watch<AuleThemeService>();
     final shortId = supabase.deviceUuid.split('-').first;
+
+    // Un voyageur connecté (compte passager, hors personnel terrain) n'a pas à
+    // voir l'accès à l'espace conducteur / MSR. On le garde pour les sessions
+    // anonymes (pour permettre la connexion personnel) et le personnel terrain.
+    final isTraveler = auth.isSignedIn && !auth.isAuthenticatedStaff;
+    final rows = isTraveler
+        ? _rows
+            .where((row) => row.action != _MenuAction.staffLogin)
+            .toList(growable: false)
+        : _rows;
 
     return SafeArea(
       child: ListView(
@@ -92,55 +106,13 @@ class MenuPage extends StatelessWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: borderCol),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF1B66F5),
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      LucideIcons.venetianMask,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Compte anonyme',
-                          style: GoogleFonts.hankenGrotesk(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: primaryTextColor,
-                          ),
-                        ),
-                        Text(
-                          'ID local $shortId · aucune donnée perso',
-                          style: GoogleFonts.hankenGrotesk(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: mutedTextColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            child: _AccountCard(
+              auth: auth,
+              shortId: shortId,
+              cardBg: cardBg,
+              borderCol: borderCol,
+              primaryTextColor: primaryTextColor,
+              mutedTextColor: mutedTextColor,
             ),
           ),
           Padding(
@@ -163,11 +135,11 @@ class MenuPage extends StatelessWidget {
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
-                children: List.generate(_rows.length, (i) {
-                  final row = _rows[i];
+                children: List.generate(rows.length, (i) {
+                  final row = rows[i];
                   return _MenuTile(
                     row: row,
-                    showDivider: i < _rows.length - 1,
+                    showDivider: i < rows.length - 1,
                     borderCol: borderCol,
                     primaryTextColor: primaryTextColor,
                     onOpenHoraires: onOpenHoraires,
@@ -182,7 +154,7 @@ class MenuPage extends StatelessWidget {
             child: Center(
               child: Text(
                 'Aule · Nantes',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: mutedTextColor,
@@ -196,7 +168,7 @@ class MenuPage extends StatelessWidget {
   }
 }
 
-enum _MenuAction { horaires, itinerary, networkMap, settings, staffLogin, disruptions, favorites }
+enum _MenuAction { horaires, itinerary, networkMap, settings, staffLogin, disruptions, favorites, accessibility }
 
 class _MenuRow {
   final String label;
@@ -208,6 +180,138 @@ class _MenuRow {
     required this.icon,
     this.action,
   });
+}
+
+class _AccountCard extends StatelessWidget {
+  final AuthService auth;
+  final String shortId;
+  final Color cardBg;
+  final Color borderCol;
+  final Color primaryTextColor;
+  final Color mutedTextColor;
+
+  const _AccountCard({
+    required this.auth,
+    required this.shortId,
+    required this.cardBg,
+    required this.borderCol,
+    required this.primaryTextColor,
+    required this.mutedTextColor,
+  });
+
+  Future<void> _confirmSignOut(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Se déconnecter ?'),
+        content: const Text(
+          'Tu repasseras en mode anonyme. Tes favoris restent sur cet appareil.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Se déconnecter'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await auth.signOut();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final signedIn = auth.isSignedIn;
+    final title = signedIn
+        ? (auth.displayName ?? 'Mon compte')
+        : 'Compte anonyme';
+    final subtitle = signedIn
+        ? (auth.email ?? 'Connecté')
+        : 'ID local $shortId · appuie pour te connecter';
+
+    final card = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: borderCol),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: const BoxDecoration(
+              color: Color(0xFF1B66F5),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              signedIn ? LucideIcons.userRound : LucideIcons.venetianMask,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: hankenGrotesk(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: primaryTextColor,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: hankenGrotesk(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: mutedTextColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (signedIn)
+            IconButton(
+              tooltip: 'Se déconnecter',
+              icon: Icon(LucideIcons.logOut, size: 20, color: mutedTextColor),
+              onPressed: () => _confirmSignOut(context),
+            )
+          else
+            AuleIcons.chevron(size: 18, color: borderCol),
+        ],
+      ),
+    );
+
+    if (signedIn) return card;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AccountScreen()),
+        ),
+        child: card,
+      ),
+    );
+  }
 }
 
 class _ThemeToggle extends StatelessWidget {
@@ -241,7 +345,7 @@ class _ThemeToggle extends StatelessWidget {
           Expanded(
             child: Text(
               'Apparence',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: primaryTextColor,
@@ -294,7 +398,7 @@ class _ThemeChip extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: GoogleFonts.hankenGrotesk(
+          style: hankenGrotesk(
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: selected ? Colors.white : mutedTextColor,
@@ -348,6 +452,11 @@ class _MenuTile extends StatelessWidget {
           context,
           MaterialPageRoute(builder: (_) => const NetworkMapPage()),
         );
+      case _MenuAction.accessibility:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AccessibilityPage()),
+        );
       case _MenuAction.staffLogin:
         if (context.read<AuthService>().isAuthenticatedStaff) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -393,7 +502,7 @@ class _MenuTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   row.label,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: primaryTextColor,

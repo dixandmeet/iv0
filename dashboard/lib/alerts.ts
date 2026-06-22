@@ -4,7 +4,6 @@ const DELAY_WARNING_SEC = 300; // 5 min
 const DELAY_CRITICAL_SEC = 600; // 10 min
 const GPS_STALE_SEC = 120;
 const IMMOBILIZED_SPEED = 2;
-const IMMOBILIZED_MIN_SEC = 180;
 
 export function computeOperationalAlerts(
   fleet: LiveFleetPosition[],
@@ -98,9 +97,6 @@ export function computeOperationalAlerts(
     }
   }
 
-  const activeDriverIds = new Set(
-    drivers.filter((d) => d.status === "active" || d.status === "paused").map((d) => d.driver_id),
-  );
   const fleetDriverSessions = new Set(
     fleet.filter((v) => v.driver_session_id).map((v) => v.driver_session_id),
   );

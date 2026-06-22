@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/gtfs.dart';
@@ -74,7 +74,7 @@ class StopInfoCard extends StatelessWidget {
                               stop.stopName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.hankenGrotesk(
+                              style: hankenGrotesk(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
                                 color: primaryText,
@@ -101,7 +101,7 @@ class StopInfoCard extends StatelessWidget {
                                   const SizedBox(width: 3),
                                   Text(
                                     'Accessible',
-                                    style: GoogleFonts.hankenGrotesk(
+                                    style: hankenGrotesk(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w700,
                                       color: const Color(0xFF1B66F5),
@@ -116,7 +116,7 @@ class StopInfoCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         details,
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: mutedText,

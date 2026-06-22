@@ -4,7 +4,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -219,7 +219,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
         SnackBar(
           content: Text(
             'Votre tram n\'est pas encore arrivé — suivez-le en temps réel.',
-            style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600),
+            style: hankenGrotesk(fontWeight: FontWeight.w600),
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -244,7 +244,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
       SnackBar(
         content: Text(
           'Trajet terminé — bonne continuation !',
-          style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600),
+          style: hankenGrotesk(fontWeight: FontWeight.w600),
         ),
         behavior: SnackBarBehavior.floating,
         backgroundColor: PremiumNavTheme.brand,
@@ -419,7 +419,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                   color: PremiumNavTheme.surface.withValues(alpha: 0.94),
                   child: Text(
                     'Reste $remaining arrêt${remaining > 1 ? 's' : ''} avant votre destination',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: PremiumNavTheme.text,
@@ -455,7 +455,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                     Expanded(
                       child: Text(
                         'Alertes de descente activées · Notification sonore',
-                        style: GoogleFonts.hankenGrotesk(
+                        style: hankenGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: PremiumNavTheme.brandDark,
@@ -501,7 +501,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Text(
                     'Vue trajet',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: PremiumNavTheme.text,
@@ -562,7 +562,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                         const SizedBox(width: 6),
                         Text(
                           'Trajet démarré',
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                             color: PremiumNavTheme.brand,
@@ -596,7 +596,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                               ),
                               child: Text(
                                 'Ligne $lineCode',
-                                style: GoogleFonts.hankenGrotesk(
+                                style: hankenGrotesk(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                   color: Colors.white,
@@ -608,7 +608,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                         const SizedBox(height: 12),
                         Text(
                           'Direction ${widget.headsign}',
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
                             color: PremiumNavTheme.text,
@@ -637,7 +637,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                       children: [
                         Text(
                           'PROCHAIN ARRÊT',
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                             color: PremiumNavTheme.muted,
@@ -647,7 +647,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                         const SizedBox(height: 4),
                         Text(
                           _nextOnboardStop(gtfs),
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 22,
                             fontWeight: FontWeight.w800,
                             color: PremiumNavTheme.text,
@@ -656,7 +656,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                         const SizedBox(height: 4),
                         Text(
                           'Arrivée dans $_minutesToNext min',
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: PremiumNavTheme.brand,
@@ -688,7 +688,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                           Expanded(
                             child: Text(
                               'Alertes de descente activées',
-                              style: GoogleFonts.hankenGrotesk(
+                              style: hankenGrotesk(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
                                 color: PremiumNavTheme.brandDark,
@@ -724,7 +724,7 @@ class _ImmersiveNavigationPageState extends State<ImmersiveNavigationPage> {
                   child: Text(
                     'Je suis descendu',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,

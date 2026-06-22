@@ -1,28 +1,46 @@
 "use client";
 
+import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-export function SignOutButton() {
+interface SignOutButtonProps {
+  collapsed?: boolean;
+  variant?: "default" | "icon";
+}
+
+export function SignOutButton({
+  collapsed = false,
+  variant = "default",
+}: SignOutButtonProps) {
   async function signOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.href = "/login";
+    window.location.href = "/";
+  }
+
+  if (variant === "icon") {
+    return (
+      <button
+        type="button"
+        className="regulation-action-btn"
+        onClick={signOut}
+        aria-label="Déconnexion"
+      >
+        <LogOut className="h-[18px] w-[18px]" />
+      </button>
+    );
   }
 
   return (
     <button
       type="button"
       onClick={signOut}
-      style={{
-        background: "transparent",
-        border: "1px solid var(--border)",
-        color: "var(--text)",
-        padding: "6px 12px",
-        borderRadius: 8,
-        cursor: "pointer",
-      }}
+      className={`dashboard-sign-out-btn${collapsed ? " dashboard-sign-out-btn--collapsed" : ""}`}
+      title={collapsed ? "Déconnexion" : undefined}
+      aria-label="Déconnexion"
     >
-      Déconnexion
+      <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+      {!collapsed && <span className="truncate">Déconnexion</span>}
     </button>
   );
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 class TabPageHeader extends StatelessWidget {
   final String title;
@@ -27,7 +27,7 @@ class TabPageHeader extends StatelessWidget {
         children: [
           Text(
             title,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 24,
               fontWeight: FontWeight.w800,
               color: primaryTextColor,
@@ -38,7 +38,7 @@ class TabPageHeader extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle!,
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: mutedTextColor,

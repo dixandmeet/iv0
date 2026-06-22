@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -88,7 +88,7 @@ class _SoftBadge extends StatelessWidget {
           ],
           Text(
             text,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.4,
@@ -424,7 +424,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
               const SizedBox(height: 16),
               Text(
                 'Préparation du guidage…',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontWeight: FontWeight.w700,
                   color: _muted,
                 ),
@@ -525,7 +525,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                   Text(
                     'Appuyez quand vous êtes à l\'arrêt ${ctx.boardingStop.stopName}',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: const Color(0xFF6B7280),
@@ -797,7 +797,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                     const SizedBox(height: 16),
                     Text(
                       'Descendez à ${ctx.alightStop.stopName}',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
@@ -806,7 +806,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                     const SizedBox(height: 10),
                     Text(
                       'Puis prenez ${nextStep.lineShortName} vers ${nextStep.arrivalStop}',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: _muted,
@@ -866,7 +866,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                     const SizedBox(height: 20),
                     Text(
                       'Vous êtes arrivé !',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
@@ -876,7 +876,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                     Text(
                       widget.destination,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: _muted,
@@ -885,7 +885,7 @@ class _ItineraryGuidancePageState extends State<ItineraryGuidancePage>
                     const SizedBox(height: 6),
                     Text(
                       '${widget.itinerary.totalDurationMinutes} min · ${widget.itinerary.estimatedCost.toStringAsFixed(2)} €',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: _faint,
@@ -934,7 +934,7 @@ class _GuidanceStepHeader extends StatelessWidget {
           children: [
             Text(
               'Étape ${stepIndex + 1} / $totalSteps',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
                 color: _brand,
@@ -944,7 +944,7 @@ class _GuidanceStepHeader extends StatelessWidget {
             const Spacer(),
             Text(
               '${(progress * 100).round()} %',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: _faint,
@@ -977,7 +977,7 @@ class _GuidanceStepHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                   origin,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: _ink,
@@ -998,7 +998,7 @@ class _GuidanceStepHeader extends StatelessWidget {
                 child: Text(
                   destination,
                   textAlign: TextAlign.end,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: _ink,
@@ -1076,7 +1076,7 @@ class _WalkInstructionCard extends StatelessWidget {
                   children: [
                     Text(
                       headline,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0B1220),
@@ -1087,7 +1087,7 @@ class _WalkInstructionCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       instruction,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: const Color(0xFF4B5563),
@@ -1117,7 +1117,7 @@ class _WalkInstructionCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Ensuite, prenez la ligne $lineCode',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF374151),
@@ -1181,7 +1181,7 @@ class _WalkMetricChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 13,
               fontWeight: FontWeight.w800,
               color: color,
@@ -1218,7 +1218,7 @@ class _ItineraryStepsPreview extends StatelessWidget {
         children: [
           Text(
             'APERÇU DU TRAJET',
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 11,
               fontWeight: FontWeight.w800,
               color: _muted,
@@ -1289,7 +1289,7 @@ class _StepPreviewRow extends StatelessWidget {
               ? Icon(LucideIcons.check, size: 12, color: dotColor)
               : Text(
                   '${index + 1}',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: dotColor,
@@ -1308,7 +1308,7 @@ class _StepPreviewRow extends StatelessWidget {
             isWalk
                 ? 'Marche vers ${step.departureStop}'
                 : '${step.lineShortName} → ${step.arrivalStop}',
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 13,
               fontWeight: weight,
               color: textColor,
@@ -1326,7 +1326,7 @@ class _StepPreviewRow extends StatelessWidget {
             ),
             child: Text(
               'En cours',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
                 color: lineColor,
@@ -1392,14 +1392,14 @@ class _InTransitBanner extends StatelessWidget {
                   children: [
                     Text(
                       'Direction $headsign',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
                       'À bord · temps réel',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                         color: _muted,
@@ -1425,7 +1425,7 @@ class _InTransitBanner extends StatelessWidget {
                   children: [
                     Text(
                       'PROCHAIN ARRÊT',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: _muted,
@@ -1434,7 +1434,7 @@ class _InTransitBanner extends StatelessWidget {
                     ),
                     Text(
                       '$minutesToNext min',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: _brand,
@@ -1445,7 +1445,7 @@ class _InTransitBanner extends StatelessWidget {
                 const SizedBox(height: 5),
                 Text(
                   nextStopName,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
@@ -1510,7 +1510,7 @@ class _PrimaryGuidanceButton extends StatelessWidget {
               const SizedBox(width: 10),
               Text(
                 label,
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: Colors.white,

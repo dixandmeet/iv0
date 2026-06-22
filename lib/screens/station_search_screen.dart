@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../models/gtfs.dart';
+import '../services/aule_data_adapter.dart';
 import '../services/gtfs_service.dart';
 import '../services/location_service.dart';
 import '../theme/aule_theme.dart';
+import 'line_schedule_page.dart';
 import 'stop_detail_page.dart';
 
-/// Recherche d'une station du réseau Naolib par son nom. Sans saisie,
-/// propose les stations à proximité ; un tap ouvre les horaires.
+/// Recherche du réseau Naolib : arrêts ET lignes. Sans saisie, propose les
+/// stations à proximité ; un tap ouvre les horaires de l'arrêt, ou la fiche
+/// horaire de la ligne.
 class StationSearchScreen extends StatefulWidget {
   const StationSearchScreen({super.key});
 
@@ -44,6 +48,15 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
           station: station,
           showDistance: hasDistance,
         ),
+      ),
+    );
+  }
+
+  void _openLineSchedule(GtfsRoute route) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => LineSchedulePage(route: route),
       ),
     );
   }
@@ -129,8 +142,8 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
               decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
-                hintText: 'Rechercher une station…',
-                hintStyle: GoogleFonts.hankenGrotesk(
+                hintText: 'Arrêt ou ligne…',
+                hintStyle: hankenGrotesk(
                   color: c.faint,
                   fontWeight: FontWeight.w600,
                 ),
@@ -183,42 +196,129 @@ class _StationSearchScreenState extends State<StationSearchScreen> {
 
   Widget _resultsList(
       GtfsService gtfs, LatLng? userPos, String query, AuleColors c) {
-    final results = gtfs.searchStations(query, from: userPos);
-    if (results.isEmpty) {
+    final lines = gtfs.searchRoutes(query);
+    final stations = gtfs.searchStations(query, from: userPos);
+
+    if (lines.isEmpty && stations.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(16),
         child: Align(
           alignment: Alignment.topLeft,
-          child: Text('Aucune station trouvée pour « $query ».',
-              style: _subStyle(c)),
+          child: Text('Aucun résultat pour « $query ».', style: _subStyle(c)),
         ),
       );
     }
-    return ListView.builder(
+
+    return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: results.length,
-      itemBuilder: (context, i) {
-        final station = results[i];
-        return _StationRow(
-          station: station,
-          showDistance: userPos != null,
-          onTap: () => _openSchedule(station, hasDistance: userPos != null),
-        );
-      },
+      children: [
+        if (lines.isNotEmpty) ...[
+          _SectionLabel('Lignes', colors: c),
+          const SizedBox(height: 4),
+          ...lines.map((r) => _LineRow(
+                route: r,
+                colors: c,
+                onTap: () => _openLineSchedule(r),
+              )),
+          const SizedBox(height: 12),
+        ],
+        if (stations.isNotEmpty) ...[
+          _SectionLabel('Arrêts', colors: c),
+          const SizedBox(height: 4),
+          ...stations.map((station) => _StationRow(
+                station: station,
+                showDistance: userPos != null,
+                onTap: () =>
+                    _openSchedule(station, hasDistance: userPos != null),
+              )),
+        ],
+      ],
+    );
+  }
+}
+
+/// Ligne de résultat « ligne » : badge coloré + terminus.
+class _LineRow extends StatelessWidget {
+  final GtfsRoute route;
+  final AuleColors colors;
+  final VoidCallback onTap;
+
+  const _LineRow({
+    required this.route,
+    required this.colors,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = colors;
+    final color = AuleDataAdapter.routeColor(route) ?? const Color(0xFF6B7280);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        child: Row(
+          children: [
+            Container(
+              constraints: const BoxConstraints(minWidth: 40),
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                AuleDataAdapter.lineCode(route),
+                style: hankenGrotesk(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    AuleDataAdapter.modeLabel(route.transportType),
+                    style: hankenGrotesk(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+                  Text(
+                    AuleDataAdapter.terminusLabel(route),
+                    style: _titleStyle(c),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(LucideIcons.chevronRight, size: 18, color: c.faint),
+          ],
+        ),
+      ),
     );
   }
 }
 
 // --- Styles & primitives Aule locaux ---------------------------------------
 
-TextStyle _titleStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+TextStyle _titleStyle(AuleColors c) => hankenGrotesk(
       fontSize: 15,
       fontWeight: FontWeight.w700,
       letterSpacing: -0.2,
       color: c.text,
     );
 
-TextStyle _subStyle(AuleColors c) => GoogleFonts.hankenGrotesk(
+TextStyle _subStyle(AuleColors c) => hankenGrotesk(
       fontSize: 12.5,
       fontWeight: FontWeight.w500,
       color: c.muted,
@@ -265,7 +365,7 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text.toUpperCase(),
-      style: GoogleFonts.hankenGrotesk(
+      style: hankenGrotesk(
         fontSize: 10.5,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.1,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 import '../../theme/aule_theme.dart';
 
@@ -51,7 +51,7 @@ class NetworkStatus extends StatelessWidget {
                   const SizedBox(width: 9),
                   Text(
                     'Réseau fluide',
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.2,
@@ -66,7 +66,7 @@ class NetworkStatus extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: '$percent',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 32,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -1.2,
@@ -77,7 +77,7 @@ class NetworkStatus extends StatelessWidget {
                     ),
                     TextSpan(
                       text: '%',
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: c.ok,
@@ -101,7 +101,7 @@ class NetworkStatus extends StatelessWidget {
           const SizedBox(height: 11),
           RichText(
             text: TextSpan(
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: c.muted,
@@ -111,7 +111,7 @@ class NetworkStatus extends StatelessWidget {
                     text: 'des lignes circulent normalement · '),
                 TextSpan(
                   text: '$disruptions perturbations',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: c.warn,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 import '../../theme/aule_theme.dart';
 
@@ -91,7 +91,7 @@ class LineBadge extends StatelessWidget {
         label,
         maxLines: 1,
         overflow: TextOverflow.clip,
-        style: GoogleFonts.hankenGrotesk(
+        style: hankenGrotesk(
           color: Colors.white,
           fontSize: _fontSize,
           fontWeight: FontWeight.w800,

@@ -19,6 +19,8 @@ interface VehicleDetailPanelProps {
   driver?: DriverSession | null;
   onCenter: () => void;
   onClose: () => void;
+  showClose?: boolean;
+  className?: string;
 }
 
 export function VehicleDetailPanel({
@@ -26,6 +28,8 @@ export function VehicleDetailPanel({
   driver,
   onCenter,
   onClose,
+  showClose = true,
+  className,
 }: VehicleDetailPanelProps) {
   const delay =
     vehicle.estimated_delay_seconds != null && vehicle.estimated_delay_seconds > 0
@@ -44,16 +48,17 @@ export function VehicleDetailPanel({
           : "En service";
 
   return (
-    <Card className="mt-3 shadow-none">
-      <CardHeader className="flex flex-row items-start justify-between space-y-0 p-4 pb-2">
-        <div>
+    <Card className={`vehicle-detail-panel shadow-none${className ? ` ${className}` : ""}`}>
+      <CardHeader className="vehicle-detail-panel-header space-y-0 p-4 pb-2">
+        <div className="min-w-0 flex-1">
           <CardTitle className="text-base">Ligne {vehicle.route_id}</CardTitle>
           <p className="text-xs text-muted-foreground">
             {sourceLabel(vehicle.source)} · {vehicle.transport_type}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="vehicle-detail-panel-actions">
           <Badge
+            className="shrink-0"
             style={{
               background: `${reliabilityColor(vehicle.reliability_score)}22`,
               color: reliabilityColor(vehicle.reliability_score),
@@ -61,9 +66,11 @@ export function VehicleDetailPanel({
           >
             {vehicle.reliability_score}%
           </Badge>
-          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onClose}>
-            ✕
-          </Button>
+          {showClose && (
+            <Button variant="ghost" size="sm" className="h-7 w-7 shrink-0 p-0 text-xs" onClick={onClose}>
+              ✕
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-3 p-4 pt-0">

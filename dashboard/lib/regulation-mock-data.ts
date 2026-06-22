@@ -4,6 +4,7 @@ export type NetworkMode = "bus" | "tram" | "boat";
 
 export interface RegulationStop {
   stopId?: string;
+  stationId?: string;
   name: string;
   theoreticalTime: string;
   isTerminus?: boolean;
@@ -25,6 +26,10 @@ export const NETWORK_MODE_LABELS: Record<NetworkMode, string> = {
 
 export interface RegulationVehicle {
   id: string;
+  /** Identifiant de service affiché (ex. « 11-2 »). */
+  service: string;
+  /** Retard ou avance courant en minutes à la position actuelle. */
+  currentDelay: number;
   delays: number[];
   segmentIndex: number;
   segmentProgress: number;
@@ -56,6 +61,12 @@ export interface RegulationLine {
 export function formatDelayMinutes(delay: number): string {
   if (delay === 0) return "0";
   return delay > 0 ? `+${delay}` : `${delay}`;
+}
+
+/** Libellé lisible pour la fiche véhicule et les contextes embarqués. */
+export function formatDelayLabel(delay: number): string {
+  if (delay === 0) return "À l'heure";
+  return formatDelayMinutes(delay);
 }
 
 export function delayColor(delay: number): string {

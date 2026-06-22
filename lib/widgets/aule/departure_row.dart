@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 import '../../models/aule_models.dart';
 import '../../theme/aule_theme.dart';
@@ -49,7 +49,7 @@ class DepartureRow extends StatelessWidget {
                   departure.destination,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.3,
@@ -59,7 +59,7 @@ class DepartureRow extends StatelessWidget {
                 ),
                 Text(
                   departure.modeLabel,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: c.muted,
@@ -78,7 +78,7 @@ class DepartureRow extends StatelessWidget {
                 Text(
                   fmt.num,
                   maxLines: 1,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -1.4,
@@ -91,7 +91,7 @@ class DepartureRow extends StatelessWidget {
                   const SizedBox(width: 5),
                   Text(
                     fmt.unit,
-                    style: GoogleFonts.hankenGrotesk(
+                    style: hankenGrotesk(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                       height: 1,
@@ -144,7 +144,7 @@ class StopDepartureRow extends StatelessWidget {
                   departure.destination,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.2,
@@ -154,7 +154,7 @@ class StopDepartureRow extends StatelessWidget {
                 ),
                 Text(
                   departure.modeLabel,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: c.muted,
@@ -172,7 +172,7 @@ class StopDepartureRow extends StatelessWidget {
                   fmt.text,
                   maxLines: 1,
                   overflow: TextOverflow.clip,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.6,

@@ -126,7 +126,11 @@ def main():
         buckets = buckets_by_service.get(row["service_id"])
         if not buckets:
             continue
-        trip_info[row["trip_id"]] = (short, buckets)
+        # trip_headsign = libellé officiel de direction (« François Mitterrand /
+        # Jamet »). On le préfère au nom du dernier arrêt, qui surreprésente les
+        # services partiels et terminus intermédiaires (cf. tram 1 « Commerce »).
+        disp = (row.get("trip_headsign", "") or "").strip()
+        trip_info[row["trip_id"]] = (short, buckets, norm(disp), disp)
 
     # sched[short][stopNorm][terminusNorm] = {'q': quay, 'd':set, 's':set, 'u':set}
     sched = defaultdict(lambda: defaultdict(dict))
@@ -140,12 +144,15 @@ def main():
         info = trip_info.get(trip_id)
         if not info or not rows:
             return
-        short, tbuckets = info
-        # rows triées par stop_sequence ; terminus = dernier arrêt.
+        short, tbuckets, headsign, disp = info
+        # rows triées par stop_sequence ; direction = trip_headsign officiel,
+        # avec repli sur le dernier arrêt si le headsign manque.
         rows.sort(key=lambda r: r[0])
-        terminus = norm(name_by_stop.get(rows[-1][1], ""))
+        last_name = name_by_stop.get(rows[-1][1], "")
+        terminus = headsign or norm(last_name)
         if not terminus:
             return
+        term_disp = disp or last_name
         term_mins = rows[-1][2]
         for _, stop_id, mins in rows:
             sname = norm(name_by_stop.get(stop_id, ""))
@@ -154,7 +161,8 @@ def main():
             dirmap = sched[short][sname]
             cell = dirmap.get(terminus)
             if cell is None:
-                cell = {"q": stop_id, "d": set(), "s": set(), "u": set()}
+                cell = {"q": stop_id, "t": term_disp,
+                        "d": set(), "s": set(), "u": set()}
                 dirmap[terminus] = cell
             for b in tbuckets:
                 cell[b].add(mins)
@@ -193,6 +201,8 @@ def main():
             out_dirs = {}
             for term, cell in dirs.items():
                 entry = {"q": cell["q"]}
+                if cell.get("t"):
+                    entry["t"] = cell["t"]
                 for b in ("d", "s", "u"):
                     if cell[b]:
                         entry[b] = sorted(cell[b])

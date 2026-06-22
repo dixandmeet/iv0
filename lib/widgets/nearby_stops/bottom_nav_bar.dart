@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class BottomNavBar extends StatelessWidget {
@@ -102,7 +102,7 @@ class BottomNavBar extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 label,
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 11,
                   fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
                   color: itemColor,

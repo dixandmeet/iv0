@@ -6,6 +6,8 @@ import {
   AlertTriangle,
   BarChart3,
   Bus,
+  ClipboardList,
+  MapPin,
   Megaphone,
   MessageSquare,
   Radio,
@@ -30,6 +32,13 @@ const links: NavLink[] = [
     isActive: (pathname) =>
       pathname === "/dashboard" || pathname.startsWith("/dashboard/"),
   },
+  {
+    href: "/stations",
+    label: "Stations",
+    icon: MapPin,
+    isActive: (pathname) =>
+      pathname === "/stations" || pathname.startsWith("/stations/"),
+  },
   { href: "/alertes", label: "Alertes", icon: AlertTriangle },
   { href: "/incidents", label: "Incidents", icon: Shield },
   { href: "/conducteurs", label: "Conducteurs", icon: Users },
@@ -37,7 +46,7 @@ const links: NavLink[] = [
   { href: "/communication", label: "Communication", icon: MessageSquare },
   { href: "/info-voyageur", label: "Info voyageurs", icon: Megaphone },
   { href: "/reporting", label: "Reporting", icon: BarChart3 },
-  { href: "/missions", label: "Missions MSR", icon: Shield },
+  { href: "/missions", label: "Missions MSR", icon: ClipboardList },
   { href: "#", label: "Paramètres", icon: Settings },
 ];
 

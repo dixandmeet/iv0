@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// En-tête de la page détail arrêt : nom de l'arrêt + retour accueil.
@@ -42,7 +42,7 @@ class StopDetailHeader extends StatelessWidget {
         isDark ? const Color(0x17FFFFFF) : const Color(0xFFE7EAF0);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       child: Row(
         children: [
           Semantics(
@@ -55,8 +55,8 @@ class StopDetailHeader extends StatelessWidget {
                 onTap: onBack,
                 customBorder: const CircleBorder(),
                 child: Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: borderCol),
@@ -88,15 +88,15 @@ class StopDetailHeader extends StatelessWidget {
                   stopName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 22,
+                  style: hankenGrotesk(
+                    fontSize: 20,
                     fontWeight: FontWeight.w800,
                     color: primaryTextColor,
-                    height: 1.2,
+                    height: 1.15,
                   ),
                 ),
                 if (meta != null) ...[
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 1),
                   Row(
                     children: [
                       Icon(LucideIcons.footprints,
@@ -107,7 +107,7 @@ class StopDetailHeader extends StatelessWidget {
                           meta!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.hankenGrotesk(
+                          style: hankenGrotesk(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: mutedTextColor,
@@ -137,8 +137,8 @@ class StopDetailHeader extends StatelessWidget {
                   onTap: onToggleFavorite,
                   customBorder: const CircleBorder(),
                   child: Container(
-                    width: 44,
-                    height: 44,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: borderCol),

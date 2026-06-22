@@ -15,7 +15,10 @@ import { computePunctualityRate, sumActiveUsers } from "@/lib/alerts";
 import type { RegulationLine } from "@/lib/regulation-mock-data";
 import { gtfsRouteIdFromLineId } from "@/lib/depot-lines";
 
-export function useRegulationDashboard(selectedLineId: string | null) {
+export function useRegulationDashboard(
+  selectedLineId: string | null,
+  selectedVariantByLine: Record<string, string> = {},
+) {
   const { fleet, incidents, loading, error, lastUpdated, refresh } =
     useOperationsData();
   const { drivers } = useDriversData();
@@ -57,10 +60,15 @@ export function useRegulationDashboard(selectedLineId: string | null) {
     return fleet.find((v) => v.route_id === gtfsRouteId)?.trip_id ?? null;
   }, [fleet, effectiveLineId]);
 
-  const { timelineStops, loading: timelineLoading, error: timelineError } =
+  const selectedVariantId = effectiveLineId
+    ? selectedVariantByLine[effectiveLineId] ?? null
+    : null;
+
+  const { topology, timelineStops, loading: timelineLoading, error: timelineError } =
     useRouteTimeline({
       routeId: effectiveLineId,
       preferredTripId,
+      selectedVariantId,
     });
 
   const alerts = useMemo(
@@ -83,6 +91,16 @@ export function useRegulationDashboard(selectedLineId: string | null) {
     return enrichLineWithTimeline(base, timelineStops, fleetOnRoute);
   }, [lines, effectiveLineId, timelineStops, fleet]);
 
+  const fleetOnRoute = useMemo(() => {
+    const base =
+      lines.find((line) => line.id === effectiveLineId) ??
+      lines[0] ??
+      null;
+    if (!base) return [];
+    const gtfsRouteId = base.routeId ?? gtfsRouteIdFromLineId(base.id);
+    return fleet.filter((v) => v.route_id === gtfsRouteId);
+  }, [lines, effectiveLineId, fleet]);
+
   const connectedDrivers = drivers.filter(
     (d) => d.status === "active" || d.status === "paused",
   ).length;
@@ -95,6 +113,9 @@ export function useRegulationDashboard(selectedLineId: string | null) {
     lines,
     selectedLine,
     fleet,
+    fleetOnRoute,
+    topology,
+    timelineStops,
     incidents,
     alerts,
     loading: loading || gtfsLoading,

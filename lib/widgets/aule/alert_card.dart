@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 import '../../models/aule_models.dart';
 import '../../theme/aule_theme.dart';
@@ -51,7 +51,7 @@ class AlertCard extends StatelessWidget {
               children: [
                 Text(
                   alert.type.toUpperCase(),
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.5,
@@ -61,7 +61,7 @@ class AlertCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   alert.text,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     height: 1.4,

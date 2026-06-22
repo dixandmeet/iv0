@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Bottom sheet « Tram en approche » — alerte in-app.
@@ -85,7 +85,7 @@ class ApproachAlertSheet extends StatelessWidget {
             Text(
               '🚋 Tram en approche !',
               textAlign: TextAlign.center,
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: const Color(0xFF0B1220),
@@ -96,7 +96,7 @@ class ApproachAlertSheet extends StatelessWidget {
             Text(
               'Le tram $lineCode en direction de $direction arrive à $stopName dans 1 minute.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFF5B6677),
@@ -119,7 +119,7 @@ class ApproachAlertSheet extends StatelessWidget {
                 ),
                 child: Text(
                   'Voir le tram sur la carte',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
@@ -131,7 +131,7 @@ class ApproachAlertSheet extends StatelessWidget {
               onPressed: onDismiss,
               child: Text(
                 'Ok, merci',
-                style: GoogleFonts.hankenGrotesk(
+                style: hankenGrotesk(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF9AA4B2),

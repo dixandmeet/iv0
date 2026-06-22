@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../models/line_detail_models.dart';
@@ -164,7 +164,7 @@ class _Row extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         color: primaryText,
@@ -173,7 +173,7 @@ class _Row extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: GoogleFonts.hankenGrotesk(
+                      style: hankenGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: mutedText,
@@ -204,7 +204,7 @@ class _OkBadge extends StatelessWidget {
       ),
       child: Text(
         'Ok',
-        style: GoogleFonts.hankenGrotesk(
+        style: hankenGrotesk(
           fontSize: 10,
           fontWeight: FontWeight.w800,
           color: const Color(0xFF16A34A),

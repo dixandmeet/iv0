@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Timeline verticale de progression — arrêts passés, position utilisateur, véhicule.
@@ -46,7 +46,7 @@ class VehicleVerticalTimeline extends StatelessWidget {
           children: [
             Text(
               'Progression du trajet',
-              style: GoogleFonts.hankenGrotesk(
+              style: hankenGrotesk(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
                 color: _primaryText,
@@ -152,7 +152,7 @@ class _StopRow extends StatelessWidget {
         Expanded(
           child: Text(
             displayName,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: isUser || isAlight ? 15 : 14,
               fontWeight: isUser || isAlight ? FontWeight.w800 : FontWeight.w600,
               color: isAlight
@@ -166,7 +166,7 @@ class _StopRow extends StatelessWidget {
         if (time != null)
           Text(
             time!,
-            style: GoogleFonts.hankenGrotesk(
+            style: hankenGrotesk(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: isPast
@@ -317,7 +317,7 @@ class _VehicleTimelineMarker extends StatelessWidget {
           const SizedBox(width: 14),
           Text(
             '🚋',
-            style: GoogleFonts.hankenGrotesk(fontSize: 14),
+            style: hankenGrotesk(fontSize: 14),
           ),
         ],
       ),

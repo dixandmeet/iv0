@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import 'app_fonts.dart';
 
 /// Tokens de design Aule — thème clair et sombre.
 class AuleColors {
@@ -198,36 +199,36 @@ class AuleTheme extends InheritedWidget {
 }
 
 TextTheme auleTextTheme(AuleColors c) {
-  final base = GoogleFonts.hankenGroteskTextTheme();
+  final base = hankenGroteskTextTheme();
   return base.apply(
     bodyColor: c.text,
     displayColor: c.text,
   ).copyWith(
-    displayLarge: GoogleFonts.hankenGrotesk(
+    displayLarge: hankenGrotesk(
       fontSize: 32,
       fontWeight: FontWeight.w800,
       letterSpacing: -1.4,
       color: c.text,
       fontFeatures: const [FontFeature.tabularFigures()],
     ),
-    headlineMedium: GoogleFonts.hankenGrotesk(
+    headlineMedium: hankenGrotesk(
       fontSize: 19,
       fontWeight: FontWeight.w800,
       letterSpacing: -0.5,
       color: c.text,
     ),
-    titleMedium: GoogleFonts.hankenGrotesk(
+    titleMedium: hankenGrotesk(
       fontSize: 16,
       fontWeight: FontWeight.w700,
       letterSpacing: -0.2,
       color: c.text,
     ),
-    bodyMedium: GoogleFonts.hankenGrotesk(
+    bodyMedium: hankenGrotesk(
       fontSize: 14,
       fontWeight: FontWeight.w600,
       color: c.muted,
     ),
-    labelSmall: GoogleFonts.hankenGrotesk(
+    labelSmall: hankenGrotesk(
       fontSize: 12,
       fontWeight: FontWeight.w600,
       color: c.muted,
@@ -240,7 +241,7 @@ ThemeData buildAuleTheme({required bool isDark}) {
   return ThemeData(
     brightness: isDark ? Brightness.dark : Brightness.light,
     scaffoldBackgroundColor: c.bg,
-    fontFamily: GoogleFonts.hankenGrotesk().fontFamily,
+    fontFamily: kHankenGroteskFamily,
     textTheme: auleTextTheme(c),
     splashFactory: NoSplash.splashFactory,
     splashColor: Colors.transparent,

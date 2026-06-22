@@ -1,18 +1,68 @@
 "use client";
 
-import { ChevronDown, Megaphone, MoreHorizontal, ShieldAlert } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import {
+  ChevronDown,
+  Map,
+  Megaphone,
+  MoreHorizontal,
+  Pencil,
+  ShieldAlert,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import {
   type RegulationLine,
   lineStatusColor,
   lineStatusLabel,
 } from "@/lib/regulation-mock-data";
+import type { LineTopology } from "@/lib/line-topology";
 
 interface LineDetailHeaderProps {
   line: RegulationLine;
+  topology?: LineTopology | null;
+  onOpenEditor?: () => void;
+  onEditLineInfo?: () => void;
 }
 
-export function LineDetailHeader({ line }: LineDetailHeaderProps) {
+function lineRouteTitle(line: RegulationLine, topology?: LineTopology | null): string {
+  if (!topology?.isComplex || topology.variants.length < 2) {
+    return `${line.origin} ↔ ${line.destination}`;
+  }
+
+  const origins = [...new Set(topology.variants.map((v) => v.origin))];
+  const destinations = [
+    ...new Set(topology.variants.map((v) => v.destination)),
+  ].filter((d) => !origins.includes(d));
+
+  if (origins.length === 1 && destinations.length > 1) {
+    return `${origins[0]} ↔ ${destinations.join(" / ")}`;
+  }
+
+  return topology.variants.map((v) => v.label).join(" · ");
+}
+
+export function LineDetailHeader({
+  line,
+  topology,
+  onOpenEditor,
+  onEditLineInfo,
+}: LineDetailHeaderProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
   return (
     <div className="regulation-line-header">
       <div className="regulation-line-header-main">
@@ -25,7 +75,7 @@ export function LineDetailHeader({ line }: LineDetailHeaderProps) {
           </span>
           <div>
             <h1 className="text-lg font-semibold text-white">
-              {line.origin} ↔ {line.destination}
+              {lineRouteTitle(line, topology)}
             </h1>
             <p className="mt-0.5 text-sm text-[#94A3B8]">
               {line.transportType} · {line.stopCount} arrêts · {line.vehicleCount}{" "}
@@ -45,6 +95,16 @@ export function LineDetailHeader({ line }: LineDetailHeaderProps) {
         </div>
 
         <div className="regulation-line-actions">
+          {onOpenEditor && (
+            <button
+              type="button"
+              className="regulation-btn-outline regulation-btn-editor"
+              onClick={onOpenEditor}
+            >
+              <Map className="h-4 w-4" />
+              Éditeur carte
+            </button>
+          )}
           <button type="button" className="regulation-btn-outline">
             <Megaphone className="h-4 w-4" />
             Envoyer une info
@@ -53,11 +113,37 @@ export function LineDetailHeader({ line }: LineDetailHeaderProps) {
             <ShieldAlert className="h-4 w-4" />
             Déclarer un incident
           </button>
-          <button type="button" className="regulation-btn-ghost">
-            <MoreHorizontal className="h-4 w-4" />
-            Plus d&apos;actions
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
+          <div className="regulation-actions-menu-wrap" ref={menuRef}>
+            <button
+              type="button"
+              className={`regulation-btn-ghost${menuOpen ? " active" : ""}`}
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+              Plus d&apos;actions
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+            {menuOpen && (
+              <div className="regulation-actions-menu" role="menu">
+                {onEditLineInfo && (
+                  <button
+                    type="button"
+                    className="regulation-actions-menu-item"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onEditLineInfo();
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Modifier les informations
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

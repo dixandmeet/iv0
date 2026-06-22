@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 
 import '../services/realtime_config.dart';
 
@@ -24,7 +24,7 @@ class ScheduleSourceBadge extends StatelessWidget {
       ),
       child: Text(
         live ? 'Temps réel' : 'Théorique',
-        style: GoogleFonts.hankenGrotesk(
+        style: hankenGrotesk(
           fontSize: 10,
           fontWeight: FontWeight.w700,
           color: fg,

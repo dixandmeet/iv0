@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 class SearchSection extends StatelessWidget {
   final VoidCallback? onSearchTap;
   final VoidCallback? onLocateTap;
+  final String hintText;
 
   const SearchSection({
     super.key,
     this.onSearchTap,
     this.onLocateTap,
+    this.hintText = 'Destination, adresse, arrêt...',
   });
 
   @override
@@ -58,8 +60,8 @@ class SearchSection extends StatelessWidget {
                   // Center placeholder text
                   Expanded(
                     child: Text(
-                      'Destination, adresse, arrêt...',
-                      style: GoogleFonts.hankenGrotesk(
+                      hintText,
+                      style: hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: mutedTextColor.withValues(alpha: 0.8),

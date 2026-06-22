@@ -111,7 +111,24 @@ supprimés (9 écrans + 2 modèles). `dart analyze` : 0 erreur.
 | **Favoris** | ✅ arrêts **et lignes** favoris persistés (`FavoritesService` + `shared_preferences`), étoile sur `stop_detail` et `line_detail`, `favorites_page.dart` à onglets Arrêts/Lignes, entrée Menu |
 | **Carte interactive** | ✅ **NEW** `network_map_page.dart` (réseau complet : lignes + arrêts + position, tap arrêt → fiche), entrée Menu « Plan du réseau » |
 
-> **Toutes les features MVP listées sont désormais présentes et vérifiées à l'écran**, y compris les **trajets récurrents domicile/travail** (puces « Domicile »/« Travail » de l'écran Itinéraire, configurables + persistées). Restes possibles (polish) : UI « signaler un incident » (backend `ReportService` prêt) ; enrichissement de l'accueil (bannière alertes / départs imminents) ; migration physique vers `features/`.
+> **Toutes les features MVP listées sont désormais présentes et vérifiées à l'écran**, y compris les **trajets récurrents domicile/travail** (puces « Domicile »/« Travail » de l'écran Itinéraire, configurables + persistées). Restes possibles (polish) : UI « signaler un incident » (backend `ReportService` prêt) ; migration physique vers `features/`.
+
+### Complétions 2026-06-18 (lot 3) — Dashboard riche
+
+| Ajout | Détail |
+|---|---|
+| **Bandeau perturbations accueil** | `_DisruptionBanner` dans `home_tab` : affiche le nombre de perturbations en cours, tap → `DisruptionsPage`. Apparaît uniquement si le cache `DisruptionService` contient des alertes actives. |
+| **Section favoris accueil** | `_FavoriteStopCard` : chaque arrêt favori affiche ses 3 prochains passages (badge ligne, destination, temps d'attente color-codé vert/orange/rouge). Tap sur la carte → fiche arrêt, tap sur un passage → fiche ligne. |
+| **Header dynamique** | `HeaderSection` lit désormais `DisruptionService` en temps réel : « Réseau fluide / perturbé » + nombre de lignes impactées (remplace le « 12 véhicules détectés » codé en dur). Salutation contextuelle (matin/après-midi/soir). |
+| **Filtres fiche arrêt** | `StopFilterChips` (Tous · Bus · Tram · Favoris) sur `stop_detail_page` avec masquage intelligent des filtres vides + bouton « Voir tous les départs ». Seuil max 60 min. |
+| **Departure card redesign** | `DepartureCard` avec bande d'accent couleur ligne, badge véhicule (tram/bus), pilule d'attente color-codée (imminent/orange/vert). |
+| **Migration fonts** | `google_fonts` → `app_fonts.dart` (wrapper local Hanken Grotesk) sur l'ensemble des 58 fichiers Dart. |
+| **Lucide icons** | Remplacement des icônes Material par Lucide sur les écrans principaux (accueil, arrêt, favoris, recherche). |
+| **Écran Accessibilité** | `accessibility_page.dart` : liste les arrêts PMR du réseau avec filtres (Accessible / Non accessible / Tous), recherche par nom, tri par proximité. Branché sur l'entrée Menu « Accessibilité » (était un placeholder). |
+| **Filtre perturbations** | `_TypeFilterRow` dans `DisruptionsPage` : chips de filtre par type (Travaux / Retard / Incident…), apparaît dès 4+ perturbations. Header affiche le nombre de lignes impactées. |
+| **Nettoyage orphelins** | Suppression de `mode_filter_bar.dart`, `next_departures_row.dart`, `map_preview_section.dart`, `quick_actions_section.dart` (orphelins après redesign). |
+
+> Validation : `flutter analyze lib/` 0 erreur ; `flutter test` 30/30 vert.
 
 ### Complétions 2026-06-16 (lot 2)
 
@@ -168,7 +185,8 @@ d'où l'incohérence visuelle subtile. Finir la migration Aule de ces écrans su
    (suivi véhicule & arrêts proximité déjà vivants), supprimés. Reste à rebâtir l'UI « signaler
    un incident » en Aule quand priorisée.
 5. ~~**Supprimer `flow_*`**~~ ✅ fait — codebase 100 % sans Flow.
-6. **Trancher l'accueil** : dashboard riche (reconstruit en Aule) vs accueil simple actuel.
+6. ~~**Trancher l'accueil**~~ ✅ fait — dashboard riche : bandeau perturbations, favoris avec
+   prochains départs en temps réel, header état réseau dynamique, recherche inline.
 7. **Fusionner** les écrans de recherche/navigation redondants (reste : `station_search` vs
    recherche d'itinéraire ; `immersive_navigation` vs `itinerary_guidance` se recoupent en partie).
 8. **Déplacer vers `features/`** une feature à la fois (commencer par les plus autonomes).

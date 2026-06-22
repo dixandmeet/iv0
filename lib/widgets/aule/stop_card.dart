@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/app_fonts.dart';
 
 import '../../models/aule_models.dart';
 import '../../theme/aule_theme.dart';
@@ -39,7 +39,7 @@ class StopCard extends StatelessWidget {
                   stop.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.4,
@@ -79,7 +79,7 @@ class StopCard extends StatelessWidget {
                 const SizedBox(width: 5),
                 Text(
                   '${stop.distance} · ${stop.walkTime}',
-                  style: GoogleFonts.hankenGrotesk(
+                  style: hankenGrotesk(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: c.muted,

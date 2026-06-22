@@ -32,6 +32,7 @@ interface FleetMapProps {
   incidentsOnly?: boolean;
   routeFilter?: string;
   showStops?: boolean;
+  compact?: boolean;
 }
 
 function osmStyle(): maplibregl.StyleSpecification {
@@ -66,6 +67,7 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
       incidentsOnly = false,
       routeFilter = "all",
       showStops = true,
+      compact = false,
     },
     ref,
   ) {
@@ -349,23 +351,25 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
     }, [visibleFleet, incidents, incidentsOnly]);
 
     return (
-      <div className="relative h-full w-full min-h-[400px]">
+      <div className={`relative h-full w-full${compact ? "" : " min-h-[400px]"}`}>
         <div ref={containerRef} className="h-full w-full" />
-        <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-border bg-card/90 px-3 py-2 text-xs shadow-sm backdrop-blur-sm">
-          <p className="mb-1.5 font-medium text-foreground">Légende</p>
-          {!incidentsOnly && (
-            <div className="mb-1.5 space-y-1 text-muted-foreground">
-              <LegendDot color="#16a34a" label="Fiabilité ≥ 80%" />
-              <LegendDot color="#ea580c" label="Fiabilité 50–79%" />
-              <LegendDot color="#dc2626" label="Fiabilité < 50%" />
+        {!compact && (
+          <div className="pointer-events-none absolute bottom-3 left-3 rounded-lg border border-border bg-card/90 px-3 py-2 text-xs shadow-sm backdrop-blur-sm">
+            <p className="mb-1.5 font-medium text-foreground">Légende</p>
+            {!incidentsOnly && (
+              <div className="mb-1.5 space-y-1 text-muted-foreground">
+                <LegendDot color="#16a34a" label="Fiabilité ≥ 80%" />
+                <LegendDot color="#ea580c" label="Fiabilité 50–79%" />
+                <LegendDot color="#dc2626" label="Fiabilité < 50%" />
+              </div>
+            )}
+            <div className="space-y-1 text-muted-foreground">
+              <LegendTriangle color="#1b66f5" label="Info" />
+              <LegendTriangle color="#ea580c" label="Alerte" />
+              <LegendTriangle color="#dc2626" label="Critique" />
             </div>
-          )}
-          <div className="space-y-1 text-muted-foreground">
-            <LegendTriangle color="#1b66f5" label="Info" />
-            <LegendTriangle color="#ea580c" label="Alerte" />
-            <LegendTriangle color="#dc2626" label="Critique" />
           </div>
-        </div>
+        )}
       </div>
     );
   },

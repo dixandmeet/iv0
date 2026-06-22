@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardLogo } from "@/components/layout/dashboard-logo";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { DashboardUserCard } from "@/components/layout/dashboard-user-card";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 
 const STORAGE_KEY = "dashboard-sidebar-collapsed";
 
@@ -62,6 +63,7 @@ export function DashboardShell({
             role={role}
             collapsed={collapsed}
           />
+          <SignOutButton collapsed={collapsed} />
         </div>
       </aside>
 

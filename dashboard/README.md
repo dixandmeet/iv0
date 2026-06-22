@@ -49,7 +49,7 @@ WHERE id = '<uuid-auth-user>';
 | `/dashboard` | Carte + flotte live + KPI + alertes |
 | `/alertes` | Centre d'alertes automatiques |
 | `/incidents` | Création, suivi et résolution incidents |
-| `/conducteurs` | Sessions conducteurs actives |
+| `/conducteurs` | Annuaire conducteurs, demandes d'inscription, sessions actives |
 | `/communication` | Messages staff (individuel, groupe, diffusion) |
 | `/info-voyageur` | Publication perturbations et annonces |
 | `/missions` | Missions MSR |

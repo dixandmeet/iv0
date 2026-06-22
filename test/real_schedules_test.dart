@@ -68,6 +68,38 @@ void main() {
     expect(wait, lessThan(60)); // un tram en journée passe sous l'heure
   });
 
+  test(
+      'rattachement ligne→station filtré par les horaires réels : '
+      'Batignolles ne liste pas la 80 (qui s\'arrête à Haluchère)', () {
+    final batignolles = gtfs.cachedStops
+        .firstWhere((s) => s.stopName == 'Batignolles');
+    final station = gtfs.nearbyStationFor(batignolles);
+    expect(station, isNotNull);
+
+    final lines = station!.routes
+        .map((r) => r.routeShortName ?? r.routeId)
+        .toSet();
+
+    // La 80 passe à proximité du tracé mais s'arrête à « Haluchère - Batignolles »,
+    // pas ici : l'index horaire réel ne l'y place pas.
+    expect(lines, isNot(contains('80')));
+    // Les lignes réellement à l'arrêt restent présentes.
+    expect(lines, containsAll(<String>['C6', '75']));
+  });
+
+  test('le plan de ligne suit aussi les horaires réels : '
+      'la 80 dessert Haluchère - Batignolles, pas Batignolles', () {
+    final route = gtfs.cachedRoutes
+        .firstWhere((r) => (r.routeShortName ?? r.routeId) == '80');
+    final stops = gtfs.stopsToward(route, 'Fac de Droit');
+    expect(stops, isNotEmpty);
+
+    final names = stops.map((s) => s.stopName).toSet();
+    expect(names, isNot(contains('Batignolles')));
+    expect(names.any((n) => n.toLowerCase().contains('haluchere') ||
+        n.toLowerCase().contains('haluchère')), isTrue);
+  });
+
   test('pont GTFS-RT : ids GTFS résolus pour le live', () {
     final route = gtfs.cachedRoutes
         .firstWhere((r) => (r.routeShortName ?? r.routeId) == '1');

@@ -56,7 +56,7 @@ export default function AdminPage() {
           <ProFeatureList features={features} />
           <div className="mt-12 text-center">
             <Button asChild size="lg">
-              <Link href="/login">Accéder à l'administration</Link>
+              <Link href="/login">Accéder à l&apos;administration</Link>
             </Button>
           </div>
         </div>

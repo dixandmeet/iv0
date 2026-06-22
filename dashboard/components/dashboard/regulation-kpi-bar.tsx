@@ -5,14 +5,13 @@ import {
   Bell,
   Bus,
   Clock,
-  LogOut,
   RefreshCw,
   ShieldAlert,
   UserCheck,
   Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { createClient } from "@/lib/supabase/client";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 import { formatKpiNumber } from "@/lib/regulation-data";
 
 interface RegulationKpis {
@@ -83,12 +82,6 @@ export function RegulationKpiBar({
     },
   ];
 
-  async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    window.location.href = "/login";
-  }
-
   return (
     <header className="regulation-kpi-bar">
       <div className="regulation-kpi-grid">
@@ -131,14 +124,7 @@ export function RegulationKpiBar({
             </span>
           )}
         </button>
-        <button
-          type="button"
-          className="regulation-action-btn"
-          onClick={signOut}
-          aria-label="Déconnexion"
-        >
-          <LogOut className="h-[18px] w-[18px]" />
-        </button>
+        <SignOutButton variant="icon" />
       </div>
     </header>
   );

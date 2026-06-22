@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { Bus } from "lucide-react";
 import type { FleetSource, LiveFleetPosition } from "@/lib/types";
 import { reliabilityColor, sourceLabel } from "@/lib/types";

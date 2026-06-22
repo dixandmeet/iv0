@@ -86,6 +86,9 @@ class GtfsStop {
   final String stopName;
   final LatLng position;
 
+  /// Clé station voyageur (référence tan_stations.json `i`).
+  final String? stationId;
+
   /// Accessibilité PMR (GTFS wheelchair_boarding) :
   /// 0 inconnu, 1 accessible, 2 non accessible.
   final int wheelchairBoarding;
@@ -94,6 +97,7 @@ class GtfsStop {
     required this.stopId,
     required this.stopName,
     required this.position,
+    this.stationId,
     this.wheelchairBoarding = 0,
   });
 
@@ -136,7 +140,7 @@ class GtfsStop {
     );
   }
 
-  /// Construit un arrêt depuis l'asset TAN compact ({i,n,la,lo,lt,w}).
+  /// Construit un arrêt depuis l'asset TAN compact ({i,n,la,lo,lt,w,sid?}).
   factory GtfsStop.fromAsset(Map<String, dynamic> json) {
     return GtfsStop(
       stopId: json['i'] as String,
@@ -145,9 +149,41 @@ class GtfsStop {
         (json['la'] as num).toDouble(),
         (json['lo'] as num).toDouble(),
       ),
+      stationId: json['sid'] as String?,
       wheelchairBoarding: (json['w'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+/// Lieu voyageur (station) depuis tan_stations.json ({i,n,la,lo}).
+class GtfsStation {
+  final String stationId;
+  final String name;
+  final LatLng position;
+
+  GtfsStation({
+    required this.stationId,
+    required this.name,
+    required this.position,
+  });
+
+  factory GtfsStation.fromAsset(Map<String, dynamic> json) {
+    return GtfsStation(
+      stationId: json['i'] as String,
+      name: json['n'] as String,
+      position: LatLng(
+        (json['la'] as num).toDouble(),
+        (json['lo'] as num).toDouble(),
+      ),
+    );
+  }
+
+  GtfsStop toMapStop() => GtfsStop(
+        stopId: stationId,
+        stopName: name,
+        position: position,
+        stationId: stationId,
+      );
 }
 
 class GtfsShape {
