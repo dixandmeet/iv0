@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Votre position sert à transmettre la localisation du véhicule pendant votre service et à géolocaliser vos missions terrain.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>L'accès en arrière-plan permet de continuer à transmettre la position du véhicule pendant un service, même quand l'app est en arrière-plan.</string>
 </dict>
 </plist>
