@@ -112,7 +112,7 @@ class OperatorRealtimeService {
       }
       return best;
     } catch (e) {
-      debugPrint('Wazibus: SIRI-Lite stop monitoring failed ($e)');
+      debugPrint('Aule: SIRI-Lite stop monitoring failed ($e)');
       return null;
     }
   }
@@ -149,7 +149,7 @@ class OperatorRealtimeService {
       }
       return best;
     } catch (e) {
-      debugPrint('Wazibus: legacy TAN API failed ($e)');
+      debugPrint('Aule: legacy TAN API failed ($e)');
       return null;
     }
   }

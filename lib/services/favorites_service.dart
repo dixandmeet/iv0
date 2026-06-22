@@ -55,7 +55,7 @@ class FavoritesService extends ChangeNotifier {
         ..clear()
         ..addAll(prefs.getStringList(_linesKey) ?? const []);
     } catch (e) {
-      debugPrint('Wazibus: favorites load failed ($e)');
+      debugPrint('Aule: favorites load failed ($e)');
     }
     _loaded = true;
     notifyListeners();
@@ -82,7 +82,7 @@ class FavoritesService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(key, values.toList());
     } catch (e) {
-      debugPrint('Wazibus: favorites persist failed ($e)');
+      debugPrint('Aule: favorites persist failed ($e)');
     }
   }
 
@@ -163,7 +163,7 @@ class FavoritesService extends ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint('Wazibus: favorites merge failed ($e)');
+      debugPrint('Aule: favorites merge failed ($e)');
     }
   }
 
@@ -187,7 +187,7 @@ class FavoritesService extends ChangeNotifier {
             .eq('ref_id', refId);
       }
     } catch (e) {
-      debugPrint('Wazibus: favorite remote sync failed ($e)');
+      debugPrint('Aule: favorite remote sync failed ($e)');
     }
   }
 

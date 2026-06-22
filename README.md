@@ -1,6 +1,6 @@
-# Wazibus Nantes MVP 🚍🗺️
+# Aule — Nantes MVP 🚍🗺️
 
-**Wazibus Nantes** est un GPS communautaire temps réel pour les transports en commun de Nantes Métropole (réseau **Naolib**). 
+**Aule** est un GPS communautaire temps réel pour les transports en commun de Nantes Métropole (réseau **Naolib**). 
 L'application permet aux usagers de partager passivement et anonymement leur trajet afin de localiser précisément les bus, trams, navibus et busways sur la carte pour l'ensemble de la communauté.
 
 ---

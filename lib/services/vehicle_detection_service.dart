@@ -53,14 +53,14 @@ class VehicleDetectionService with ChangeNotifier {
     try {
       await _supabaseService.client!.rpc('aggregate_community_vehicles');
     } catch (e) {
-      debugPrint('Wazibus: aggregate_community_vehicles ($e)');
+      debugPrint('Aule: aggregate_community_vehicles ($e)');
     }
 
     try {
       await _supabaseService.client!.rpc('refresh_live_fleet_positions');
       _liveFleetAvailable = true;
     } catch (e) {
-      debugPrint('Wazibus: refresh_live_fleet_positions ($e) — fallback community_vehicles');
+      debugPrint('Aule: refresh_live_fleet_positions ($e) — fallback community_vehicles');
       _liveFleetAvailable = false;
     }
 
@@ -89,7 +89,7 @@ class VehicleDetectionService with ChangeNotifier {
           _livePositions.map(CommunityVehicle.fromLiveFleet).toList();
       notifyListeners();
     } catch (e) {
-      debugPrint('Wazibus: live_fleet_positions fetch failed ($e) — fallback');
+      debugPrint('Aule: live_fleet_positions fetch failed ($e) — fallback');
       _liveFleetAvailable = false;
       await _fetchCommunityVehiclesFallback();
     }
@@ -107,7 +107,7 @@ class VehicleDetectionService with ChangeNotifier {
           .toList();
       notifyListeners();
     } catch (e) {
-      debugPrint('Wazibus: community_vehicles fetch failed ($e)');
+      debugPrint('Aule: community_vehicles fetch failed ($e)');
     }
   }
 

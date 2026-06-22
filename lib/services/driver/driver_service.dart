@@ -100,7 +100,7 @@ class DriverService with ChangeNotifier {
         await _loadCurrentService();
       }
     } catch (e) {
-      debugPrint('Wazibus: driver load error ($e)');
+      debugPrint('Aule: driver load error ($e)');
       _driver = null;
     }
 
@@ -144,7 +144,7 @@ class DriverService with ChangeNotifier {
         await _startGpsTracking();
       }
     } catch (e) {
-      debugPrint('Wazibus: current service load error ($e)');
+      debugPrint('Aule: current service load error ($e)');
     }
   }
 
@@ -219,7 +219,7 @@ class DriverService with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('Wazibus: takeService error ($e)');
+      debugPrint('Aule: takeService error ($e)');
       _errorMessage = 'Impossible de prendre le service ($e)';
       _busy = false;
       notifyListeners();
@@ -261,7 +261,7 @@ class DriverService with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('Wazibus: endService error ($e)');
+      debugPrint('Aule: endService error ($e)');
       _errorMessage = 'Impossible de terminer le service ($e)';
       _busy = false;
       notifyListeners();
@@ -298,7 +298,7 @@ class DriverService with ChangeNotifier {
         _lastPosition = pos;
         notifyListeners();
       },
-      onError: (err) => debugPrint('Wazibus: driver gps stream error ($err)'),
+      onError: (err) => debugPrint('Aule: driver gps stream error ($err)'),
     );
 
     // Envoi régulier (toutes les 10 s) tant que le service est actif.
@@ -359,7 +359,7 @@ class DriverService with ChangeNotifier {
       });
     } catch (e) {
       // Erreur réseau : on n'interrompt pas le service, on réessaiera au tick suivant.
-      debugPrint('Wazibus: vehicle_positions upload failed ($e)');
+      debugPrint('Aule: vehicle_positions upload failed ($e)');
     }
   }
 
@@ -369,7 +369,7 @@ class DriverService with ChangeNotifier {
     try {
       await client.from('drivers').update({'status': status}).eq('id', _driver!.id);
     } catch (e) {
-      debugPrint('Wazibus: driver status update failed ($e)');
+      debugPrint('Aule: driver status update failed ($e)');
     }
   }
 

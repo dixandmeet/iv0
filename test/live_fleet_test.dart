@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wazibus_nantes/models/community_vehicle.dart';
-import 'package:wazibus_nantes/models/live_fleet_position.dart';
+import 'package:aule/models/community_vehicle.dart';
+import 'package:aule/models/live_fleet_position.dart';
 
 void main() {
   test('LiveFleetPosition.fromJson parse GeoJSON et score fiabilité', () {

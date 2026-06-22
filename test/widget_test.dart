@@ -1,4 +1,4 @@
-// Tests unitaires de la logique métier de Wazibus Nantes.
+// Tests unitaires de la logique métier d'Aule.
 //
 // On évite ici un test de widget complet (pumpWidget) car l'application
 // dépend de plugins natifs (SharedPreferences, Supabase, Geolocator) qui ne
@@ -9,9 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 
-import 'package:wazibus_nantes/models/community_vehicle.dart';
-import 'package:wazibus_nantes/models/report.dart';
-import 'package:wazibus_nantes/services/map_service.dart';
+import 'package:aule/models/community_vehicle.dart';
+import 'package:aule/models/report.dart';
+import 'package:aule/services/map_service.dart';
 
 void main() {
   group('CommunityVehicle.reliabilityLevel', () {

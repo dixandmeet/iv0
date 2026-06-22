@@ -31,21 +31,24 @@ class SupabaseService with ChangeNotifier {
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Génère ou récupère un ID unique anonyme pour l'appareil
-    _deviceId = prefs.getString('wazibus_device_id');
-    if (_deviceId == null) {
-      _deviceId = const Uuid().v4();
-      await prefs.setString('wazibus_device_id', _deviceId!);
-    }
+    // Génère ou récupère un ID unique anonyme pour l'appareil.
+    // Repli sur les anciennes clés `wazibus_*` pour préserver l'identité device
+    // et le consentement des installs existants après le rebrand Aule.
+    _deviceId =
+        prefs.getString('aule_device_id') ?? prefs.getString('wazibus_device_id');
+    _deviceId ??= const Uuid().v4();
+    await prefs.setString('aule_device_id', _deviceId!);
 
-    _consentBackground = prefs.getBool('wazibus_consent_background') ?? false;
+    _consentBackground = prefs.getBool('aule_consent_background') ??
+        prefs.getBool('wazibus_consent_background') ??
+        false;
 
     // Tentative d'initialisation de Supabase
     try {
       if (_urlKey.contains('your-supabase-project') || _publishableKey.contains('your-anon-public-key')) {
         // Aucune clé Supabase configurée : on reste hors-ligne (données TAN locales).
         _isOfflineMode = true;
-        debugPrint('Wazibus: Supabase keys not set. Running offline (local TAN data).');
+        debugPrint('Aule: Supabase keys not set. Running offline (local TAN data).');
       } else {
         await Supabase.initialize(
           url: _urlKey,
@@ -53,14 +56,14 @@ class SupabaseService with ChangeNotifier {
         );
         _client = Supabase.instance.client;
         _isOfflineMode = false;
-        debugPrint('Wazibus: Supabase initialized successfully.');
+        debugPrint('Aule: Supabase initialized successfully.');
 
         // Connexion anonyme
         await _authenticateAnonymously();
       }
     } catch (e) {
       _isOfflineMode = true;
-      debugPrint('Wazibus: Failed to initialize Supabase ($e). Falling back to offline (local TAN data).');
+      debugPrint('Aule: Failed to initialize Supabase ($e). Falling back to offline (local TAN data).');
     }
   }
 
@@ -73,13 +76,13 @@ class SupabaseService with ChangeNotifier {
       final session = _client!.auth.currentSession;
       if (session == null) {
         final AuthResponse res = await _client!.auth.signInAnonymously();
-        debugPrint('Wazibus: Logged in anonymously as ${res.user?.id}');
+        debugPrint('Aule: Logged in anonymously as ${res.user?.id}');
       }
 
       // Enregistre l'appareil dans la table anonymous_devices
       await _registerDeviceInDatabase();
     } catch (e) {
-      debugPrint('Wazibus: Auth error ($e). Switching to offline (local TAN data).');
+      debugPrint('Aule: Auth error ($e). Switching to offline (local TAN data).');
       _isOfflineMode = true;
     }
   }
@@ -100,9 +103,9 @@ class SupabaseService with ChangeNotifier {
           .single();
       
       _deviceUuid = res['id'] as String;
-      debugPrint('Wazibus: Device registered in DB with UUID: $_deviceUuid');
+      debugPrint('Aule: Device registered in DB with UUID: $_deviceUuid');
     } catch (e) {
-      debugPrint('Wazibus: Error registering device in DB ($e)');
+      debugPrint('Aule: Error registering device in DB ($e)');
     }
   }
 
@@ -110,7 +113,7 @@ class SupabaseService with ChangeNotifier {
   Future<void> updateBackgroundConsent(bool consented) async {
     _consentBackground = consented;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('wazibus_consent_background', consented);
+    await prefs.setBool('aule_consent_background', consented);
 
     if (!_isOfflineMode && _client != null) {
       try {
@@ -119,7 +122,7 @@ class SupabaseService with ChangeNotifier {
           'last_seen_at': DateTime.now().toIso8601String(),
         }).eq('device_token', deviceId);
       } catch (e) {
-        debugPrint('Wazibus: Failed to sync consent to DB ($e)');
+        debugPrint('Aule: Failed to sync consent to DB ($e)');
       }
     }
     notifyListeners();

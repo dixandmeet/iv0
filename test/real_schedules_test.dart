@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wazibus_nantes/services/gtfs_service.dart';
-import 'package:wazibus_nantes/services/supabase_service.dart';
+import 'package:aule/services/gtfs_service.dart';
+import 'package:aule/services/supabase_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

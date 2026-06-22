@@ -133,7 +133,7 @@ class GtfsRtService {
       _cache = snapshot;
       return snapshot;
     } catch (e) {
-      debugPrint('Wazibus: GTFS-RT trip-updates failed ($e)');
+      debugPrint('Aule: GTFS-RT trip-updates failed ($e)');
       return _cache;
     }
   }

@@ -166,7 +166,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 24),
             Center(
-              child: Text('Wazibus · Nantes — v1.0.0',
+              child: Text('Aule · Nantes — v1.0.0',
                   style: hankenGrotesk(
                       fontSize: 11,
                       color: c.faint,

@@ -65,7 +65,7 @@ class DriverReportService with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('Wazibus: driver report submit failed ($e)');
+      debugPrint('Aule: driver report submit failed ($e)');
       _errorMessage = 'Échec de l\'envoi du signalement';
       _submitting = false;
       notifyListeners();
@@ -90,7 +90,7 @@ class DriverReportService with ChangeNotifier {
           .toList();
       notifyListeners();
     } catch (e) {
-      debugPrint('Wazibus: driver reports fetch failed ($e)');
+      debugPrint('Aule: driver reports fetch failed ($e)');
     }
   }
 }

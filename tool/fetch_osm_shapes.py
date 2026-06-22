@@ -83,7 +83,7 @@ def fetch_overpass(cache_path):
     req = urllib.request.Request(
         OVERPASS_URL,
         data=('data=' + urllib.parse.quote(QUERY)).encode(),
-        headers={'User-Agent': 'wazibus-shape-builder/1.0'},
+        headers={'User-Agent': 'aule-shape-builder/1.0'},
     )
     t0 = time.time()
     with urllib.request.urlopen(req, timeout=300) as resp:

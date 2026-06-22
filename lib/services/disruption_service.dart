@@ -143,7 +143,7 @@ class DisruptionService extends ChangeNotifier {
       }
       return out;
     } catch (e) {
-      debugPrint('Wazibus: official disruptions fetch failed ($e)');
+      debugPrint('Aule: official disruptions fetch failed ($e)');
       return const [];
     }
   }

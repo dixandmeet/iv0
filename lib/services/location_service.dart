@@ -28,7 +28,7 @@ class LocationService with ChangeNotifier {
   Future<void> initialize() async {
     _serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!_serviceEnabled) {
-      debugPrint('Wazibus: GPS Location services are disabled.');
+      debugPrint('Aule: GPS Location services are disabled.');
       return;
     }
 
@@ -97,7 +97,7 @@ class LocationService with ChangeNotifier {
       notifyListeners();
       return _currentPosition;
     } catch (e) {
-      debugPrint('Wazibus: Error getting position ($e)');
+      debugPrint('Aule: Error getting position ($e)');
       return null;
     }
   }
@@ -124,7 +124,7 @@ class LocationService with ChangeNotifier {
       }
       notifyListeners();
     }, onError: (err) {
-      debugPrint('Wazibus: position watch error ($err)');
+      debugPrint('Aule: position watch error ($err)');
     });
   }
 

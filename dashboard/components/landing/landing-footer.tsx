@@ -74,7 +74,7 @@ export function LandingFooter() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Aule · Wazibus Nantes. Tous droits
+            © {new Date().getFullYear()} Aule. Tous droits
             réservés.
           </p>
           <p className="text-xs text-muted-foreground">

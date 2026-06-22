@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wazibus_nantes/services/gtfs_rt_service.dart';
+import 'package:aule/services/gtfs_rt_service.dart';
 
 // ── Mini-encodeur protobuf pour fabriquer un FeedMessage de test ───────────
 List<int> _varint(int v) {

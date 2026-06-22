@@ -54,7 +54,7 @@ class DriverMessageService with ChangeNotifier {
           .toList();
       _errorMessage = null;
     } catch (e) {
-      debugPrint('Wazibus: driver messages fetch failed ($e)');
+      debugPrint('Aule: driver messages fetch failed ($e)');
       _errorMessage = 'Impossible de charger les messages';
     } finally {
       _loading = false;
@@ -83,7 +83,7 @@ class DriverMessageService with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('Wazibus: driver message send failed ($e)');
+      debugPrint('Aule: driver message send failed ($e)');
       _errorMessage = 'Échec de l\'envoi du message';
       _sending = false;
       notifyListeners();
@@ -118,7 +118,7 @@ class DriverMessageService with ChangeNotifier {
           .toList();
       notifyListeners();
     } catch (e) {
-      debugPrint('Wazibus: mark messages read failed ($e)');
+      debugPrint('Aule: mark messages read failed ($e)');
     }
   }
 }

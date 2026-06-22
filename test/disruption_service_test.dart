@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:wazibus_nantes/services/disruption_service.dart';
+import 'package:aule/services/disruption_service.dart';
 
 /// Réponse ODS réduite, fidèle au format observé sur l'API info-trafic.
 const _sampleBody = '''

@@ -28,13 +28,13 @@ class PassiveTrackingService with ChangeNotifier {
     // Sans backend live, la contribution communautaire est impossible
     // (rien à téléverser) : on n'active donc pas le suivi.
     if (_supabaseService.isOfflineMode) {
-      debugPrint('Wazibus: Tracking unavailable offline (no live backend).');
+      debugPrint('Aule: Tracking unavailable offline (no live backend).');
       return;
     }
 
     // Vérifie le consentement de l'utilisateur
     if (!_supabaseService.consentBackground) {
-      debugPrint('Wazibus: Tracking failed to start: No background consent.');
+      debugPrint('Aule: Tracking failed to start: No background consent.');
       return;
     }
 
@@ -42,7 +42,7 @@ class PassiveTrackingService with ChangeNotifier {
     notifyListeners();
 
     _startRealTracking();
-    debugPrint('Wazibus: Passive tracking started.');
+    debugPrint('Aule: Passive tracking started.');
   }
 
   // Arrêter le suivi passif
@@ -54,7 +54,7 @@ class PassiveTrackingService with ChangeNotifier {
     _positionSubscription = null;
 
     notifyListeners();
-    debugPrint('Wazibus: Passive tracking stopped.');
+    debugPrint('Aule: Passive tracking stopped.');
   }
 
   // Lancement du suivi sur le GPS réel
@@ -62,7 +62,7 @@ class PassiveTrackingService with ChangeNotifier {
     _positionSubscription = _locationService.getPositionStream().listen((Position position) {
       _handleNewPosition(position);
     }, onError: (err) {
-      debugPrint('Wazibus: Real tracking stream error: $err');
+      debugPrint('Aule: Real tracking stream error: $err');
     });
   }
 
@@ -86,7 +86,7 @@ class PassiveTrackingService with ChangeNotifier {
       estimatedState: state,
     );
 
-    debugPrint('Wazibus Tracking Event: ${position.latitude}, ${position.longitude} | Speed: ${position.speed} m/s | State: $state');
+    debugPrint('Aule Tracking Event: ${position.latitude}, ${position.longitude} | Speed: ${position.speed} m/s | State: $state');
 
     // 2. Téléversement vers Supabase
     if (!_supabaseService.isOfflineMode && _supabaseService.client != null) {
@@ -104,9 +104,9 @@ class PassiveTrackingService with ChangeNotifier {
           'timestamp': event.timestamp.toIso8601String(),
           'estimated_state': event.estimatedState,
         });
-        debugPrint('Wazibus: Uploaded location to Supabase.');
+        debugPrint('Aule: Uploaded location to Supabase.');
       } catch (e) {
-        debugPrint('Wazibus: Failed to upload location event ($e)');
+        debugPrint('Aule: Failed to upload location event ($e)');
       }
     }
   }

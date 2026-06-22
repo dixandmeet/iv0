@@ -29,7 +29,7 @@ void main() async {
   try {
     await locationService.initialize();
   } catch (e) {
-    debugPrint('Wazibus: Location init failed ($e). Continuing without GPS.');
+    debugPrint('Aule: Location init failed ($e). Continuing without GPS.');
   }
 
   final passiveTrackingService = PassiveTrackingService(
@@ -113,13 +113,13 @@ void main() async {
               previous ?? DriverMessageService(supabaseService: supabase),
         ),
       ],
-      child: const WazibusApp(),
+      child: const AuleApp(),
     ),
   );
 }
 
-class WazibusApp extends StatelessWidget {
-  const WazibusApp({super.key});
+class AuleApp extends StatelessWidget {
+  const AuleApp({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,4 @@
-package com.example.wazibus_nantes
+package io.aule.app
 
 import io.flutter.embedding.android.FlutterActivity
 

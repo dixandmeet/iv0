@@ -208,9 +208,9 @@ class GtfsService with ChangeNotifier {
         }
       }
       _displayShapesCache.clear();
-      debugPrint('Wazibus: ${_cachedRoutes.length} lignes TAN chargées (assets).');
+      debugPrint('Aule: ${_cachedRoutes.length} lignes TAN chargées (assets).');
     } catch (e) {
-      debugPrint('Wazibus: Error loading TAN routes asset ($e)');
+      debugPrint('Aule: Error loading TAN routes asset ($e)');
       _cachedRoutes = [];
     }
     await _loadSchedules();
@@ -235,9 +235,9 @@ class GtfsService with ChangeNotifier {
         };
       }
       final lines = _sched?.length ?? 0;
-      debugPrint('Wazibus: horaires réels chargés ($lines lignes).');
+      debugPrint('Aule: horaires réels chargés ($lines lignes).');
     } catch (e) {
-      debugPrint('Wazibus: Error loading real schedules ($e)');
+      debugPrint('Aule: Error loading real schedules ($e)');
       _sched = null;
     } finally {
       _schedulesReady = true;
@@ -414,16 +414,16 @@ class GtfsService with ChangeNotifier {
             _stationOfStopId[stop.stopId] = stationByKey[sid]!;
           }
         }
-        debugPrint('Wazibus: ${all.length} arrêts TAN, '
+        debugPrint('Aule: ${all.length} arrêts TAN, '
             '${_cachedStations.length} stations (assets).');
       } catch (_) {
         _cachedStations = [];
         _cachedStops = _clusterStations(all);
-        debugPrint('Wazibus: ${all.length} arrêts TAN '
+        debugPrint('Aule: ${all.length} arrêts TAN '
             '(${_cachedStops.length} stations cluster) chargés (assets).');
       }
     } catch (e) {
-      debugPrint('Wazibus: Error loading TAN stops asset ($e)');
+      debugPrint('Aule: Error loading TAN stops asset ($e)');
       _cachedStops = [];
       _allStops = [];
       _cachedStations = [];
@@ -1516,7 +1516,7 @@ class GtfsService with ChangeNotifier {
       return _searchItineraryLocal(start, dest,
           userPosition: userPosition, now: now);
     } catch (e) {
-      debugPrint('Wazibus: Error performing routing RPC ($e). Falling back to local routing.');
+      debugPrint('Aule: Error performing routing RPC ($e). Falling back to local routing.');
       return _searchItineraryLocal(start, dest,
           userPosition: userPosition, now: now);
     }
@@ -2195,7 +2195,7 @@ class GtfsService with ChangeNotifier {
     }
 
     _graphBuilt = true;
-    debugPrint('Wazibus: graphe réseau construit '
+    debugPrint('Aule: graphe réseau construit '
         '(${_routesByStationId.length} stations desservies).');
   }
 }

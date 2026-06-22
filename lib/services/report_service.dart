@@ -54,7 +54,7 @@ class ReportService with ChangeNotifier {
       _communityReports =
           (response as List).map((x) => Report.fromJson(x)).toList();
     } catch (e) {
-      debugPrint('Wazibus: Error fetching reports ($e)');
+      debugPrint('Aule: Error fetching reports ($e)');
     }
     _officialReports = official;
     notifyListeners();
@@ -103,7 +103,7 @@ class ReportService with ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('Wazibus: Error submitting report ($e)');
+      debugPrint('Aule: Error submitting report ($e)');
       return false;
     }
   }

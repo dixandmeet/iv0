@@ -3,12 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
-import 'package:wazibus_nantes/screens/line_detail_page.dart';
-import 'package:wazibus_nantes/services/disruption_service.dart';
-import 'package:wazibus_nantes/services/favorites_service.dart';
-import 'package:wazibus_nantes/services/gtfs_service.dart';
-import 'package:wazibus_nantes/services/location_service.dart';
-import 'package:wazibus_nantes/services/supabase_service.dart';
+import 'package:aule/screens/line_detail_page.dart';
+import 'package:aule/services/disruption_service.dart';
+import 'package:aule/services/favorites_service.dart';
+import 'package:aule/services/gtfs_service.dart';
+import 'package:aule/services/location_service.dart';
+import 'package:aule/services/supabase_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

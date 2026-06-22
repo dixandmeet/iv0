@@ -10,7 +10,7 @@ import 'supabase_service.dart';
 class AuthService with ChangeNotifier {
   /// Schéma de redirection OAuth (cf. Info.plist iOS / AndroidManifest).
   static const String _oauthRedirectUrl =
-      'io.supabase.wazibus://login-callback/';
+      'io.aule.app://login-callback/';
 
   final SupabaseService _supabaseService;
 
@@ -91,7 +91,7 @@ class AuthService with ChangeNotifier {
 
       _profile = row != null ? UserProfile.fromJson(row) : null;
     } catch (e) {
-      debugPrint('Wazibus: profile load error ($e)');
+      debugPrint('Aule: profile load error ($e)');
       _profile = null;
     }
 
@@ -213,7 +213,7 @@ class AuthService with ChangeNotifier {
         _supabaseService.consentBackground,
       );
     } catch (e) {
-      debugPrint('Wazibus: anonymous re-auth failed ($e)');
+      debugPrint('Aule: anonymous re-auth failed ($e)');
     }
   }
 }
