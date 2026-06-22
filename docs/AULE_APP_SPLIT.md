@@ -56,21 +56,23 @@ identiques, lecture REST anon HTTP 200). Extensions activées sur le nouveau pro
 `postgis` + `unaccent` dans `public` (`pgcrypto`/`uuid-ossp` dans `extensions`).
 Sauvegarde locale : `/tmp/aule_migration/old_public.sql` + `old_auth.sql` (éphémère).
 
-### ⛔ Restant — config auth + bascule (les apps tournent ENCORE sur l'ancien projet)
-1. **Activer l'auth anonyme** sur le nouveau projet (sinon l'app voyageur tombe en mode
-   dégradé) : dashboard → Authentication → Sign In/Providers → « Anonymous sign-ins », ou
-   API `PATCH /v1/projects/rllcdvuqduuyhdcifiwp/config/auth {"external_anonymous_users_enabled":true}`
-   (nécessite un PAT `sbp_…` ; le token CLI du keychain est expiré).
-2. **OAuth** (login Google/Apple voyageur) : whitelister les redirects `io.aule.app://login-callback/`
-   et `io.aule.pro://login-callback/`, reconfigurer les providers Google/Apple.
-3. **Basculer les 3 points d'injection** (seulement après l'étape 1) :
-   - `packages/shared/lib/src/supabase_config.dart` → `url` + `publishableKey` du nouveau projet
-   - `dashboard/.env.local` → `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `supabase/.env.local` → `SUPABASE_PROJECT_REF` + `SUPABASE_URL`
-4. Smoke test des 3 clients, puis redéploiement du dashboard.
+### ✅ Fait — auth anonyme + bascule (23/06/2026)
+- Auth anonyme activée sur le nouveau projet (vérifié : `signup` anonyme → HTTP 200).
+- 3 points d'injection basculés vers `rllcdvuqduuyhdcifiwp` :
+  - `packages/shared/lib/src/supabase_config.dart` (commité)
+  - `dashboard/.env.local` (local, gitignoré)
+  - `supabase/.env.local` (local ; désormais gitignoré pour ne plus committer le mot de passe DB)
+- Smoke test REST OK (stations/stops/reports/user_favorites/gtfs_routes → 200, auth anonyme → 200).
 
-> **Ne pas basculer tant que l'étape 1 n'est pas faite.** La bascule (étape 3) est réversible
-> (git revert + redéploiement).
+### ⛔ Restant
+1. **OAuth** (login Google/Apple voyageur) sur le nouveau projet : whitelister les redirects
+   `io.aule.app://login-callback/` et `io.aule.pro://login-callback/`, reconfigurer les
+   providers Google/Apple (dashboard, ou API avec un PAT `sbp_…` — le token CLI du keychain
+   est expiré). Email/mot de passe et auth anonyme fonctionnent déjà sans ça.
+2. **Redéployer le dashboard** avec le nouveau `.env`.
+3. Clé `service_role`/secret du nouveau projet si le dashboard réactive l'invitation conducteur.
+
+> La bascule est **réversible** : `git revert` de `supabase_config.dart` + restaurer les `.env`.
 
 ### Tables d'anticipation encore à créer (optionnel, non bloquant)
 Le clonage a repris `networks`, `driver_services`, `driver_messages` (déjà présents). Restent
