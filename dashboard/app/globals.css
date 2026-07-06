@@ -97,6 +97,50 @@
     @apply sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground;
   }
 
+  .hero-mesh {
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 20%, hsl(var(--primary) / 0.18), transparent),
+      radial-gradient(ellipse 50% 40% at 80% 10%, hsl(var(--realtime) / 0.12), transparent),
+      radial-gradient(ellipse 70% 60% at 50% 100%, hsl(var(--primary) / 0.08), transparent);
+  }
+
+  .section-alt {
+    @apply bg-muted/30;
+  }
+
+  .bento-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (min-width: 640px) {
+    .bento-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .bento-cell-lg {
+    @apply col-span-2 row-span-2;
+  }
+
+  .bento-cell-sm {
+    @apply col-span-1;
+  }
+
+  @media (max-width: 639px) {
+    .bento-cell-lg {
+      @apply col-span-2 row-span-1;
+    }
+  }
+
+  .auth-brand-panel {
+    background: linear-gradient(160deg, #050b18 0%, #0a1628 50%, #0f1f3d 100%);
+  }
+
+  .journey-line {
+    @apply absolute left-5 top-0 h-full w-px bg-border sm:left-1/2 sm:-translate-x-px;
+  }
+
   .landing-map-container {
     @apply relative h-full w-full overflow-hidden bg-[#0d1117];
   }
@@ -316,6 +360,10 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.dashboard-main-column {
+  grid-column: 2 / -1;
 }
 
 .dashboard-logo {
@@ -2503,6 +2551,10 @@
 
   .dashboard-shell--collapsed {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-main-column {
+    grid-column: 1;
   }
 
   .dashboard-sidebar {
@@ -9100,4 +9152,462 @@ textarea.station-field {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Carte immersive — page plein écran (carte 3D + recherche + commande) */
+@keyframes immersive-map-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(51, 191, 163, 0.5); }
+  70% { box-shadow: 0 0 0 16px rgba(51, 191, 163, 0); }
+}
+
+@keyframes immersive-map-halo {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.35); opacity: 0.15; }
+}
+
+@keyframes immersive-map-toast-in {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes immersive-map-panel-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes immersive-map-sheet-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 20px)); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+@keyframes immersive-map-spin {
+  to { transform: rotate(360deg); }
+}
+
+.immersive-map-root {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: #050807;
+  color: #fff;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+.immersive-map-canvas {
+  position: absolute;
+  inset: 0;
+  background: #0a1614;
+  z-index: 0;
+  isolation: isolate;
+}
+
+.immersive-map-root .maplibregl-ctrl-attrib {
+  background: rgba(5, 8, 7, 0.55) !important;
+}
+
+.immersive-map-root .maplibregl-ctrl-attrib,
+.immersive-map-root .maplibregl-ctrl-attrib a {
+  color: rgba(255, 255, 255, 0.5) !important;
+  font-size: 10px !important;
+}
+
+.immersive-map-root .maplibregl-ctrl-group {
+  background: rgba(12, 18, 16, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(10px);
+}
+
+.immersive-map-root .maplibregl-ctrl-group button {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+.immersive-map-root ::selection {
+  background: rgba(51, 191, 163, 0.35);
+  color: #fff;
+}
+
+.immersive-map-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 380;
+  pointer-events: none;
+  background: radial-gradient(ellipse 105% 90% at 50% 46%, transparent 52%, rgba(3, 6, 5, 0.55) 100%);
+}
+
+.immersive-map-vignette-top {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 190px;
+  z-index: 380;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(3, 6, 5, 0.6), transparent);
+}
+
+.immersive-map-live-status {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  z-index: 410;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(7, 12, 10, 0.68);
+  color: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.immersive-map-live-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #33bfa3;
+  box-shadow: 0 0 0 4px rgba(51, 191, 163, 0.14);
+}
+
+.immersive-map-live-status--preview .immersive-map-live-status-dot {
+  background: #f2a93b;
+  box-shadow: 0 0 0 4px rgba(242, 169, 59, 0.14);
+}
+
+.immersive-map-live-status--stale .immersive-map-live-status-dot {
+  animation: immersive-map-pulse 1.8s infinite;
+  background: #ffce73;
+}
+
+@media (max-width: 640px) {
+  .immersive-map-live-status {
+    bottom: 12px;
+  }
+}
+
+.immersive-map-panel {
+  background: rgba(12, 18, 16, 0.68);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.immersive-map-round-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(10, 14, 13, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  transition: background 0.2s ease;
+}
+
+.immersive-map-round-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.immersive-map-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(10, 14, 13, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.immersive-map-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.immersive-map-pill-btn--active {
+  background: rgba(51, 191, 163, 0.9);
+  border-color: rgba(51, 191, 163, 0.5);
+  color: #04211c;
+}
+
+.immersive-map-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 8px 6px 20px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.immersive-map-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 15px;
+  color: #1a1a1a;
+  background: transparent;
+  padding: 8px 0;
+}
+
+.immersive-map-suggestions {
+  margin-top: 8px;
+  background: #fff;
+  border-radius: 18px;
+  padding: 6px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.immersive-map-suggestion-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.immersive-map-suggestion-row:hover {
+  background: #f1f5f3;
+}
+
+.immersive-map-quick-card {
+  flex: 1;
+  min-width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.immersive-map-quick-card:hover {
+  background: rgba(51, 191, 163, 0.12);
+  transform: translateY(-2px);
+}
+
+.immersive-map-chip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.immersive-map-chip--active {
+  background: #33bfa3;
+  color: #04211c;
+  border-color: #33bfa3;
+}
+
+.immersive-map-icon-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.immersive-map-add-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(51, 191, 163, 0.45);
+  background: rgba(51, 191, 163, 0.12);
+  color: #5fe0c4;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.immersive-map-add-btn:hover {
+  background: rgba(51, 191, 163, 0.22);
+}
+
+.immersive-map-toast {
+  animation: immersive-map-toast-in 0.4s ease;
+}
+
+.immersive-map-panel-anim {
+  animation: immersive-map-panel-in 0.4s ease both;
+}
+
+.immersive-map-sheet-anim {
+  animation: immersive-map-sheet-in 0.38s ease both;
+}
+
+.immersive-map-marker {
+  line-height: 0;
+  cursor: pointer;
+}
+
+.immersive-map-marker-dot {
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.immersive-map-marker-shop {
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 4px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+.immersive-map-marker-shop--hover {
+  transform: scale(1.35);
+  box-shadow: 0 0 0 8px rgba(51, 191, 163, 0.35), 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+.immersive-map-marker-user {
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+
+.immersive-map-marker-user-halo {
+  position: absolute;
+  inset: -18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(51, 191, 163, 0.5), transparent 70%);
+  animation: immersive-map-halo 2.6s ease-in-out infinite;
+}
+
+.immersive-map-marker-user-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #33bfa3;
+  border: 3px solid #fff;
+  animation: immersive-map-pulse 2.4s infinite;
+}
+
+.immersive-map-marker-dest {
+  width: 14px;
+  height: 14px;
+  border-radius: 50% 50% 50% 0;
+  background: #ff6b5e;
+  transform: rotate(-45deg);
+  border: 2px solid #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+
+.immersive-map-orbit-icon {
+  display: inline-block;
+  font-size: 15px;
+}
+
+.immersive-map-orbit-icon--spinning {
+  animation: immersive-map-spin 1.4s linear infinite;
+}
+
+.immersive-map-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(3, 6, 5, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: immersive-map-toast-in 0.25s ease;
+}
+
+.immersive-map-sheet {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 501;
+  width: min(720px, 94vw);
+  height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 26px;
+  overflow: hidden;
+  background: rgba(9, 14, 12, 0.92);
+  backdrop-filter: blur(28px) saturate(1.3);
+  -webkit-backdrop-filter: blur(28px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
+  animation: immersive-map-sheet-in 0.38s ease both;
+}
+
+.immersive-map-sheet-hero {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(135deg, rgba(51, 191, 163, 0.11) 0 14px, rgba(51, 191, 163, 0.03) 14px 28px),
+    linear-gradient(160deg, #123029, #0b1c18);
+}
+
+.immersive-map-sheet-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: rgba(9, 14, 12, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 30px;
+  flex: none;
+}
+
+.immersive-map-order-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(7, 12, 10, 0.9);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  padding: 30px;
 }

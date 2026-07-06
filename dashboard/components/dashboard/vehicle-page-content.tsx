@@ -62,7 +62,7 @@ export function VehiclePageContent({ vehicleId }: VehiclePageContentProps) {
   const title = serviceLabel;
 
   return (
-    <main className="vehicle-page" style={{ gridColumn: "2 / -1" }}>
+    <main className="dashboard-main-column vehicle-page">
       {error && <ErrorBanner message={error} onRetry={refresh} />}
 
       <div className="vehicle-page-header">

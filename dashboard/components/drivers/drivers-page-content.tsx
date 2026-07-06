@@ -121,7 +121,7 @@ export function DriversPageContent() {
   const error = sessionsError ?? managementError ?? actionError;
 
   return (
-    <main className="dashboard-panel stops-page overflow-auto" style={{ gridColumn: "2 / -1" }}>
+    <main className="dashboard-main-column dashboard-panel stops-page overflow-auto">
       {error && <ErrorBanner message={error} onRetry={handleRefresh} />}
       {successMessage && (
         <div className="mx-6 mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300">

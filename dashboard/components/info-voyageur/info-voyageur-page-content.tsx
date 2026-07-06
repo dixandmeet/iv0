@@ -83,8 +83,8 @@ export function InfoVoyageurPageContent() {
 
   return (
     <main
-      className="dashboard-panel overflow-auto"
-      style={{ gridColumn: "2 / -1", padding: 24 }}
+      className="dashboard-main-column dashboard-panel overflow-auto"
+      style={{ padding: 24 }}
     >
       {error && <ErrorBanner message={error} onRetry={refresh} />}
 

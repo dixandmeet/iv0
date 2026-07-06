@@ -56,7 +56,7 @@ function MissionsPageInner() {
   }
 
   return (
-    <main className="msr-page" style={{ gridColumn: "2 / -1" }}>
+    <main className="dashboard-main-column msr-page">
       {toast && (
         <div className="msr-toast" role="status">
           {toast}

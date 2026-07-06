@@ -54,10 +54,7 @@ export function IncidentsPageContent() {
   };
 
   return (
-    <main
-      className="flex flex-col overflow-hidden"
-      style={{ gridColumn: "2 / -1" }}
-    >
+    <main className="dashboard-main-column flex flex-col overflow-hidden">
       {error && <ErrorBanner message={error} onRetry={refresh} />}
 
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
