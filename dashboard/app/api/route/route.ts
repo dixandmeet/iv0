@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { loadGtfsShapesForLine } from "@/lib/gtfs-shape-loader";
 import { routeAlongShapes } from "@/lib/shape-route";
+import { computeTransitRoute } from "@/lib/carte-immersive/transit-route";
 import type { EditorTransportMode } from "@/lib/line-editor-types";
 
-const OSRM_DRIVING = "https://router.project-osrm.org/route/v1/driving";
+const OSRM_BASE = "https://router.project-osrm.org/route/v1";
+// Le profil piéton du serveur public OSRM renvoie des durées irréalistes (vitesse proche du vélo).
+// On recalcule donc la durée de marche à partir d'une vitesse standard plutôt que de faire confiance à OSRM.
+const WALK_SPEED_MPS = 1.35;
+
+type OsrmSegment = { coordinates: [number, number][]; distance: number; duration: number };
 
 function parseCoord(raw: string | null): [number, number] | null {
   if (!raw) return null;
@@ -13,16 +19,26 @@ function parseCoord(raw: string | null): [number, number] | null {
   return [lng, lat];
 }
 
-function parseMode(raw: string | null): EditorTransportMode {
-  if (raw === "tram" || raw === "boat" || raw === "shuttle") return raw;
+function parseMode(raw: string | null): EditorTransportMode | "foot" | "car" | "transit" {
+  if (
+    raw === "tram" ||
+    raw === "boat" ||
+    raw === "shuttle" ||
+    raw === "foot" ||
+    raw === "car" ||
+    raw === "transit"
+  ) {
+    return raw;
+  }
   return "bus";
 }
 
-async function fetchDrivingSegment(
+async function fetchOsrmSegment(
+  profile: "driving" | "foot",
   from: [number, number],
   to: [number, number],
-): Promise<[number, number][]> {
-  const url = `${OSRM_DRIVING}/${from[0]},${from[1]};${to[0]},${to[1]}?overview=full&geometries=geojson`;
+): Promise<OsrmSegment> {
+  const url = `${OSRM_BASE}/${profile}/${from[0]},${from[1]};${to[0]},${to[1]}?overview=full&geometries=geojson`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     throw new Error("Service de routage indisponible");
@@ -30,15 +46,25 @@ async function fetchDrivingSegment(
 
   const data = (await res.json()) as {
     code?: string;
-    routes?: Array<{ geometry?: { coordinates?: [number, number][] } }>;
+    routes?: Array<{
+      geometry?: { coordinates?: [number, number][] };
+      distance?: number;
+      duration?: number;
+    }>;
   };
 
-  const coordinates = data.routes?.[0]?.geometry?.coordinates;
+  const routeResult = data.routes?.[0];
+  const coordinates = routeResult?.geometry?.coordinates;
   if (data.code !== "Ok" || !coordinates?.length) {
     throw new Error("Aucun itinéraire trouvé entre ces deux points");
   }
 
-  return coordinates;
+  const distance = routeResult?.distance ?? 0;
+  return {
+    coordinates,
+    distance,
+    duration: profile === "foot" ? distance / WALK_SPEED_MPS : (routeResult?.duration ?? 0),
+  };
 }
 
 async function fetchTramSegment(
@@ -73,12 +99,18 @@ export async function GET(request: Request) {
   }
 
   try {
-    const coordinates =
-      mode === "tram"
-        ? await fetchTramSegment(from, to, lineId)
-        : await fetchDrivingSegment(from, to);
+    if (mode === "tram") {
+      const coordinates = await fetchTramSegment(from, to, lineId);
+      return NextResponse.json({ coordinates });
+    }
 
-    return NextResponse.json({ coordinates });
+    if (mode === "transit") {
+      const result = await computeTransitRoute(from, to, (a, b) => fetchOsrmSegment("foot", a, b));
+      return NextResponse.json(result);
+    }
+
+    const segment = await fetchOsrmSegment(mode === "foot" ? "foot" : "driving", from, to);
+    return NextResponse.json(segment);
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Erreur lors du calcul de l'itinéraire";

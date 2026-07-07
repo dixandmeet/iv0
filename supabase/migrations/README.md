@@ -25,6 +25,24 @@ Migrations à exécuter **après** [`../schema.sql`](../schema.sql) et [`../seed
 | `017_fix_served_routes_resolution.sql` | RPC lignes desservies (UUID, repli GTFS) |
 | `018_gtfs_stop_times.sql` | Horaires théoriques arrêt/ligne (lignes desservies) |
 | `019_driver_management.sql` | Demandes d'inscription conducteur + RPC gestion annuaire |
+| `020_control_plans.sql` | Plans de contrôle MSR |
+| `021_driver_mvp.sql` | MVP conducteur (drivers, driver_services, vehicle_positions…) |
+| `022_driver_service_train.sql` | N° de train sur la prise de service |
+| `023_roulement_services.sql` | Roulements / services conducteurs (référence) |
+| `024_driver_signup_matricule.sql` | Inscription conducteur par matricule (roster + liste de vérification) |
+| `032_feed_posts.sql` | Fil d'actualité communautaire (mur partagé) + bucket Storage `feed-media` |
+| `062_immersive_public_fleet.sql` | Positions de flotte anonymisées pour la carte immersive publique |
+| `063_line_editor_traces.sql` | Tracés de lignes publiés depuis l'éditeur de ligne (dashboard) → carte immersive |
+
+### Liste de référence des conducteurs (`driver_roster`)
+
+Après la migration `024`, importer le roster RH (idempotent, 1491 agents) :
+
+```bash
+psql "$DATABASE_URL" -f ../seed_driver_roster.sql
+```
+
+Le seed est généré depuis le CSV RH `aule_drivers_supabase_import.csv`.
 
 ### Regénérer `018_gtfs_stop_times.sql`
 
@@ -66,6 +84,22 @@ WHERE id = '<uuid-auth-user>';
 ```
 
 Rôles disponibles : `passenger`, `driver`, `msr_agent`, `msr_supervisor`, `regulator`, `admin`.
+
+## Modèles d'e-mail (Auth)
+
+Les modèles HTML en français sont versionnés dans [`../templates/`](../templates/) et référencés par [`../config.toml`](../config.toml).
+
+| Modèle | Déclencheur |
+|--------|-------------|
+| `confirmation.html` | Inscription conducteur / passager (`signUp`) |
+| `invite.html` | Invitation staff via le dashboard (`inviteUserByEmail`) |
+| `recovery.html` | Réinitialisation du mot de passe |
+| `magic_link.html` | Connexion sans mot de passe |
+| `email_change.html` | Changement d'adresse e-mail |
+
+**Local** : `supabase stop && supabase start`, puis consulter les e-mails dans Inbucket.
+
+**Production** : copier sujet + corps HTML dans **Authentication → Email Templates** du dashboard Supabase (les fichiers du dépôt ne sont pas déployés automatiquement sur un projet hébergé).
 
 ## Tâches planifiées recommandées
 

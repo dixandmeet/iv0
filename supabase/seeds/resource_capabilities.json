@@ -1,0 +1,10 @@
+[
+  {"resource_type": "mission", "capability": "discussion", "enabled": true},
+  {"resource_type": "mission", "capability": "documents", "enabled": true},
+  {"resource_type": "mission", "capability": "tasks", "enabled": true},
+  {"resource_type": "mission", "capability": "location", "enabled": true},
+  {"resource_type": "mission", "capability": "dispatch", "enabled": true},
+  {"resource_type": "vehicle", "capability": "discussion", "enabled": true},
+  {"resource_type": "vehicle", "capability": "location", "enabled": true},
+  {"resource_type": "support", "capability": "discussion", "enabled": true}
+]

@@ -46,8 +46,10 @@ import type {
   StopDetails,
 } from "@/lib/line-editor-types";
 import { tracePointsOnRoads, traceSegmentBetween } from "@/lib/line-editor-routing";
+import { syncPublishedLineTrace, unpublishLineTrace } from "@/lib/line-editor-immersive-sync";
 
 const MAX_HISTORY = 50;
+const IMMERSIVE_SYNC_DEBOUNCE_MS = 1500;
 
 function getContextPoints(state: LineEditorState): RoutePoint[] {
   if (state.activeOriginLegId) {
@@ -127,17 +129,42 @@ export function useLineEditor(
   const onAutoSaveRef = useRef(options?.onAutoSave);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const skipNextSaveRef = useRef(true);
+  const immersiveSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPublishedLineIdRef = useRef<string | null>(
+    initialState?.status === "published" ? initialState.shortName.trim() || null : null,
+  );
 
   onAutoSaveRef.current = options?.onAutoSave;
 
-  const persistState = useCallback((next: LineEditorState) => {
-    if (skipNextSaveRef.current) {
-      skipNextSaveRef.current = false;
-      return;
+  const syncImmersiveMap = useCallback((next: LineEditorState) => {
+    if (immersiveSyncTimerRef.current) clearTimeout(immersiveSyncTimerRef.current);
+
+    const previousLineId = lastPublishedLineIdRef.current;
+    const nextLineId = next.status === "published" ? next.shortName.trim() || null : null;
+
+    if (previousLineId && previousLineId !== nextLineId) {
+      void unpublishLineTrace(previousLineId);
     }
-    onAutoSaveRef.current?.(next);
-    setLastSavedAt(Date.now());
+    lastPublishedLineIdRef.current = nextLineId;
+
+    if (!nextLineId) return;
+    immersiveSyncTimerRef.current = setTimeout(() => {
+      void syncPublishedLineTrace(next);
+    }, IMMERSIVE_SYNC_DEBOUNCE_MS);
   }, []);
+
+  const persistState = useCallback(
+    (next: LineEditorState) => {
+      syncImmersiveMap(next);
+      if (skipNextSaveRef.current) {
+        skipNextSaveRef.current = false;
+        return;
+      }
+      onAutoSaveRef.current?.(next);
+      setLastSavedAt(Date.now());
+    },
+    [syncImmersiveMap],
+  );
 
   const pushHistory = useCallback((prev: LineEditorState) => {
     historyRef.current = [...historyRef.current.slice(-(MAX_HISTORY - 1)), cloneState(prev)];
@@ -914,7 +941,7 @@ export function useLineEditor(
   );
 
   const publishLine = useCallback(() => {
-    updateLineMeta({ status: "validation" as EditorLineStatus });
+    updateLineMeta({ status: "published" as EditorLineStatus });
   }, [updateLineMeta]);
 
   const traceItinerary = useCallback(async (): Promise<boolean> => {

@@ -3,21 +3,24 @@ import { footerLinks } from "./landing-data";
 
 export function LandingFooter() {
   return (
-    <footer
-      className="border-t border-border bg-muted/20"
-      role="contentinfo"
-    >
+    <footer className="border-t border-border bg-muted/20" role="contentinfo">
       <div className="section-container py-12">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2.5">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-xs font-extrabold text-primary-foreground">
                 A
               </span>
-              <span className="text-lg font-bold">Aule</span>
+              <div className="flex flex-col leading-none">
+                <span className="text-lg font-bold">Aule</span>
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Voyageur · Pro
+                </span>
+              </div>
             </Link>
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               Le GPS intelligent pour vos trajets en transport en commun.
+              Réseau pilote Naolib · Nantes.
             </p>
           </div>
 
@@ -74,11 +77,10 @@ export function LandingFooter() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-8 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Aule. Tous droits
-            réservés.
+            © {new Date().getFullYear()} Aule. Tous droits réservés.
           </p>
           <p className="text-xs text-muted-foreground">
-            Naolib · Réseau pilote Nantes
+            Aule · Aule Pro · Naolib pilote Nantes
           </p>
         </div>
       </div>

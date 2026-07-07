@@ -14,6 +14,7 @@ import 'disruptions_page.dart';
 import 'favorites_page.dart';
 import 'network_map_page.dart';
 import 'settings_screen.dart';
+import 'support_contact_screen.dart';
 
 class MenuPage extends StatelessWidget {
   final VoidCallback? onOpenHoraires;
@@ -55,6 +56,11 @@ class MenuPage extends StatelessWidget {
       label: 'Alertes & perturbations',
       icon: LucideIcons.triangleAlert,
       action: _MenuAction.disruptions,
+    ),
+    _MenuRow(
+      label: 'Contacter le support',
+      icon: LucideIcons.headphones,
+      action: _MenuAction.support,
     ),
     _MenuRow(
       label: 'Paramètres',
@@ -152,7 +158,7 @@ class MenuPage extends StatelessWidget {
   }
 }
 
-enum _MenuAction { horaires, itinerary, networkMap, settings, disruptions, favorites, accessibility }
+enum _MenuAction { horaires, itinerary, networkMap, settings, disruptions, favorites, accessibility, support }
 
 class _MenuRow {
   final String label;
@@ -440,6 +446,11 @@ class _MenuTile extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const AccessibilityPage()),
+        );
+      case _MenuAction.support:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SupportContactScreen()),
         );
       case null:
         break;

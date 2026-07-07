@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; background: #050807; }
+  html { scroll-behavior: auto; }
+  @media (pointer: fine) { body, body a, body button { cursor: none; } }
+  @keyframes aule-scrollhint { 0%, 100% { transform: translateY(0); opacity: .9; } 50% { transform: translateY(10px); opacity: .4; } }
+  @keyframes aule-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(51,191,163,.45); } 70% { box-shadow: 0 0 0 14px rgba(51,191,163,0); } }
+  @keyframes aule-dash { to { stroke-dashoffset: -40; } }
+  ::selection { background: rgba(51,191,163,.35); color: #fff; }
+
+  /* ============ RESPONSIVE ============ */
+  * { box-sizing: border-box; }
+  img, video, svg { max-width: 100%; }
+
+  @supports (height: 100dvh) {
+    section[data-screen-label="Voyage scrollytelling"] > div {
+      height: 100dvh !important;
+    }
+  }
+
+  @media (max-width: 900px) {
+    nav {
+      width: calc(100% - 32px);
+      justify-content: space-between;
+      gap: 16px !important;
+    }
+
+    nav > div:nth-child(2) {
+      display: none !important;
+    }
+
+    [data-sec]:not([data-sec="0"]) {
+      padding-left: 40px !important;
+      padding-right: 40px !important;
+    }
+
+    [data-sec="1"] > div,
+    [data-sec="2"] > div,
+    [data-sec="3"] > div,
+    [data-sec="5"] > div {
+      gap: 28px !important;
+    }
+
+    footer[data-screen-label="Footer liens"] > div:first-child {
+      grid-template-columns: 1.5fr repeat(2, 1fr) !important;
+    }
+  }
+
+  @media (max-width: 767px) {
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    nav {
+      top: 10px !important;
+      width: calc(100% - 24px);
+      min-height: 52px;
+      padding: 7px 8px 7px 12px !important;
+      gap: 10px !important;
+      background: rgba(10,14,13,.76) !important;
+    }
+
+    nav > div:first-child {
+      min-width: 0;
+    }
+
+    nav > div:first-child span {
+      font-size: 15px !important;
+    }
+
+    nav > div:nth-child(3) {
+      margin-left: auto;
+    }
+
+    nav > div:nth-child(3) > a:first-child {
+      display: none !important;
+    }
+
+    nav > div:nth-child(3) > a:last-child {
+      padding: 9px 15px !important;
+      font-size: 13px !important;
+      white-space: nowrap;
+    }
+
+    section[data-screen-label="Voyage scrollytelling"] {
+      height: 880vh !important;
+    }
+
+    section[data-screen-label="Voyage scrollytelling"] > div {
+      min-height: 100svh;
+    }
+
+    [data-sec] {
+      width: 100%;
+      min-width: 0;
+      padding-top: 82px !important;
+      padding-bottom: 28px !important;
+    }
+
+    [data-sec]:not([data-sec="0"]) {
+      padding-left: 20px !important;
+      padding-right: 20px !important;
+    }
+
+    [data-sec="0"] {
+      padding-left: 18px !important;
+      padding-right: 18px !important;
+    }
+
+    [data-sec="0"] h1 {
+      font-size: clamp(38px, 11vw, 50px) !important;
+      line-height: 1.01 !important;
+      letter-spacing: -.035em !important;
+    }
+
+    [data-sec="0"] p {
+      max-width: 440px !important;
+      margin-top: 20px !important;
+      font-size: 16px !important;
+    }
+
+    [data-sec="0"] [data-par="1"] > div:first-child {
+      margin-bottom: 20px !important;
+      padding: 6px 12px !important;
+      font-size: 11.5px !important;
+    }
+
+    [data-sec="0"] [data-par="1"] > div:last-child {
+      width: min(100%, 360px);
+      margin-top: 28px !important;
+    }
+
+    [data-sec="0"] [data-par="1"] > div:last-child a {
+      flex: 1 1 150px;
+      padding: 13px 20px !important;
+      font-size: 14px !important;
+      white-space: nowrap;
+    }
+
+    [data-sec="0"] > div:last-child {
+      bottom: 20px !important;
+      gap: 6px !important;
+      font-size: 10px !important;
+    }
+
+    [data-sec] h2 {
+      font-size: clamp(30px, 9vw, 42px) !important;
+      line-height: 1.06 !important;
+    }
+
+    [data-sec] p {
+      margin-top: 16px !important;
+      font-size: 15px !important;
+      line-height: 1.5 !important;
+    }
+
+    [data-sec="1"] > div,
+    [data-sec="3"] > div,
+    [data-sec="5"] > div {
+      flex-direction: column !important;
+      flex-wrap: nowrap !important;
+      justify-content: center !important;
+      align-items: stretch !important;
+      gap: 20px !important;
+    }
+
+    [data-sec="2"] > div {
+      flex-direction: column-reverse !important;
+      flex-wrap: nowrap !important;
+      justify-content: center !important;
+      align-items: stretch !important;
+      gap: 20px !important;
+    }
+
+    [data-sec="1"] [data-par="1"],
+    [data-sec="2"] [data-par="1"],
+    [data-sec="3"] [data-par="1"],
+    [data-sec="5"] [data-par="1"] {
+      width: 100%;
+      max-width: 560px !important;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    [data-sec="1"] [data-par="1.6"],
+    [data-sec="2"] [data-par="1.6"],
+    [data-sec="3"] [data-par="1.6"],
+    [data-sec="5"] [data-par="1.6"] {
+      width: 100% !important;
+      max-width: 340px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    [data-sec="1"] [data-par="1"] > div:nth-of-type(2) {
+      display: none !important;
+    }
+
+    [data-sec="1"] [data-par="1"] > div:nth-of-type(3) {
+      margin-top: 18px !important;
+      gap: 24px !important;
+    }
+
+    [data-sec="1"] [data-par="1"] > div:nth-of-type(3) > div > div:first-child {
+      font-size: 23px !important;
+    }
+
+    [data-sec="1"] [data-par="1.6"] {
+      display: none !important;
+    }
+
+    [data-sec="2"] [data-par="1.6"] > div:first-child {
+      padding: 14px !important;
+    }
+
+    [data-sec="3"] [data-par="1.6"] {
+      padding: 15px !important;
+    }
+
+    [data-sec="4"] {
+      justify-content: center !important;
+    }
+
+    [data-sec="4"] [data-par="1.5"] {
+      margin-top: 26px !important;
+      gap: 8px !important;
+    }
+
+    [data-sec="4"] [data-par="1.5"] span {
+      padding: 8px 12px !important;
+      font-size: 12px !important;
+    }
+
+    [data-sec="5"] [data-par="1.6"] {
+      gap: 8px !important;
+    }
+
+    [data-sec="5"] [data-par="1.6"] > div {
+      padding: 11px 13px !important;
+      font-size: 12px !important;
+    }
+
+    [data-sec="6"] [data-par="1.5"] {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 8px !important;
+      margin-top: 26px !important;
+    }
+
+    [data-sec="6"] [data-par="1.5"] > div {
+      padding: 11px 8px !important;
+      font-size: 12px !important;
+    }
+
+    footer[data-screen-label="Footer"] {
+      padding: 88px 20px 48px !important;
+    }
+
+    footer[data-screen-label="Footer"] > img {
+      width: 60px !important;
+      height: 60px !important;
+    }
+
+    footer[data-screen-label="Footer"] h2 {
+      margin-top: 22px !important;
+      font-size: clamp(30px, 9vw, 44px) !important;
+    }
+
+    footer[data-screen-label="Footer"] > div {
+      width: min(100%, 420px);
+      margin-top: 28px !important;
+    }
+
+    footer[data-screen-label="Footer"] > div a {
+      flex: 1 1 180px;
+      padding: 13px 20px !important;
+      font-size: 14px !important;
+    }
+
+    footer[data-screen-label="Footer liens"] {
+      padding: 52px 20px 28px !important;
+    }
+
+    footer[data-screen-label="Footer liens"] > div:first-child {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 36px 20px !important;
+    }
+
+    footer[data-screen-label="Footer liens"] > div:first-child > div:first-child {
+      grid-column: 1 / -1;
+      min-width: 0 !important;
+    }
+
+    footer[data-screen-label="Footer liens"] > div:last-child {
+      margin-top: 40px !important;
+      align-items: flex-start !important;
+    }
+  }
+
+  @media (max-width: 430px) {
+    [data-sec="0"] h1 {
+      font-size: clamp(35px, 10.5vw, 45px) !important;
+    }
+
+    [data-sec="0"] h1 br {
+      display: none;
+    }
+
+    [data-sec="0"] [data-par="1"] > div:last-child {
+      flex-direction: column;
+      gap: 9px !important;
+    }
+
+    [data-sec="0"] [data-par="1"] > div:last-child a {
+      flex-basis: auto;
+      width: 100%;
+    }
+  }
+
+  @media (max-height: 700px) and (max-width: 767px) {
+    [data-sec] {
+      padding-top: 72px !important;
+      padding-bottom: 16px !important;
+    }
+
+    [data-sec] h2 {
+      font-size: clamp(27px, 7.5vw, 36px) !important;
+    }
+
+    [data-sec] p {
+      font-size: 14px !important;
+    }
+
+    [data-sec="2"] [data-par="1.6"],
+    [data-sec="3"] [data-par="1.6"],
+    [data-sec="5"] [data-par="1.6"] {
+      display: none !important;
+    }
+
+    [data-sec="4"] [data-par="1.5"] span:nth-child(n+4),
+    [data-sec="6"] [data-par="1.5"] > div:nth-child(n+5) {
+      display: none !important;
+    }
+  }
+
+  @media (orientation: landscape) and (max-height: 560px) {
+    [data-sec] {
+      padding-top: 64px !important;
+      padding-bottom: 12px !important;
+    }
+
+    [data-sec="0"] [data-par="1"] > div:first-child,
+    [data-sec="0"] > div:last-child,
+    [data-sec="1"] [data-par="1.6"],
+    [data-sec="2"] [data-par="1.6"],
+    [data-sec="3"] [data-par="1.6"],
+    [data-sec="4"] [data-par="1.5"],
+    [data-sec="5"] [data-par="1.6"],
+    [data-sec="6"] [data-par="1.5"] {
+      display: none !important;
+    }
+  }
+</style>
+</helmet>
+
+<div ref="{{ rootRef }}" style="font-family: 'Space Grotesk', system-ui, sans-serif; color: #fff; background: #050807;">
+
+  <!-- ============ NAV GLASS FIXE ============ -->
+  <nav style="position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 28px; padding: 10px 12px 10px 18px; border-radius: 999px; background: rgba(10,14,13,0.55); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4); border: 1px solid rgba(255,255,255,0.1);">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <img src="uploads/logo-1783189856190.png" alt="Aule" style="width: 26px; height: 26px; object-fit: contain;">
+      <span style="font-weight: 600; font-size: 16px; letter-spacing: 0.01em;">Aule</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 4px; font-size: 13.5px; color: rgba(255,255,255,0.65);">
+      <a href="#" data-hover="" style="color: inherit; text-decoration: none; padding: 7px 12px; border-radius: 999px;" style-hover="color: #fff; background: rgba(255,255,255,0.07);">Voyageurs</a>
+      <a href="#" data-hover="" style="color: inherit; text-decoration: none; padding: 7px 12px; border-radius: 999px;" style-hover="color: #fff; background: rgba(255,255,255,0.07);">Commerçants</a>
+      <a href="#" data-hover="" style="color: inherit; text-decoration: none; padding: 7px 12px; border-radius: 999px;" style-hover="color: #fff; background: rgba(255,255,255,0.07);">Aule Pro</a>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.8); background: transparent; font-weight: 500; font-size: 13.5px; padding: 9px 14px; border-radius: 999px; transition: background .2s ease, color .2s ease;" style-hover="color: #fff; background: rgba(255,255,255,0.08);">Connexion</a>
+      <a href="#" data-hover="" style="text-decoration: none; color: #04211c; background: #33BFA3; font-weight: 600; font-size: 13.5px; padding: 9px 18px; border-radius: 999px; transition: transform .2s ease, background .2s ease;" style-hover="background: #8DEEDD; transform: scale(1.04);">Télécharger</a>
+    </div>
+  </nav>
+
+  <!-- barre de progression du scroll -->
+  <div style="position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 61; background: transparent;">
+    <div ref="{{ progressBarRef }}" style="width: 0%; height: 100%; background: linear-gradient(90deg, #17A08A, #33BFA3);"></div>
+  </div>
+
+  <!-- ============ SCROLLYTELLING : container géant ============ -->
+  <section ref="{{ containerRef }}" data-screen-label="Voyage scrollytelling" style="position: relative; height: 960vh;">
+    <div style="position: sticky; top: 0; height: 100vh; overflow: hidden;">
+
+      <!-- vidéo scrubée -->
+      <video ref="{{ videoRef }}" src="uploads/hero-scroll-final.mp4" muted="{{ true }}" playsInline="{{ true }}" preload="auto" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;"></video>
+      <!-- voiles : lisibilité + vignettage élégant -->
+      <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.32); pointer-events: none;"></div>
+      <div style="position: absolute; inset: 0; background: radial-gradient(ellipse 120% 90% at 50% 45%, transparent 55%, rgba(5,8,7,0.75) 100%); pointer-events: none;"></div>
+
+      <!-- ======== SECTION 1 — Hero ======== -->
+      <div data-sec="0" data-screen-label="01 Hero" style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 24px; will-change: opacity, transform, filter;">
+        <div data-par="1" style="display: flex; flex-direction: column; align-items: center; gap: 0; will-change: transform;">
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 16px; border-radius: 999px; background: rgba(255,255,255,0.07); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.12); font-size: 13px; color: rgba(255,255,255,0.8); margin-bottom: 28px;">
+            <span style="width: 7px; height: 7px; border-radius: 50%; background: #33BFA3; animation: aule-pulse 2.4s infinite;"></span>
+            Cartographie collaborative en temps réel
+          </div>
+          <h1 style="margin: 0; font-size: clamp(44px, 7vw, 96px); line-height: 1.02; font-weight: 700; letter-spacing: -0.03em; max-width: 1000px; text-wrap: balance;">Les transports,<br>enfin <span style="color: #33BFA3;">en temps réel</span>.</h1>
+          <p style="margin: 26px 0 0; font-size: clamp(16px, 1.6vw, 20px); line-height: 1.55; color: rgba(255,255,255,0.75); max-width: 540px; text-wrap: pretty;">Ne subissez plus les transports. Anticipez-les grâce à une cartographie collaborative en temps réel.</p>
+          <div style="display: flex; gap: 14px; margin-top: 40px; flex-wrap: wrap; justify-content: center;">
+            <a href="#" data-hover="" style="text-decoration: none; color: #04211c; background: #33BFA3; font-weight: 600; font-size: 16px; padding: 15px 30px; border-radius: 999px; transition: transform .2s ease, background .2s ease;" style-hover="background: #8DEEDD; transform: scale(1.05);">Télécharger Aule</a>
+            <a href="#" data-hover="" style="text-decoration: none; color: #fff; background: rgba(255,255,255,0.08); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.16); font-weight: 500; font-size: 16px; padding: 15px 30px; border-radius: 999px; transition: transform .2s ease, background .2s ease;" style-hover="background: rgba(255,255,255,0.15); transform: scale(1.05);">Découvrir</a>
+          </div>
+        </div>
+        <!-- indicateur de scroll -->
+        <div style="position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; color: rgba(255,255,255,0.6); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;">
+          <span>Suivez le trajet</span>
+          <svg width="18" height="26" viewBox="0 0 18 26" style="animation: aule-scrollhint 1.8s ease-in-out infinite;"><rect x="1" y="1" width="16" height="24" rx="8" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"></rect><circle cx="9" cy="8" r="2.4" fill="#33BFA3"></circle></svg>
+        </div>
+      </div>
+
+      <!-- ======== SECTION 2 — Localisez ======== -->
+      <div data-sec="1" data-screen-label="02 Localisez" style="opacity: 0; visibility: hidden; position: absolute; inset: 0; display: flex; align-items: center; padding: 0 clamp(24px, 7vw, 120px); will-change: opacity, transform, filter;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 48px; width: 100%; flex-wrap: wrap;">
+          <div data-par="1" style="max-width: 500px; will-change: transform;">
+            <div style="font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #33BFA3; margin-bottom: 18px;">01 — Localisez</div>
+            <h2 style="margin: 0; font-size: clamp(34px, 4.2vw, 58px); line-height: 1.05; font-weight: 700; letter-spacing: -0.025em; text-wrap: balance;">Voyez réellement où se trouve votre véhicule.</h2>
+            <p style="margin: 22px 0 0; font-size: 17px; line-height: 1.6; color: rgba(255,255,255,0.75); max-width: 430px; text-wrap: pretty;">Visualisez votre bus ou votre tram en temps réel, suivez son déplacement et estimez précisément son heure d'arrivée.</p>
+            <!-- points d'appui : donne du corps à la section -->
+            <div style="display: flex; flex-direction: column; gap: 2px; margin-top: 30px;">
+              <div style="display: flex; align-items: center; gap: 14px; padding: 13px 0; border-top: 1px solid rgba(255,255,255,0.09);">
+                <span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: rgba(51,191,163,0.12); border: 1px solid rgba(51,191,163,0.25);">📍</span>
+                <span style="font-size: 15px; color: rgba(255,255,255,0.9);">Position GPS rafraîchie toutes les secondes</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 14px; padding: 13px 0; border-top: 1px solid rgba(255,255,255,0.09);">
+                <span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: rgba(51,191,163,0.12); border: 1px solid rgba(51,191,163,0.25);">⏱</span>
+                <span style="font-size: 15px; color: rgba(255,255,255,0.9);">ETA recalculée en continu selon le trafic réel</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 14px; padding: 13px 0; border-top: 1px solid rgba(255,255,255,0.09); border-bottom: 1px solid rgba(255,255,255,0.09);">
+                <span style="display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; border-radius: 10px; background: rgba(51,191,163,0.12); border: 1px solid rgba(51,191,163,0.25);">🚌</span>
+                <span style="font-size: 15px; color: rgba(255,255,255,0.9);">Tous les bus, trams et métros de votre réseau</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 34px; margin-top: 26px;">
+              <div><div style="font-size: 28px; font-weight: 700; color: #33BFA3; letter-spacing: -0.02em;">±30 s</div><div style="font-size: 13px; color: rgba(255,255,255,0.55);">précision d'arrivée</div></div>
+              <div><div style="font-size: 28px; font-weight: 700; color: #33BFA3; letter-spacing: -0.02em;">100 %</div><div style="font-size: 13px; color: rgba(255,255,255,0.55);">du réseau couvert</div></div>
+            </div>
+          </div>
+          <!-- phone : carte + véhicule + ETA -->
+          <div data-par="1.6" style="width: 290px; flex: none; border-radius: 34px; background: rgba(12,18,16,0.6); backdrop-filter: blur(24px) saturate(1.3); border: 1px solid rgba(255,255,255,0.14); padding: 12px; box-shadow: 0 40px 80px rgba(0,0,0,0.5); will-change: transform;">
+            <div style="border-radius: 24px; overflow: hidden; background: #0B100F;">
+              <div style="position: relative; height: 330px; background: linear-gradient(160deg, #0E1614, #0A1210);">
+                <svg viewBox="0 0 290 330" style="position: absolute; inset: 0; width: 100%; height: 100%;">
+                  <path d="M-10 240 L70 235 L120 200 L150 140 L210 110 L300 90" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="22" stroke-linecap="round"></path>
+                  <path d="M-10 280 L90 285 L180 250 L300 245" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="14" stroke-linecap="round"></path>
+                  <path d="M-10 240 L70 235 L120 200 L150 140 L210 110 L300 90" fill="none" stroke="#17A08A" stroke-width="4" stroke-dasharray="10 10" style="animation: aule-dash 1.6s linear infinite;"></path>
+                  <circle cx="150" cy="140" r="7" fill="#33BFA3" style="animation: aule-pulse 2.4s infinite;"></circle>
+                  <circle cx="250" cy="98" r="6" fill="#fff" opacity="0.9"></circle>
+                </svg>
+                <div style="position: absolute; left: 14px; top: 14px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: rgba(10,14,13,0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); font-size: 12.5px;">
+                  <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 7px; background: #17A08A; font-weight: 700; font-size: 11px; color: #04211c;">T3</span>
+                  Tram T3 · direction Gare
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.07);">
+                <div>
+                  <div style="font-size: 12px; color: rgba(255,255,255,0.55);">Arrivée à votre arrêt</div>
+                  <div style="font-size: 21px; font-weight: 700; color: #33BFA3;">4 min</div>
+                </div>
+                <div style="font-size: 12px; color: rgba(255,255,255,0.55); text-align: right;">Suivi en direct<br><span style="color: #fff;">Quai B · Hôtel de Ville</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======== SECTION 3 — Montez au bon moment ======== -->
+      <div data-sec="2" data-screen-label="03 Notification" style="opacity: 0; visibility: hidden; position: absolute; inset: 0; display: flex; align-items: center; padding: 0 clamp(24px, 7vw, 120px); will-change: opacity, transform, filter;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 48px; width: 100%; flex-wrap: wrap-reverse;">
+          <!-- notification -->
+          <div data-par="1.6" style="width: 340px; flex: none; display: flex; flex-direction: column; gap: 14px; will-change: transform;">
+            <div style="border-radius: 20px; background: rgba(12,18,16,0.65); backdrop-filter: blur(24px) saturate(1.3); border: 1px solid rgba(255,255,255,0.14); padding: 16px 18px; box-shadow: 0 30px 60px rgba(0,0,0,0.45); display: flex; gap: 13px; align-items: flex-start;">
+              <img src="uploads/logo-1783189856190.png" alt="" style="width: 34px; height: 34px; object-fit: contain; border-radius: 9px; background: rgba(255,255,255,0.06); padding: 3px;">
+              <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.5); margin-bottom: 3px;"><span style="font-weight: 600; color: rgba(255,255,255,0.85);">Aule</span><span>maintenant</span></div>
+                <div style="font-size: 14.5px; font-weight: 600;">Votre tram T3 arrive 🚋</div>
+                <div style="font-size: 13.5px; color: rgba(255,255,255,0.65); line-height: 1.45;">À 2 minutes de l'arrêt Hôtel de Ville. Dirigez-vous vers le quai B.</div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 16px; background: rgba(51,191,163,0.1); border: 1px solid rgba(51,191,163,0.25); font-size: 13.5px; color: #A9F0E4;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #33BFA3; animation: aule-pulse 2.4s infinite;"></span>
+              Portes ouvertes · montez maintenant
+            </div>
+          </div>
+          <div data-par="1" style="max-width: 480px; will-change: transform;">
+            <div style="font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #33BFA3; margin-bottom: 18px;">02 — Montez au bon moment</div>
+            <h2 style="margin: 0; font-size: clamp(34px, 4.2vw, 58px); line-height: 1.05; font-weight: 700; letter-spacing: -0.025em; text-wrap: balance;">Ne courez plus après votre tram.</h2>
+            <p style="margin: 22px 0 0; font-size: 17px; line-height: 1.6; color: rgba(255,255,255,0.75); max-width: 420px; text-wrap: pretty;">Recevez une notification lorsque votre véhicule approche de votre arrêt.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======== SECTION 4 — Voyagez sereinement ======== -->
+      <div data-sec="3" data-screen-label="04 En trajet" style="opacity: 0; visibility: hidden; position: absolute; inset: 0; display: flex; align-items: center; padding: 0 clamp(24px, 7vw, 120px); will-change: opacity, transform, filter;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 48px; width: 100%; flex-wrap: wrap;">
+          <div data-par="1" style="max-width: 460px; will-change: transform;">
+            <div style="font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #33BFA3; margin-bottom: 18px;">03 — Voyagez sereinement</div>
+            <h2 style="margin: 0; font-size: clamp(34px, 4.2vw, 58px); line-height: 1.05; font-weight: 700; letter-spacing: -0.025em; text-wrap: balance;">Toutes les informations utiles pendant votre trajet.</h2>
+          </div>
+          <!-- panneau trajet -->
+          <div data-par="1.6" style="width: 330px; flex: none; border-radius: 24px; background: rgba(12,18,16,0.65); backdrop-filter: blur(24px) saturate(1.3); border: 1px solid rgba(255,255,255,0.14); padding: 20px; box-shadow: 0 30px 60px rgba(0,0,0,0.45); will-change: transform;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px;">
+              <div style="font-weight: 600; font-size: 15px;">Tram T3 → Gare</div>
+              <div style="font-size: 13px; color: #33BFA3; font-weight: 600;">12 min restantes</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0;"><span style="width: 10px; height: 10px; border-radius: 50%; background: #33BFA3; flex: none;"></span><span style="font-size: 14px; color: rgba(255,255,255,0.9);">Hôtel de Ville</span><span style="margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.45);">à bord</span></div>
+              <div style="width: 1.5px; height: 14px; background: rgba(255,255,255,0.15); margin-left: 4px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0;"><span style="width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; flex: none;"></span><span style="font-size: 14px; color: rgba(255,255,255,0.75);">Place Carnot</span><span style="margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.45);">3 min</span></div>
+              <div style="width: 1.5px; height: 14px; background: rgba(255,255,255,0.15); margin-left: 4px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 9px 0;"><span style="width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); box-sizing: border-box; flex: none;"></span><span style="font-size: 14px; color: rgba(255,255,255,0.75);">Gare centrale</span><span style="margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.45);">12 min</span></div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
+              <span style="font-size: 12.5px; padding: 6px 11px; border-radius: 999px; background: rgba(255,183,77,0.12); border: 1px solid rgba(255,183,77,0.3); color: #FFD9A0;">⚠ Ralentissement ligne B</span>
+              <span style="font-size: 12.5px; padding: 6px 11px; border-radius: 999px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.75);">Correspondance M1 · quai 2</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======== SECTION 5 — Communauté ======== -->
+      <div data-sec="4" data-screen-label="05 Communauté" style="opacity: 0; visibility: hidden; position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 24px; will-change: opacity, transform, filter;">
+        <div data-par="1" style="max-width: 720px; will-change: transform;">
+          <div style="font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #33BFA3; margin-bottom: 18px;">04 — La communauté</div>
+          <h2 style="margin: 0; font-size: clamp(34px, 4.5vw, 62px); line-height: 1.05; font-weight: 700; letter-spacing: -0.025em; text-wrap: balance;">Des informations enrichies par toute la communauté.</h2>
+          <p style="margin: 22px auto 0; font-size: 17px; line-height: 1.6; color: rgba(255,255,255,0.75); max-width: 480px; text-wrap: pretty;">Chaque signalement améliore la qualité des informations, pour tout le monde.</p>
+        </div>
+        <div data-par="1.5" style="display: flex; gap: 12px; margin-top: 42px; flex-wrap: wrap; justify-content: center; max-width: 760px; will-change: transform;">
+          <span style="font-size: 14px; padding: 10px 16px; border-radius: 999px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.14);">🚧 Incident signalé · T3</span>
+          <span style="font-size: 14px; padding: 10px 16px; border-radius: 999px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.14);">⏱ Retard 5 min · Bus 12</span>
+          <span style="font-size: 14px; padding: 10px 16px; border-radius: 999px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.14);">🚫 Véhicule supprimé · 18h04</span>
+          <span style="font-size: 14px; padding: 10px 16px; border-radius: 999px; background: rgba(51,191,163,0.12); border: 1px solid rgba(51,191,163,0.3); color: #A9F0E4;">👥 Affluence modérée</span>
+          <span style="font-size: 14px; padding: 10px 16px; border-radius: 999px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.14);">📍 Observation terrain · quai B</span>
+        </div>
+      </div>
+
+      <!-- ======== SECTION 6 — Commandez ======== -->
+      <div data-sec="5" data-screen-label="06 Commandez" style="opacity: 0; visibility: hidden; position: absolute; inset: 0; display: flex; align-items: center; padding: 0 clamp(24px, 7vw, 120px); will-change: opacity, transform, filter;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 48px; width: 100%; flex-wrap: wrap;">
+          <div data-par="1" style="max-width: 470px; will-change: transform;">
+            <div style="font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #33BFA3; margin-bottom: 18px;">05 — Nouveau</div>
+            <h2 style="margin: 0; font-size: clamp(34px, 4.2vw, 58px); line-height: 1.05; font-weight: 700; letter-spacing: -0.025em; text-wrap: balance;">Commandez pendant votre trajet.</h2>
+            <p style="margin: 22px 0 0; font-size: 17px; line-height: 1.6; color: rgba(255,255,255,0.75); max-width: 430px; text-wrap: pretty;">Repas, courses ou achats directement depuis Aule. Choisissez votre arrêt comme point de livraison — la remise est synchronisée avec votre arrivée.</p>
+          </div>
+          <!-- flow commande -->
+          <div data-par="1.6" style="width: 330px; flex: none; display: flex; flex-direction: column; gap: 12px; will-change: transform;">
+            <div style="border-radius: 20px; background: rgba(12,18,16,0.65); backdrop-filter: blur(24px) saturate(1.3); border: 1px solid rgba(255,255,255,0.14); padding: 16px 18px; box-shadow: 0 30px 60px rgba(0,0,0,0.45);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="font-weight: 600; font-size: 14.5px;">☕ Café Louna · quai B</div>
+                <span style="font-size: 12px; color: #33BFA3;">Partenaire</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 13.5px; color: rgba(255,255,255,0.75); padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.07);"><span>Cappuccino ×1</span><span>3,80 €</span></div>
+              <div style="display: flex; justify-content: space-between; font-size: 13.5px; color: rgba(255,255,255,0.75); padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.07);"><span>Croissant ×2</span><span>2,40 €</span></div>
+              <div style="display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.12); margin-top: 4px;"><span>Payé</span><span style="color: #33BFA3;">6,20 €</span></div>
+            </div>
+            <div style="border-radius: 16px; background: rgba(12,18,16,0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.14); padding: 13px 16px; display: flex; align-items: center; gap: 12px; font-size: 13.5px; color: rgba(255,255,255,0.8);">
+              <span style="font-size: 17px;">🛵</span> Livreur en route · rendez-vous quai B
+              <span style="margin-left: auto; color: #33BFA3; font-weight: 600;">sync. 12 min</span>
+            </div>
+            <div style="border-radius: 16px; background: rgba(51,191,163,0.1); border: 1px solid rgba(51,191,163,0.25); padding: 13px 16px; font-size: 13.5px; color: #A9F0E4;">✓ Votre commande est arrivée — remise à la descente</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======== SECTION 7 — Aule Pro ======== -->
+      <div data-sec="6" data-screen-label="07 Aule Pro" style="opacity: 0; visibility: hidden; position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 24px; will-change: opacity, transform, filter;">
+        <div data-par="1" style="max-width: 760px; will-change: transform;">
+          <div style="font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #33BFA3; margin-bottom: 18px;">06 — Aule Pro</div>
+          <h2 style="margin: 0; font-size: clamp(34px, 4.5vw, 62px); line-height: 1.05; font-weight: 700; letter-spacing: -0.025em; text-wrap: balance;">Pensée aussi pour ceux qui font vivre le réseau.</h2>
+          <p style="margin: 22px auto 0; font-size: 17px; line-height: 1.6; color: rgba(255,255,255,0.75); max-width: 520px; text-wrap: pretty;">Conducteurs, contrôleurs, agents d'intervention, superviseurs — leurs informations terrain améliorent aussi votre trajet.</p>
+        </div>
+        <div data-par="1.5" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 40px; width: min(720px, 100%); will-change: transform;">
+          <div style="padding: 14px 12px; border-radius: 16px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); font-size: 13.5px;">Prise de service</div>
+          <div style="padding: 14px 12px; border-radius: 16px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); font-size: 13.5px;">Missions &amp; équipes</div>
+          <div style="padding: 14px 12px; border-radius: 16px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); font-size: 13.5px;">Géolocalisation véhicule</div>
+          <div style="padding: 14px 12px; border-radius: 16px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); font-size: 13.5px;">Messagerie terrain</div>
+          <div style="padding: 14px 12px; border-radius: 16px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); font-size: 13.5px;">Contrôle &amp; intervention</div>
+          <div style="padding: 14px 12px; border-radius: 16px; background: rgba(12,18,16,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); font-size: 13.5px;">Échanges de services</div>
+        </div>
+      </div>
+
+      <!-- ======== SECTION 8 — Réseau vivant ======== -->
+      <div data-sec="7" data-screen-label="08 Réseau vivant" style="opacity: 0; visibility: hidden; position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 24px; will-change: opacity, transform, filter;">
+        <div data-par="1" style="max-width: 860px; will-change: transform;">
+          <div style="font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: #33BFA3; margin-bottom: 18px;">07 — Un réseau vivant</div>
+          <h2 style="margin: 0; font-size: clamp(40px, 6vw, 84px); line-height: 1.02; font-weight: 700; letter-spacing: -0.03em; text-wrap: balance;">Chaque trajet améliore <span style="color: #33BFA3;">le suivant</span>.</h2>
+          <p style="margin: 26px auto 0; font-size: clamp(16px, 1.6vw, 19px); line-height: 1.6; color: rgba(255,255,255,0.75); max-width: 560px; text-wrap: pretty;">Grâce à la communauté et aux professionnels, Aule construit la vision la plus précise du réseau de transport.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer data-screen-label="Footer" style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 140px 24px 60px; background: linear-gradient(180deg, #050807, #071110);">
+    <img src="uploads/logo-1783189856190.png" alt="Aule" style="width: 76px; height: 76px; object-fit: contain;">
+    <h2 style="margin: 28px 0 0; font-size: clamp(32px, 4.5vw, 60px); font-weight: 700; letter-spacing: -0.025em; line-height: 1.05; text-wrap: balance;">Les transports, enfin en temps réel.</h2>
+    <div style="display: flex; gap: 14px; margin-top: 38px; flex-wrap: wrap; justify-content: center;">
+      <a href="#" data-hover="" style="text-decoration: none; color: #04211c; background: #33BFA3; font-weight: 600; font-size: 16px; padding: 15px 30px; border-radius: 999px; transition: transform .2s ease, background .2s ease;" style-hover="background: #8DEEDD; transform: scale(1.05);">Télécharger gratuitement</a>
+      <a href="#" data-hover="" style="text-decoration: none; color: #fff; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); font-weight: 500; font-size: 16px; padding: 15px 30px; border-radius: 999px; transition: transform .2s ease, background .2s ease;" style-hover="background: rgba(255,255,255,0.15); transform: scale(1.05);">Découvrir Aule Pro</a>
+    </div>
+  </footer>
+
+  <!-- ============ FOOTER (liens) ============ -->
+  <footer data-screen-label="Footer liens" style="background: #071110; border-top: 1px solid rgba(255,255,255,0.07); padding: 72px clamp(24px, 7vw, 120px) 40px;">
+    <div style="max-width: 1160px; margin: 0 auto; display: grid; grid-template-columns: 1.4fr repeat(4, 1fr); gap: 48px 32px;">
+      <div style="min-width: 200px;">
+        <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 16px;">
+          <img src="uploads/logo-1783189856190.png" alt="Aule" style="width: 30px; height: 30px; object-fit: contain;">
+          <span style="font-weight: 600; font-size: 18px;">Aule</span>
+        </div>
+        <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.5); max-width: 280px;">La plateforme qui connecte voyageurs, professionnels du transport et commerçants de proximité.</p>
+        <div style="display: flex; gap: 10px;">
+          <a href="#" data-hover="" style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); text-decoration: none; font-size: 16px; transition: background .2s ease;" style-hover="background: rgba(255,255,255,0.12);">𝕏</a>
+          <a href="#" data-hover="" style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); text-decoration: none; font-size: 16px; transition: background .2s ease;" style-hover="background: rgba(255,255,255,0.12);">in</a>
+          <a href="#" data-hover="" style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); text-decoration: none; font-size: 16px; transition: background .2s ease;" style-hover="background: rgba(255,255,255,0.12);">◎</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 16px;">Produit</div>
+        <div style="display: flex; flex-direction: column; gap: 11px;">
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Temps réel</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Notifications</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Commandes</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Communauté</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 16px;">Pro</div>
+        <div style="display: flex; flex-direction: column; gap: 11px;">
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Aule Pro</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Opérateurs</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Commerçants</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">API &amp; données</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 16px;">Ressources</div>
+        <div style="display: flex; flex-direction: column; gap: 11px;">
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Aide</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Blog</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Statut réseau</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Contact</a>
+        </div>
+      </div>
+      <div>
+        <div style="font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-bottom: 16px;">Société</div>
+        <div style="display: flex; flex-direction: column; gap: 11px;">
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">À propos</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Carrières</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Presse</a>
+          <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.7); font-size: 14.5px; transition: color .2s ease;" style-hover="color: #33BFA3;">Partenaires</a>
+        </div>
+      </div>
+    </div>
+    <div style="max-width: 1160px; margin: 56px auto 0; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.07); display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;">
+      <div style="font-size: 13px; color: rgba(255,255,255,0.4);">© 2026 Aule — voyageurs, professionnels et commerçants, connectés.</div>
+      <div style="display: flex; gap: 22px; flex-wrap: wrap;">
+        <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.4); font-size: 13px; transition: color .2s ease;" style-hover="color: rgba(255,255,255,0.8);">Confidentialité</a>
+        <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.4); font-size: 13px; transition: color .2s ease;" style-hover="color: rgba(255,255,255,0.8);">Conditions</a>
+        <a href="#" data-hover="" style="text-decoration: none; color: rgba(255,255,255,0.4); font-size: 13px; transition: color .2s ease;" style-hover="color: rgba(255,255,255,0.8);">Cookies</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============ CURSEUR CUSTOM ============ -->
+  <div ref="{{ cursorRef }}" style="position: fixed; left: 0; top: 0; z-index: 100; pointer-events: none; width: 36px; height: 36px; margin: -18px 0 0 -18px; border-radius: 50%; border: 1.5px solid rgba(51,191,163,0.8); display: none; align-items: center; justify-content: center; transition: transform .18s ease, background .18s ease;">
+    <div style="width: 8px; height: 8px; border-radius: 50%; background-color: #439B56"></div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  rootEl = null;
+  containerEl = null;
+  videoEl = null;
+  cursorEl = null;
+  progressBarEl = null;
+  rafId = 0;
+  duration = 0;
+  lastSeek = -1;
+  videoWired = false;
+  reducedMotion = false;
+  sections = [];
+  mouse = { x: -100, y: -100, cx: -100, cy: -100, seen: false };
+
+  componentDidMount() {
+    this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Curseur custom (pointeurs fins uniquement)
+    if (window.matchMedia("(pointer: fine)").matches) {
+      this.onMove = (e) => {
+        this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.seen = true;
+        const t = e.target;
+        const hot = t && t.closest && t.closest("[data-hover]");
+        if (this.cursorEl) {
+          this.cursorEl.style.transform = hot ? "scale(1.6)" : "scale(1)";
+          this.cursorEl.style.background = hot ? "rgba(51,191,163,0.12)" : "transparent";
+        }
+      };
+      window.addEventListener("mousemove", this.onMove, { passive: true });
+    }
+
+    // ===== Navigation par étapes : un geste de scroll = une étape =====
+    // On intercepte molette / tactile / clavier pour interdire le micro-scroll
+    // natif (qui obligeait à scroller plusieurs fois) et déclencher directement
+    // une transition animée vers la section suivante ou précédente.
+    if (!this.reducedMotion) {
+      const N = 8; // nombre de sections dans le container
+
+      const RATE = 2.2; // vitesse de lecture pendant une transition d'étape
+
+      // Position de scroll (px) où la section i est parfaitement centrée
+      const targetForSection = (i) => {
+        const c = this.containerEl;
+        if (!c) return 0;
+        const scrollable = c.offsetHeight - window.innerHeight;
+        return c.offsetTop + ((i + 0.5) / N) * scrollable; // p=0.5 => contenu centré
+      };
+
+      // Temps vidéo associé à la section i (0 → première frame, N-1 → dernière)
+      const timeForSection = (i) => {
+        const seg = Math.max(0, this.duration - 0.05);
+        return (i / (N - 1)) * seg;
+      };
+
+      // Lance la lecture de la vidéo vers le temps cible (avant = play natif, arrière = tween)
+      const playVideoTo = (destTime, dir) => {
+        const video = this.videoEl;
+        if (!video || !this.duration) return 0;
+        this.videoTarget = destTime;
+        this.videoDir = dir;
+        const segSec = Math.abs(destTime - video.currentTime);
+        const playMs = Math.max(420, (segSec / RATE) * 1000);
+        if (dir > 0) {
+          video.playbackRate = RATE;
+          video.play().catch(() => {});
+        } else {
+          // marche arrière : le tick interpole currentTime sur revDur
+          this.revFrom = video.currentTime;
+          this.revStart = performance.now();
+          this.revDur = playMs;
+        }
+        return playMs;
+      };
+
+      // Index de section le plus proche de la position de scroll actuelle
+      const currentIndex = () => {
+        const c = this.containerEl;
+        if (!c) return 0;
+        const scrollable = c.offsetHeight - window.innerHeight;
+        const overall = (window.scrollY - c.offsetTop) / scrollable;
+        return Math.max(0, Math.min(N - 1, Math.round(overall * N - 0.5)));
+      };
+
+      // Sommes-nous dans la zone "étapes" (le container) ou dans le footer libre ?
+      const inStepZone = () => {
+        const c = this.containerEl;
+        if (!c) return false;
+        const scrollable = c.offsetHeight - window.innerHeight;
+        const overall = (window.scrollY - c.offsetTop) / scrollable;
+        return overall >= -0.01 && overall <= 1.01;
+      };
+
+      // Animation de scroll maison (easeInOutCubic) sur une durée donnée : window.scrollTo
+      // par frame, synchronisée avec la lecture vidéo pour un mouvement cohérent.
+      const animateTo = (destY, dur) => {
+        if (this.snapRaf) cancelAnimationFrame(this.snapRaf);
+        const startY = window.scrollY;
+        const dist = destY - startY;
+        if (Math.abs(dist) < 2) return;
+        const t0 = performance.now();
+        this.autoScrolling = true;
+        const frame = (now) => {
+          const t = Math.min(1, (now - t0) / dur);
+          const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+          window.scrollTo(0, startY + dist * e);
+          if (t < 1) { this.snapRaf = requestAnimationFrame(frame); }
+          else { this.snapRaf = 0; this.autoScrolling = false; }
+        };
+        this.snapRaf = requestAnimationFrame(frame);
+      };
+
+      // Avance/recule d'une étape : la vidéo JOUE de l'étape courante vers la suivante,
+      // le scroll (fondus des sections) est animé sur la même durée. stepBusy se libère
+      // quand la vidéo atteint sa frame cible (géré dans le tick rAF).
+      const step = (dir) => {
+        const cur = currentIndex();
+        const next = Math.max(0, Math.min(N - 1, cur + dir));
+        if (next === cur) return false; // déjà à l'extrémité
+        this.stepBusy = true;
+        const playMs = playVideoTo(timeForSection(next), dir);
+        animateTo(targetForSection(next), Math.max(playMs, 380));
+        // Filet de sécurité : libère l'étape même si la vidéo cale
+        if (this.stepSafety) clearTimeout(this.stepSafety);
+        this.stepSafety = setTimeout(() => {
+          this.videoDir = 0; this.stepBusy = false;
+          this.stepCooldown = performance.now() + 120;
+          if (this.videoEl) this.videoEl.pause();
+        }, Math.max(playMs, 380) + 700);
+        return true;
+      };
+
+      // true si on doit gérer le geste (sinon on laisse le scroll natif,
+      // p.ex. pour sortir de la dernière étape vers le footer, ou revenir en haut)
+      const shouldHandle = (dir) => {
+        if (!inStepZone()) return false;
+        const cur = currentIndex();
+        if (dir > 0 && cur === N - 1) return false; // sortie vers le footer
+        if (dir < 0 && cur === 0) return false;      // au-dessus du hero
+        return true;
+      };
+
+      // --- Molette / trackpad ---
+      this.onWheel = (e) => {
+        const dir = e.deltaY > 0 ? 1 : -1;
+        if (!shouldHandle(dir)) return; // scroll natif
+        e.preventDefault(); // bloque le micro-scroll natif
+        if (this.stepBusy || performance.now() < (this.stepCooldown || 0)) return;
+        step(dir);
+      };
+      window.addEventListener("wheel", this.onWheel, { passive: false });
+
+      // --- Tactile ---
+      this.onTouchStart = (e) => { this.touchY = e.touches[0].clientY; };
+      this.onTouchMove = (e) => {
+        const dy = this.touchY - e.touches[0].clientY; // >0 : doigt vers le haut = descendre
+        const dir = dy > 0 ? 1 : -1;
+        if (!shouldHandle(dir)) return;
+        e.preventDefault();
+        if (this.stepBusy || performance.now() < (this.stepCooldown || 0)) return;
+        if (Math.abs(dy) > 22) { step(dir); this.touchY = e.touches[0].clientY; }
+      };
+      window.addEventListener("touchstart", this.onTouchStart, { passive: true });
+      window.addEventListener("touchmove", this.onTouchMove, { passive: false });
+
+      // --- Clavier (flèches, espace, PageUp/Down) ---
+      this.onKey = (e) => {
+        let dir = 0;
+        if (e.key === "ArrowDown" || e.key === "PageDown" || e.key === " ") dir = 1;
+        else if (e.key === "ArrowUp" || e.key === "PageUp") dir = -1;
+        if (!dir || !shouldHandle(dir)) return;
+        e.preventDefault();
+        if (this.stepBusy || performance.now() < (this.stepCooldown || 0)) return;
+        step(dir);
+      };
+      window.addEventListener("keydown", this.onKey);
+    }
+
+    const smooth = (a, b, x) => {
+      const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+      return t * t * (3 - 2 * t);
+    };
+
+    // Boucle rAF unique : scrub vidéo + orchestration des sections + curseur
+    const tick = () => {
+      this.rafId = requestAnimationFrame(tick);
+      const video = this.videoEl;
+      const container = this.containerEl;
+
+      // curseur lerpé
+      if (this.cursorEl && this.mouse.seen) {
+        this.mouse.cx += (this.mouse.x - this.mouse.cx) * 0.22;
+        this.mouse.cy += (this.mouse.y - this.mouse.cy) * 0.22;
+        this.cursorEl.style.display = "flex";
+        this.cursorEl.style.left = this.mouse.cx + "px";
+        this.cursorEl.style.top = this.mouse.cy + "px";
+      }
+
+      if (!video || !container) return;
+
+      // Câblage one-shot : blob (preview sans Range requests) + metadata
+      if (!this.videoWired) {
+        this.videoWired = true;
+        this.sections = Array.from(container.querySelectorAll("[data-sec]"));
+        this.onMeta = () => { this.duration = video.duration; };
+        video.addEventListener("loadedmetadata", this.onMeta);
+        // Source adaptée : recadrage portrait sur mobile (< 768px), sinon paysage
+        const isMobile = window.matchMedia("(max-width: 767px)").matches;
+        const srcUrl = isMobile ? "uploads/hero-scroll-mobile.mp4" : "uploads/hero-scroll-final.mp4";
+        fetch(srcUrl).then((r) => r.blob()).then((b) => {
+          this.blobUrl = URL.createObjectURL(b);
+          video.src = this.blobUrl;
+          if (this.reducedMotion) {
+            video.loop = true; video.play().catch(() => {});
+          } else {
+            // Démarre en pause sur la première frame ; les étapes déclencheront la lecture
+            video.pause();
+            video.currentTime = 0;
+            this.videoTarget = 0;
+            this.videoDir = 0;
+          }
+        }).catch(() => {});
+      }
+
+      // Progression globale 0→1 sur toute la hauteur du container
+      const rect = container.getBoundingClientRect();
+      const scrollable = rect.height - window.innerHeight;
+      const overall = scrollable > 0 ? Math.min(1, Math.max(0, -rect.top / scrollable)) : 0;
+
+      if (this.progressBarEl) this.progressBarEl.style.width = (overall * 100).toFixed(2) + "%";
+
+      // Lecture par étapes : la vidéo JOUE entre deux étapes puis se met en pause
+      // sur la frame cible. (Plus de scrubbing image par image lié au scroll.)
+      if (!this.reducedMotion && this.duration && this.videoTarget != null) {
+        if (this.videoDir > 0) {
+          // Marche avant : lecture native (fluide), pause quand on atteint la cible
+          if (video.currentTime >= this.videoTarget || video.ended) {
+            video.pause();
+            video.currentTime = Math.min(this.videoTarget, this.duration - 0.05);
+            this.videoDir = 0;
+            this.stepBusy = false;
+            this.stepCooldown = performance.now() + 120;
+          }
+        } else if (this.videoDir < 0) {
+          // Marche arrière : lecture native impossible → tween manuel du currentTime
+          const t = Math.min(1, (performance.now() - this.revStart) / this.revDur);
+          video.currentTime = this.revFrom + (this.videoTarget - this.revFrom) * t;
+          if (t >= 1) {
+            this.videoDir = 0;
+            this.stepBusy = false;
+            this.stepCooldown = performance.now() + 120;
+          }
+        }
+      }
+
+      // Orchestration : chaque section occupe 1/8 du scroll.
+      const n = this.sections.length;
+      for (let i = 0; i < n; i++) {
+        const el = this.sections[i];
+        const p = overall * n - i; // <0 avant, [0,1] pendant, >1 après
+        if (p < -0.25 || p > 1.25) { el.style.opacity = "0"; el.style.visibility = "hidden"; continue; }
+        el.style.visibility = "visible";
+        // rampes : entrée rapide 0.04→0.20, longue tenue, sortie tardive 0.84→0.99.
+        // Le contenu est donc pleinement lisible sur ~64% du créneau (avant : ~44%).
+        const fadeIn = i === 0 ? 1 : smooth(0.04, 0.20, p);
+        const fadeOut = i === n - 1 ? 1 : 1 - smooth(0.84, 0.99, p);
+        const vis = fadeIn * fadeOut;
+        el.style.opacity = vis.toFixed(3);
+        if (this.reducedMotion) continue; // opacité seule en reduced-motion
+        el.style.filter = vis > 0.98 ? "none" : "blur(" + ((1 - vis) * 10).toFixed(1) + "px)";
+        // Parallax : les couches [data-par] montent à des vitesses différentes
+        const drift = (1 - fadeIn) * 70 - (1 - fadeOut) * 70; // px
+        const pars = el.querySelectorAll("[data-par]");
+        for (const layer of pars) {
+          const speed = parseFloat(layer.getAttribute("data-par")) || 1;
+          layer.style.transform = "translateY(" + (drift * speed).toFixed(1) + "px) scale(" + (0.965 + 0.035 * vis).toFixed(4) + ")";
+        }
+      }
+    };
+    this.rafId = requestAnimationFrame(tick);
+  }
+
+  componentWillUnmount() {
+    cancelAnimationFrame(this.rafId);
+    if (this.snapRaf) cancelAnimationFrame(this.snapRaf);
+    if (this.stepSafety) clearTimeout(this.stepSafety);
+    if (this.onMove) window.removeEventListener("mousemove", this.onMove);
+    if (this.onWheel) window.removeEventListener("wheel", this.onWheel);
+    if (this.onTouchStart) window.removeEventListener("touchstart", this.onTouchStart);
+    if (this.onTouchMove) window.removeEventListener("touchmove", this.onTouchMove);
+    if (this.onKey) window.removeEventListener("keydown", this.onKey);
+    if (this.videoEl && this.onMeta) this.videoEl.removeEventListener("loadedmetadata", this.onMeta);
+    if (this.blobUrl) URL.revokeObjectURL(this.blobUrl);
+  }
+
+  renderVals() {
+    return {
+      rootRef: (el) => { this.rootEl = el; },
+      containerRef: (el) => { this.containerEl = el; },
+      videoRef: (el) => { this.videoEl = el; },
+      cursorRef: (el) => { this.cursorEl = el; },
+      progressBarRef: (el) => { this.progressBarEl = el; },
+    };
+  }
+}
+</script>
+</body>
+</html>

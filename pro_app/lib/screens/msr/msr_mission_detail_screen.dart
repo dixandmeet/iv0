@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/msr/msr_mission.dart';
+import '../../services/msr/msr_mission_service.dart';
 
-/// Détail d'une mission MSR (scaffold).
-/// Les actions (prendre / terminer la mission, signaler un incident, contrôle
-/// terrain) sont des emplacements désactivés en attendant le lot MSR.
+/// Détail d'une mission MSR.
 class MsrMissionDetailScreen extends StatelessWidget {
   final MsrMission mission;
   const MsrMissionDetailScreen({super.key, required this.mission});
@@ -16,19 +16,35 @@ class MsrMissionDetailScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _transition(
+    BuildContext context,
+    MsrMissionStatus status,
+  ) async {
+    final ok = await context.read<MsrMissionService>().updateMissionStatus(
+      mission.id,
+      status,
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? 'Mission mise à jour' : 'Échec de la mise à jour'),
+      ),
+    );
+    if (ok) Navigator.of(context).pop(true);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final time =
-        DateFormat('EEEE d MMMM y · HH:mm', 'fr_FR').format(mission.scheduledAt);
+    final time = DateFormat(
+      'EEEE d MMMM y · HH:mm',
+      'fr_FR',
+    ).format(mission.scheduledAt);
     return Scaffold(
       appBar: AppBar(title: const Text('Mission')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            mission.title,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text(mission.title, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 12),
           _InfoRow(label: 'Statut', value: mission.status.label),
           _InfoRow(label: 'Secteur', value: mission.sector),
@@ -46,12 +62,13 @@ class MsrMissionDetailScreen extends StatelessWidget {
           const SizedBox(height: 28),
           if (mission.status == MsrMissionStatus.upcoming)
             FilledButton(
-              onPressed: () => _soon(context),
+              onPressed: () =>
+                  _transition(context, MsrMissionStatus.inProgress),
               child: const Text('Prendre la mission'),
             ),
           if (mission.status == MsrMissionStatus.inProgress)
             FilledButton(
-              onPressed: () => _soon(context),
+              onPressed: () => _transition(context, MsrMissionStatus.completed),
               child: const Text('Terminer la mission'),
             ),
           const SizedBox(height: 10),
@@ -85,8 +102,10 @@ class _InfoRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(value,
-                style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),

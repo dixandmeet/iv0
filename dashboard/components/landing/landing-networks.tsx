@@ -12,15 +12,17 @@ export function LandingNetworks() {
   return (
     <section
       id="reseaux"
-      className="section-padding bg-muted/40"
+      className="section-padding section-alt"
       aria-labelledby="networks-title"
     >
       <div className="section-container">
         <SectionHeading
           eyebrow="Couverture"
           title="Réseaux couverts"
-          description="Une architecture évolutive pour déployer Aule ville par ville. Nantes est notre réseau pilote."
+          titleId="networks-title"
+          description="Architecture évolutive pour déployer Aule ville par ville. Nantes · Naolib est notre réseau pilote actif."
           align="center"
+          className="mx-auto"
         />
 
         <motion.div
@@ -28,14 +30,25 @@ export function LandingNetworks() {
           whileInView="visible"
           viewport={viewTransition}
           variants={fadeInUp}
-          className="relative mb-10 overflow-hidden rounded-3xl border border-border bg-card shadow-glass"
+          className="relative mb-12 overflow-hidden rounded-3xl border border-border bg-[#0d1117] shadow-glow"
         >
-          <div className="relative aspect-[16/7] min-h-[220px] sm:min-h-[320px]">
+          <div className="relative aspect-[16/8] min-h-[240px] sm:min-h-[360px]">
             <CoverageMap className="absolute inset-0" />
             <div
-              className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-t from-card/80 via-transparent to-card/20"
+              className="pointer-events-none absolute inset-0 z-[2] bg-gradient-to-t from-[#0d1117]/90 via-transparent to-[#0d1117]/30"
               aria-hidden
             />
+            <div className="absolute bottom-0 left-0 right-0 z-[3] p-6 sm:p-8">
+              <Badge variant="realtime" className="mb-3">
+                Réseau pilote actif
+              </Badge>
+              <p className="text-lg font-bold text-white sm:text-xl">
+                Nantes · Naolib
+              </p>
+              <p className="mt-1 text-sm text-white/70">
+                Bus · Tram · Navibus · Chrono
+              </p>
+            </div>
           </div>
         </motion.div>
 
@@ -50,7 +63,7 @@ export function LandingNetworks() {
             <motion.article
               key={network.id}
               variants={fadeInUp}
-              className="glass-card p-5"
+              className="rounded-2xl border border-border/60 bg-card p-5 transition-all hover:border-primary/20 hover:shadow-glass"
             >
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="font-semibold">{network.city}</h3>

@@ -83,6 +83,26 @@ class LocationService with ChangeNotifier {
     return _permissionStatus == LocationPermission.always;
   }
 
+  /// Re-vérifie les autorisations sans pop-up (ex. retour depuis Réglages).
+  Future<bool> refreshIfPermitted() async {
+    _serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!_serviceEnabled) {
+      notifyListeners();
+      return false;
+    }
+
+    _permissionStatus = await Geolocator.checkPermission();
+    if (_permissionStatus != LocationPermission.whileInUse &&
+        _permissionStatus != LocationPermission.always) {
+      notifyListeners();
+      return false;
+    }
+
+    await updateCurrentPosition();
+    startWatching();
+    return _currentPosition != null;
+  }
+
   // Met à jour la position courante une seule fois
   Future<Position?> updateCurrentPosition() async {
     if (_permissionStatus == LocationPermission.denied ||
@@ -93,12 +113,17 @@ class LocationService with ChangeNotifier {
     try {
       _currentPosition = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 12),
       );
       notifyListeners();
       return _currentPosition;
     } catch (e) {
       debugPrint('Aule: Error getting position ($e)');
-      return null;
+      try {
+        _currentPosition = await Geolocator.getLastKnownPosition();
+        if (_currentPosition != null) notifyListeners();
+      } catch (_) {}
+      return _currentPosition;
     }
   }
 

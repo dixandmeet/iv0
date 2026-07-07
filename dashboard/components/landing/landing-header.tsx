@@ -23,7 +23,7 @@ export function LandingHeader() {
       className={cn(
         "fixed inset-x-0 top-0 z-50 transition-all duration-300",
         scrolled
-          ? "border-b border-border/50 bg-background/80 shadow-sm backdrop-blur-xl"
+          ? "border-b border-border/50 bg-background/85 shadow-sm backdrop-blur-xl"
           : "bg-transparent",
       )}
       role="banner"
@@ -31,24 +31,29 @@ export function LandingHeader() {
       <div className="section-container flex h-16 items-center justify-between lg:h-[4.5rem]">
         <Link
           href="/"
-          className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
-          aria-label="Aule — Accueil"
+          className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label="Aule Voyageur — Accueil"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-sm font-extrabold text-primary-foreground">
             A
           </span>
-          <span className="text-xl font-bold tracking-tight">Aule</span>
+          <div className="flex flex-col leading-none">
+            <span className="text-lg font-bold tracking-tight">Aule</span>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Voyageur
+            </span>
+          </div>
         </Link>
 
         <nav
-          className="hidden items-center gap-1 lg:flex"
+          className="hidden items-center gap-0.5 lg:flex"
           aria-label="Navigation principale"
         >
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-lg px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {link.label}
             </Link>
@@ -57,11 +62,11 @@ export function LandingHeader() {
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <Button asChild variant="outline" className="hidden lg:inline-flex" size="sm">
-            <Link href="/login">Connexion</Link>
+          <Button asChild variant="ghost" className="hidden lg:inline-flex" size="sm">
+            <Link href="/login">Espace Pro</Link>
           </Button>
           <Button asChild className="hidden sm:inline-flex" size="sm">
-            <a href="#telecharger">Télécharger l&apos;application</a>
+            <a href="#telecharger">Télécharger</a>
           </Button>
           <Button
             variant="ghost"
@@ -95,6 +100,15 @@ export function LandingHeader() {
                 </Link>
               </li>
             ))}
+            <li>
+              <Link
+                href="/login"
+                className="block rounded-lg px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent"
+                onClick={() => setMobileOpen(false)}
+              >
+                Espace Pro
+              </Link>
+            </li>
             <li>
               <a
                 href="#telecharger"

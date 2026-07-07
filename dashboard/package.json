@@ -28,12 +28,14 @@
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.79.0",
     "tailwind-merge": "^3.6.0",
+    "three": "^0.185.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@types/three": "^0.185.0",
     "autoprefixer": "^10.5.0",
     "eslint": "^9.28.0",
     "eslint-config-next": "^16.2.9",

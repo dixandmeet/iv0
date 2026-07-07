@@ -5,6 +5,7 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
   forwardRef,
 } from "react";
 import { Eraser, Loader2, Route } from "lucide-react";
@@ -14,9 +15,15 @@ import {
   buildRouteCasingLayer,
   buildRouteGlowLayer,
   buildRouteLayer,
-  createEditorMapStyle,
   NANTES_CENTER,
 } from "@/lib/landing-map-style";
+import {
+  addExtrudedBuildings,
+  applyDarkReskin,
+  hideGenericPois,
+  registerMissingImageFallback,
+} from "@/components/carte-immersive/map-style";
+import { createOrbitControl, createViewControl } from "@/components/carte-immersive/map-controls";
 import {
   bearingDegrees,
   haversineKm,
@@ -198,6 +205,10 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
     const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
     const insertMarkersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
     const draggingRef = useRef<string | null>(null);
+    const [view3D, setView3D] = useState(true);
+    const viewControlButtonRef = useRef<HTMLButtonElement | null>(null);
+    const viewActionRef = useRef<() => void>(() => {});
+    const rotateActionRef = useRef<(degrees: number) => void>(() => {});
     const tracePickerActiveRef = useRef(tracePickerActive);
     tracePickerActiveRef.current = tracePickerActive;
     const callbacksRef = useRef({
@@ -247,6 +258,40 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
     );
 
     useImperativeHandle(ref, () => ({ flyToPoint }), [flyToPoint]);
+
+    const toggleView = useCallback(() => {
+      const next = !view3D;
+      setView3D(next);
+      const map = mapRef.current;
+      if (!map) return;
+      if (next) {
+        map.easeTo({ pitch: 55, bearing: -18, duration: 900 });
+      } else {
+        map.easeTo({ pitch: 0, bearing: 0, duration: 900 });
+      }
+    }, [view3D]);
+    viewActionRef.current = toggleView;
+
+    const rotateMap = useCallback((degrees: number) => {
+      const map = mapRef.current;
+      if (!map) return;
+      map.stop();
+      map.easeTo({
+        bearing: map.getBearing() + degrees,
+        duration: 300,
+        easing: (t) => 1 - Math.pow(1 - t, 3),
+      });
+    }, []);
+    rotateActionRef.current = rotateMap;
+
+    useEffect(() => {
+      const button = viewControlButtonRef.current;
+      if (!button) return;
+      button.classList.toggle("immersive-map-view-control--active", view3D);
+      button.setAttribute("aria-pressed", String(view3D));
+      button.title = view3D ? "Passer en vue 2D" : "Passer en vue 3D";
+      button.setAttribute("aria-label", button.title);
+    }, [view3D]);
 
     const syncRoute = useCallback(() => {
       const map = mapRef.current;
@@ -480,18 +525,55 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
 
       const map = new maplibregl.Map({
         container: containerRef.current,
-        style: createEditorMapStyle(),
+        style: "https://tiles.openfreemap.org/styles/liberty",
         center: NANTES_CENTER,
         zoom: 14,
-        attributionControl: false,
+        pitch: 55,
+        bearing: -18,
+        canvasContextAttributes: { antialias: true, preserveDrawingBuffer: false },
+        attributionControl: { compact: true },
       });
+      registerMissingImageFallback(map);
 
       map.addControl(
-        new maplibregl.NavigationControl({ showCompass: false }),
+        new maplibregl.NavigationControl({ visualizePitch: true }),
+        "top-left",
+      );
+      map.addControl(
+        createOrbitControl(
+          () => rotateActionRef.current(-30),
+          () => rotateActionRef.current(30),
+        ),
+        "top-left",
+      );
+      map.addControl(
+        createViewControl(
+          () => viewActionRef.current(),
+          (button) => {
+            viewControlButtonRef.current = button;
+          },
+        ),
         "top-left",
       );
 
       map.on("load", () => {
+        try {
+          map.setSky({
+            "sky-color": "#0a1614",
+            "horizon-color": "#12241f",
+            "fog-color": "#0a1210",
+            "sky-horizon-blend": 0.5,
+            "horizon-fog-blend": 0.6,
+            "fog-ground-blend": 0.6,
+          });
+        } catch {
+          // certains navigateurs/versions du style ne supportent pas le ciel custom
+        }
+
+        applyDarkReskin(map);
+        addExtrudedBuildings(map);
+        hideGenericPois(map);
+
         map.addSource(ROUTE_SOURCE, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },

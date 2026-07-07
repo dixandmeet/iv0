@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     template: "%s | Aule",
   },
   description:
-    "Trouvez le meilleur itinéraire, suivez votre bus ou tram en temps réel et recevez des alertes avant son arrivée. Application mobile gratuite pour les voyageurs.",
+    "Trouvez le meilleur itinéraire, suivez votre bus ou tram en temps réel, gérez vos favoris et trajets récurrents. Application mobile gratuite pour les voyageurs.",
   keywords: [
     "transport en commun",
     "bus",
@@ -26,7 +26,9 @@ export const metadata: Metadata = {
     "Nantes",
     "Naolib",
     "GPS",
-    "application mobile",
+    "favoris",
+    "plan du réseau",
+    "accessibilité PMR",
   ],
   authors: [{ name: "Aule" }],
   openGraph: {
@@ -35,7 +37,7 @@ export const metadata: Metadata = {
     siteName: "Aule",
     title: "Aule — GPS intelligent pour les transports en commun",
     description:
-      "Trouvez le meilleur itinéraire, suivez votre bus ou tram en temps réel et recevez des alertes avant son arrivée.",
+      "Itinéraires multimodaux, suivi temps réel, favoris et trajets récurrents. Gratuit pour les voyageurs.",
   },
   twitter: {
     card: "summary_large_image",

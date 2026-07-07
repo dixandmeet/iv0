@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  html, body { margin: 0; padding: 0; background: #0a0a0a; }
+  @media (prefers-reduced-motion: reduce) { .srub-hint { display: none; } }
+</style>
+</helmet>
+
+<div style="font-family: system-ui, -apple-system, sans-serif; color: #fff;">
+
+  <!-- ===== Hero : container haut (scrollLength × 100vh) ===== -->
+  <section data-screen-label="Hero scroll-scrubbing" ref="{{ containerRef }}" style="position: relative; height: {{ containerHeight }};">
+    <div style="position: sticky; top: 0; height: 100vh; overflow: hidden;">
+      <video
+        ref="{{ videoRef }}"
+        src="uploads/hero-scroll.mp4"
+        muted="{{ true }}"
+        playsInline="{{ true }}"
+        preload="auto"
+        style="width: 100%; height: 100%; object-fit: cover; display: block;"
+      ></video>
+      <!-- voile sombre bg-black/30 -->
+      <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.3); pointer-events: none;"></div>
+      <!-- contenu overlay (équivalent du hero existant) -->
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 24px;">
+        <h1 style="margin: 0; font-size: clamp(40px, 6vw, 76px); font-weight: 600; letter-spacing: -0.02em; max-width: 900px; text-wrap: balance;">{{ title }}</h1>
+        <p style="margin: 24px 0 0; font-size: 19px; line-height: 1.5; color: rgba(255,255,255,0.8); max-width: 560px; text-wrap: pretty;">{{ subtitle }}</p>
+        <div style="position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.7);">
+          <span>Scrollez — la vidéo avance avec vous · {{ progressPct }}</span>
+          <div style="width: 160px; height: 2px; background: rgba(255,255,255,0.25); border-radius: 2px; overflow: hidden;">
+            <div ref="{{ barRef }}" style="width: 0%; height: 100%; background: #fff;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Contenu après le hero, pour vérifier la sortie du sticky ===== -->
+  <section data-screen-label="Suite de la page" style="max-width: 760px; margin: 0 auto; padding: 120px 24px;">
+    <h2 style="margin: 0 0 16px; font-size: 32px; font-weight: 600; letter-spacing: -0.01em;">La page continue ici</h2>
+    <p style="margin: 0; font-size: 17px; line-height: 1.6; color: rgba(255,255,255,0.65); text-wrap: pretty;">Une fois la progression à 100 %, le hero se libère et le scroll reprend normalement. Ce bloc n'est là que pour vérifier la transition en fin de scrub.</p>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;scrollLength&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 3, &quot;min&quot;: 1.5, &quot;max&quot;: 6, &quot;step&quot;: 0.5, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Scroll&quot;},
+  &quot;title&quot;: {&quot;editor&quot;: &quot;text&quot;, &quot;default&quot;: &quot;Votre titre existant&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Contenu&quot;},
+  &quot;subtitle&quot;: {&quot;editor&quot;: &quot;text&quot;, &quot;default&quot;: &quot;Le contenu du hero reste en overlay, la vidéo se scrub sous vos doigts.&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Contenu&quot;}
+}">
+class Component extends DCLogic {
+  state = { progress: 0 };
+
+  containerEl = null;
+  videoEl = null;
+  barEl = null;
+  rafId = 0;
+  duration = 0;
+  lastSeek = -1;
+  reducedMotion = false;
+
+  componentDidMount() {
+    this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.videoWired = false;
+
+    // Boucle rAF démarrée inconditionnellement : les refs peuvent arriver
+    // après le mount, donc on les résout paresseusement à chaque frame.
+    const tick = () => {
+      this.rafId = requestAnimationFrame(tick);
+      const video = this.videoEl;
+      if (!video) return; // ref pas encore posée — on attend la frame suivante
+
+      // Câblage one-shot dès que la vidéo existe
+      if (!this.videoWired) {
+        this.videoWired = true;
+        // Démo uniquement : le serveur de preview ne gère pas les Range
+        // requests, la vidéo streamée n'est pas seekable. On la charge en
+        // Blob (URL blob = 100% seekable). Inutile dans Next.js (/public OK).
+        fetch("uploads/hero-scroll.mp4")
+          .then((r) => r.blob())
+          .then((b) => {
+            this.blobUrl = URL.createObjectURL(b);
+            video.src = this.blobUrl;
+            this.duration = 0; // re-lue via loadedmetadata sur la nouvelle source
+          })
+          .catch(() => {});
+        if (this.reducedMotion) {
+          // Fallback reduced-motion : lecture normale en boucle
+          video.loop = true;
+          video.play().catch(() => {});
+        } else {
+          // duration connue seulement après loadedmetadata
+          this.onMeta = () => { this.duration = video.duration; };
+          if (video.readyState >= 1) this.duration = video.duration;
+          // Toujours écouter : la source blob (swap async ci-dessus)
+          // redéclenche loadedmetadata avec la duration définitive.
+          video.addEventListener("loadedmetadata", this.onMeta);
+        }
+      }
+
+      if (this.reducedMotion) return; // pas de scrubbing en reduced-motion
+      if (!this.duration || !this.containerEl) return;
+
+      // progress = distance scrollée dans le container / distance scrollable
+      const rect = this.containerEl.getBoundingClientRect();
+      const scrollable = rect.height - window.innerHeight;
+      const progress = scrollable > 0 ? Math.min(1, Math.max(0, -rect.top / scrollable)) : 0;
+      const target = progress * Math.max(0, this.duration - 0.05);
+
+      // seek coûteux : on ne réassigne que si la cible a bougé d'au moins ~1/60s
+      if (Math.abs(target - this.lastSeek) > 1 / 60) {
+        video.currentTime = target;
+        this.lastSeek = target;
+        if (this.barEl) this.barEl.style.width = (progress * 100).toFixed(1) + "%";
+        // setState throttlé pour l'affichage du pourcentage
+        const pct = Math.round(progress * 100);
+        if (pct !== this.state.progress) this.setState({ progress: pct });
+      }
+    };
+    this.rafId = requestAnimationFrame(tick);
+  }
+
+  componentWillUnmount() {
+    // Nettoyage rAF + listener
+    cancelAnimationFrame(this.rafId);
+    if (this.videoEl && this.onMeta) this.videoEl.removeEventListener("loadedmetadata", this.onMeta);
+    if (this.blobUrl) URL.revokeObjectURL(this.blobUrl);
+  }
+
+  renderVals() {
+    const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+    const requested = this.props.scrollLength ?? 3;
+    // mobile : scroll plus court (max 2)
+    const len = isMobile ? Math.min(requested, 2) : requested;
+    return {
+      containerRef: (el) => { this.containerEl = el; },
+      videoRef: (el) => { this.videoEl = el; },
+      barRef: (el) => { this.barEl = el; },
+      containerHeight: this.reducedMotion ? "100vh" : (len * 100) + "vh",
+      progressPct: this.state.progress + "%",
+      title: this.props.title ?? "Votre titre existant",
+      subtitle: this.props.subtitle ?? "Le contenu du hero reste en overlay, la vidéo se scrub sous vos doigts.",
+    };
+  }
+}
+</script>
+</body>
+</html>

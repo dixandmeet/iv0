@@ -9299,6 +9299,583 @@ textarea.station-field {
   border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
+.immersive-map-tracking-panel {
+  position: absolute;
+  z-index: 430;
+  left: 18px;
+  right: 18px;
+  bottom: 22px;
+  display: grid;
+  grid-template-columns: minmax(230px, 300px) minmax(480px, 760px) minmax(300px, 390px);
+  align-items: end;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.immersive-map-tracking-panel.immersive-map-panel-anim {
+  animation-name: immersive-map-tracking-in;
+}
+
+@keyframes immersive-map-tracking-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.immersive-map-tracking-main-card,
+.immersive-map-tracking-line-card,
+.immersive-map-tracking-comments {
+  pointer-events: auto;
+  border-color: rgba(51, 191, 163, 0.28);
+  border-radius: 20px;
+  background: rgba(7, 14, 12, 0.86);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.42);
+}
+
+.immersive-map-tracking-main-card {
+  padding: 14px;
+}
+
+.immersive-map-tracking-head,
+.immersive-map-tracking-identity,
+.immersive-map-tracking-actions {
+  display: flex;
+  align-items: center;
+}
+
+.immersive-map-tracking-head {
+  gap: 12px;
+}
+
+.immersive-map-tracking-identity {
+  min-width: 210px;
+  gap: 10px;
+}
+
+.immersive-map-tracking-vehicle {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border: 1px solid rgba(51, 191, 163, 0.32);
+  border-radius: 14px;
+  background: rgba(51, 191, 163, 0.14);
+  font-size: 21px;
+}
+
+.immersive-map-tracking-kicker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #68e4ca;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.immersive-map-tracking-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #33bfa3;
+  box-shadow: 0 0 0 4px rgba(51, 191, 163, 0.13);
+  animation: immersive-map-pulse 1.8s infinite;
+}
+
+.immersive-map-tracking-identity h2 {
+  margin: 2px 0 0;
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.immersive-map-tracking-data-state {
+  margin-right: auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 11px;
+}
+
+.immersive-map-tracking-exit {
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.immersive-map-tracking-info {
+  display: grid;
+  grid-template-columns: 1.25fr 1.25fr repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 11px;
+}
+
+.immersive-map-tracking-info > div {
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.immersive-map-tracking-info span,
+.immersive-map-tracking-info strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.immersive-map-tracking-info span {
+  margin-bottom: 2px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+}
+
+.immersive-map-tracking-info strong {
+  color: rgba(255, 255, 255, 0.93);
+  font-size: 12px;
+}
+
+.immersive-map-tracking-line-card {
+  max-height: min(56vh, 560px);
+  padding: 13px 13px 14px;
+  background:
+    linear-gradient(180deg, rgba(51, 191, 163, 0.08), transparent 76%),
+    rgba(7, 14, 12, 0.86);
+}
+
+.immersive-map-tracking-line-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.immersive-map-tracking-line-head span,
+.immersive-map-tracking-line-head strong {
+  display: block;
+}
+
+.immersive-map-tracking-line-head span {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.immersive-map-tracking-line-head strong {
+  margin-top: 2px;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.immersive-map-tracking-line-legend {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
+.immersive-map-tracking-line-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.immersive-map-tracking-line-legend span::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  content: "";
+}
+
+.immersive-map-tracking-line-legend .is-passed::before {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.immersive-map-tracking-line-legend .is-upcoming::before {
+  background: #33bfa3;
+  box-shadow: 0 0 0 4px rgba(51, 191, 163, 0.12);
+}
+
+.immersive-map-tracking-line-scroll {
+  max-height: min(42vh, 430px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 3px 2px 3px 1px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(51, 191, 163, 0.4) rgba(255, 255, 255, 0.06);
+}
+
+.immersive-map-tracking-line-plan {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.immersive-map-tracking-stop {
+  position: relative;
+  display: grid;
+  min-height: 50px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.immersive-map-tracking-stop::before,
+.immersive-map-tracking-stop::after {
+  position: absolute;
+  left: 10px;
+  width: 3px;
+  height: calc(50% - 11px);
+  background: rgba(255, 255, 255, 0.16);
+  content: "";
+}
+
+.immersive-map-tracking-stop::before {
+  top: 0;
+}
+
+.immersive-map-tracking-stop::after {
+  bottom: 0;
+}
+
+.immersive-map-tracking-stop:first-child::before,
+.immersive-map-tracking-stop:last-child::after {
+  display: none;
+}
+
+.immersive-map-tracking-stop-node {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.26);
+  border-radius: 999px;
+  background: #101917;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.immersive-map-tracking-stop-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: currentColor;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.immersive-map-tracking-stop--passed {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.immersive-map-tracking-stop--passed::before,
+.immersive-map-tracking-stop--passed::after {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.immersive-map-tracking-stop--passed .immersive-map-tracking-stop-node {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.immersive-map-tracking-stop--upcoming {
+  color: rgba(225, 255, 249, 0.86);
+}
+
+.immersive-map-tracking-stop--upcoming::before,
+.immersive-map-tracking-stop--upcoming::after {
+  background: rgba(51, 191, 163, 0.42);
+}
+
+.immersive-map-tracking-stop--upcoming .immersive-map-tracking-stop-node {
+  border-color: #33bfa3;
+  box-shadow: 0 0 0 4px rgba(51, 191, 163, 0.1);
+}
+
+.immersive-map-tracking-stop--next {
+  color: #ffffff;
+}
+
+.immersive-map-tracking-stop--next::before {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.immersive-map-tracking-stop--next::after {
+  background: rgba(51, 191, 163, 0.52);
+}
+
+.immersive-map-tracking-stop--next .immersive-map-tracking-stop-node {
+  width: 28px;
+  height: 28px;
+  margin-top: -3px;
+  border-color: rgba(114, 231, 207, 0.95);
+  background: linear-gradient(135deg, #33bfa3, #72e7cf);
+  box-shadow:
+    0 0 0 5px rgba(51, 191, 163, 0.16),
+    0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.immersive-map-tracking-actions {
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.immersive-map-tracking-actions button {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.immersive-map-tracking-actions button:hover,
+.immersive-map-tracking-actions button.is-active {
+  border-color: rgba(51, 191, 163, 0.4);
+  background: rgba(51, 191, 163, 0.14);
+  color: #72e7cf;
+}
+
+.immersive-map-tracking-actions .immersive-map-tracking-board {
+  margin-left: auto;
+  background: #33bfa3;
+  color: #04211c;
+}
+
+.immersive-map-tracking-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.immersive-map-tracking-alert {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 206, 115, 0.38);
+  border-radius: 999px;
+  background: rgba(20, 18, 10, 0.9);
+  color: #ffe3a8;
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.immersive-map-tracking-alert-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffce73;
+  box-shadow: 0 0 0 5px rgba(255, 206, 115, 0.13);
+}
+
+.immersive-map-tracking-comments {
+  max-height: min(56vh, 560px);
+  padding: 13px;
+  overflow: hidden;
+}
+
+.immersive-map-tracking-comments-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.immersive-map-tracking-comments-head span,
+.immersive-map-tracking-comments-head strong {
+  display: block;
+}
+
+.immersive-map-tracking-comments-head span {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.immersive-map-tracking-comments-head strong {
+  margin-top: 2px;
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.immersive-map-tracking-comments-head > span {
+  flex: none;
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  letter-spacing: 0.04em;
+}
+
+.immersive-map-tracking-comments-list {
+  display: flex;
+  max-height: min(45vh, 450px);
+  flex-direction: column;
+  gap: 9px;
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(51, 191, 163, 0.4) rgba(255, 255, 255, 0.06);
+}
+
+.immersive-map-tracking-comments-empty {
+  margin: 0;
+  padding: 18px 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.immersive-map-tracking-comments .traveler-comment-card {
+  gap: 10px;
+  padding: 11px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.immersive-map-tracking-comments .traveler-comment-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  font-size: 11px;
+}
+
+.immersive-map-tracking-comments .traveler-comment-certified {
+  padding: 2px 7px;
+  font-size: 9px;
+}
+
+.immersive-map-tracking-comments .traveler-comment-category {
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+@media (max-width: 1280px) {
+  .immersive-map-tracking-panel {
+    grid-template-columns: minmax(210px, 270px) minmax(420px, 1fr) minmax(280px, 340px);
+    gap: 10px;
+  }
+
+  .immersive-map-tracking-info {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1040px) {
+  .immersive-map-tracking-panel {
+    top: 84px;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    justify-content: stretch;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  .immersive-map-tracking-main-card {
+    order: 1;
+  }
+
+  .immersive-map-tracking-line-card {
+    order: 2;
+    max-height: none;
+  }
+
+  .immersive-map-tracking-comments {
+    order: 3;
+    max-height: none;
+  }
+
+  .immersive-map-tracking-line-scroll,
+  .immersive-map-tracking-comments-list {
+    max-height: 280px;
+  }
+}
+
+@media (max-width: 760px) {
+  .immersive-map-tracking-data-state {
+    display: none;
+  }
+
+  .immersive-map-tracking-identity {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .immersive-map-tracking-info {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .immersive-map-tracking-line-head {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .immersive-map-tracking-stop {
+    min-height: 46px;
+  }
+
+  .immersive-map-tracking-stop-name {
+    white-space: normal;
+  }
+
+  .immersive-map-tracking-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .immersive-map-tracking-actions .immersive-map-tracking-board {
+    margin-left: 0;
+  }
+}
+
 .immersive-map-round-btn {
   display: flex;
   align-items: center;
@@ -9344,6 +9921,177 @@ textarea.station-field {
   color: #04211c;
 }
 
+.immersive-map-global-search {
+  display: flex;
+  width: 100%;
+  height: 40px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px 0 13px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.075);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.immersive-map-global-search:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.immersive-map-global-search--open,
+.immersive-map-global-search:focus-within {
+  border-color: rgba(95, 224, 196, 0.55);
+  background: rgba(8, 16, 14, 0.95);
+  box-shadow:
+    0 0 0 3px rgba(51, 191, 163, 0.11),
+    0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.immersive-map-global-search-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.immersive-map-global-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.immersive-map-global-search-clear {
+  display: inline-flex;
+  width: 25px;
+  height: 25px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.62);
+  cursor: pointer;
+}
+
+.immersive-map-global-search-clear:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.immersive-map-global-search-shortcut {
+  flex: none;
+  padding: 3px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.immersive-map-global-results {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  width: 100%;
+  max-height: min(520px, calc(100vh - 110px));
+  overflow-y: auto;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(7, 13, 11, 0.96);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  animation: immersive-map-panel-in 0.18s ease both;
+}
+
+.immersive-map-global-results-group {
+  padding: 8px 9px 5px;
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.immersive-map-global-result {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.immersive-map-global-result--active,
+.immersive-map-global-result:hover {
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.immersive-map-global-result-icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 17px;
+}
+
+.immersive-map-global-result-icon--bus,
+.immersive-map-global-result-icon--tram,
+.immersive-map-global-result-icon--navibus {
+  border-color: rgba(95, 224, 196, 0.19);
+  background: rgba(51, 191, 163, 0.1);
+}
+
+.immersive-map-global-result-icon--vtc,
+.immersive-map-global-result-icon--taxi {
+  border-color: rgba(255, 206, 115, 0.2);
+  background: rgba(242, 169, 59, 0.1);
+}
+
+.immersive-map-global-result-icon--shop {
+  border-color: rgba(193, 150, 255, 0.2);
+  background: rgba(142, 95, 210, 0.11);
+}
+
+@media (max-width: 640px) {
+  .immersive-map-global-search {
+    padding-left: 10px;
+  }
+
+  .immersive-map-global-search-shortcut {
+    display: none;
+  }
+
+  .immersive-map-global-results {
+    position: fixed;
+    top: 78px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    max-height: calc(100dvh - 96px);
+  }
+}
+
 .immersive-map-search-bar {
   display: flex;
   align-items: center;
@@ -9363,6 +10111,166 @@ textarea.station-field {
   color: #1a1a1a;
   background: transparent;
   padding: 8px 0;
+}
+
+.immersive-map-route-planner {
+  background: rgba(8, 14, 12, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(24px) saturate(1.25);
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  animation: immersive-map-panel-in 0.28s ease both;
+}
+
+.immersive-map-route-close {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.immersive-map-route-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.immersive-map-route-fields {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 17px;
+  background: #f7faf9;
+}
+
+.immersive-map-route-fields::before {
+  position: absolute;
+  top: 38px;
+  bottom: 38px;
+  left: 25px;
+  width: 1px;
+  background: rgba(23, 160, 138, 0.28);
+  content: "";
+}
+
+.immersive-map-route-field {
+  position: relative;
+  display: flex;
+  min-height: 66px;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 14px;
+}
+
+.immersive-map-route-field--destination {
+  border-top: 1px solid #e2e8e5;
+  cursor: text;
+}
+
+.immersive-map-route-field--destination:focus-within {
+  background: #fff;
+}
+
+.immersive-map-route-point {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.immersive-map-route-point--origin {
+  color: #17a08a;
+  font-size: 12px;
+}
+
+.immersive-map-route-point--destination::before {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #17a08a;
+  border-radius: 3px;
+  background: #f7faf9;
+  content: "";
+}
+
+.immersive-map-route-input {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #17201e;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.immersive-map-route-input::placeholder {
+  color: #9ba3a0;
+}
+
+.immersive-map-location-confirmed {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(23, 160, 138, 0.12);
+  color: #168f7c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.immersive-map-route-submit {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 18px;
+  background: #33bfa3;
+  color: #04211c;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+  transition: background 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+}
+
+.immersive-map-route-submit:hover:not(:disabled) {
+  background: #5fe0c4;
+  transform: translateY(-1px);
+}
+
+.immersive-map-route-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+@media (max-width: 640px) {
+  .immersive-map-route-planner {
+    top: 78px;
+  }
+
+  .immersive-map-route-submit {
+    width: 100%;
+  }
 }
 
 .immersive-map-suggestions {

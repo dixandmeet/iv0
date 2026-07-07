@@ -43,7 +43,7 @@ const links: NavLink[] = [
   { href: "/incidents", label: "Incidents", icon: Shield },
   { href: "/conducteurs", label: "Conducteurs", icon: Users },
   { href: "/dashboard", label: "Véhicules", icon: Bus },
-  { href: "/communication", label: "Communication", icon: MessageSquare },
+  { href: "/communication", label: "Activité", icon: MessageSquare },
   { href: "/info-voyageur", label: "Info voyageurs", icon: Megaphone },
   { href: "/reporting", label: "Reporting", icon: BarChart3 },
   { href: "/missions", label: "Missions MSR", icon: ClipboardList },

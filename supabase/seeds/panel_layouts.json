@@ -1,0 +1,16 @@
+{
+  "mission": [
+    {"panel": "context", "capability": null, "order": 10, "visible": true},
+    {"panel": "map", "capability": "location", "order": 20, "visible": true},
+    {"panel": "members", "capability": "members", "order": 30, "visible": true},
+    {"panel": "tasks", "capability": "tasks", "order": 35, "visible": true},
+    {"panel": "discussion", "capability": "discussion", "order": 40, "visible": true},
+    {"panel": "documents", "capability": "documents", "order": 50, "visible": true},
+    {"panel": "timeline", "capability": "timeline", "order": 60, "visible": true}
+  ],
+  "vehicle": [
+    {"panel": "context", "order": 10, "visible": true},
+    {"panel": "map", "capability": "location", "order": 20, "visible": true},
+    {"panel": "discussion", "capability": "discussion", "order": 40, "visible": true}
+  ]
+}

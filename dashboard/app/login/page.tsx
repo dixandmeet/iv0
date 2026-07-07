@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Connexion",
+  title: "Connexion — Aule",
   description:
-    "Connectez-vous ou créez un compte pour accéder au poste de contrôle Aule.",
+    "Connectez-vous à Aule, en tant que voyageur ou pour accéder au poste de contrôle Aule Pro.",
 };
 
 type LoginPageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; mode?: string; reset?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -17,6 +17,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     params.error === "unauthorized"
       ? "Ce compte n'a pas accès au poste de contrôle. Seuls les profils régulateur, superviseur MSR ou administrateur sont autorisés."
       : null;
+  const initialMode = params.mode === "pro" ? "pro" : "voyageur";
+  const initialSuccess =
+    params.reset === "success"
+      ? "Votre mot de passe a été mis à jour. Vous pouvez maintenant vous connecter."
+      : null;
 
-  return <LoginForm initialError={initialError} />;
+  return (
+    <LoginForm
+      initialError={initialError}
+      initialSuccess={initialSuccess}
+      initialMode={initialMode}
+    />
+  );
 }

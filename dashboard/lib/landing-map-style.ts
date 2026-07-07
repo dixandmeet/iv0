@@ -144,31 +144,6 @@ export function createDarkMapStyle(): StyleSpecification {
   };
 }
 
-/** Fond clair lisible — éditeur de ligne (voies, noms de rues, quartiers). */
-export function createEditorMapStyle(): StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      carto: {
-        type: "raster",
-        tiles: [
-          "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
-        ],
-        tileSize: 256,
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-      },
-    },
-    layers: [
-      {
-        id: "carto-voyager",
-        type: "raster",
-        source: "carto",
-      },
-    ],
-  };
-}
-
 /** Fond clair avec voies et labels — fiches arrêt / station. */
 export function createDetailMapStyle(): StyleSpecification {
   return {

@@ -98,6 +98,42 @@ class AuthService with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Domaine professionnel imposé pour les comptes conducteur / MSR.
+  static const String proEmailDomain = 'semitan.fr';
+
+  /// Dérive l'adresse e-mail professionnelle à partir de l'identité :
+  /// première lettre du prénom + nom complet, normalisés (sans accents,
+  /// minuscules, sans espaces ni ponctuation). Ex. « Marc Dupond » →
+  /// `mdupond@semitan.fr`. Renvoie `null` si l'identité est incomplète.
+  static String? deriveProEmail(String? firstName, String? lastName) {
+    final first = _normalizeForEmail(firstName);
+    final last = _normalizeForEmail(lastName);
+    if (first.isEmpty || last.isEmpty) return null;
+    return '${first[0]}$last@$proEmailDomain';
+  }
+
+  /// Minuscule + suppression des accents et de tout ce qui n'est pas a–z.
+  static String _normalizeForEmail(String? value) {
+    final lower = (value ?? '').trim().toLowerCase();
+    final buffer = StringBuffer();
+    for (final ch in lower.split('')) {
+      buffer.write(_diacritics[ch] ?? ch);
+    }
+    return buffer.toString().replaceAll(RegExp(r'[^a-z]'), '');
+  }
+
+  static const Map<String, String> _diacritics = {
+    'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ä': 'a', 'å': 'a',
+    'ç': 'c',
+    'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+    'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+    'ñ': 'n',
+    'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o',
+    'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u',
+    'ý': 'y', 'ÿ': 'y',
+    'œ': 'oe', 'æ': 'ae',
+  };
+
   Future<String?> signIn(String email, String password) async {
     final client = _supabaseService.client;
     if (client == null || _supabaseService.isOfflineMode) {
@@ -106,17 +142,252 @@ class AuthService with ChangeNotifier {
 
     try {
       await client.auth.signInWithPassword(email: email, password: password);
-      await _loadProfile();
-      if (_profile == null) return 'Profil utilisateur introuvable';
-      if (!_profile!.role.isMobileStaff) {
-        await signOut();
-        return 'Ce compte n\'est pas autorisé sur l\'app mobile terrain';
-      }
-      return null;
+      return ensureMobileStaffAccess();
     } on AuthException catch (e) {
       return e.message;
     } catch (e) {
       return 'Erreur de connexion ($e)';
+    }
+  }
+
+  /// Envoie un code à usage unique (OTP) par e-mail. [createUser] = `true`
+  /// pour l'inscription (crée le compte si besoin), [data] porte les
+  /// métadonnées de compte (inscription conducteur). Renvoie `null` en cas de
+  /// succès, sinon un message d'erreur.
+  Future<String?> sendEmailOtp(
+    String email, {
+    bool createUser = false,
+    Map<String, dynamic>? data,
+  }) async {
+    final client = _supabaseService.client;
+    if (client == null || _supabaseService.isOfflineMode) {
+      return 'Envoi du code indisponible hors ligne';
+    }
+    try {
+      await client.auth.signInWithOtp(
+        email: email.trim().toLowerCase(),
+        shouldCreateUser: createUser,
+        data: data,
+      );
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Erreur d\'envoi du code ($e)';
+    }
+  }
+
+  /// Vérifie le code OTP saisi : établit la session si correct. Renvoie `null`
+  /// en cas de succès, sinon un message d'erreur.
+  Future<String?> verifyEmailOtp(String email, String token) async {
+    final client = _supabaseService.client;
+    if (client == null || _supabaseService.isOfflineMode) {
+      return 'Vérification indisponible hors ligne';
+    }
+    try {
+      await client.auth.verifyOTP(
+        type: OtpType.email,
+        email: email.trim().toLowerCase(),
+        token: token.trim(),
+      );
+      await _loadProfile();
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return 'Code invalide ($e)';
+    }
+  }
+
+  /// Message de refus d'accès terrain à réafficher après une déconnexion.
+  ///
+  /// Quand [ensureMobileStaffAccess] déconnecte un compte non autorisé, l'écran
+  /// de connexion est reconstruit par le routeur (son état local est perdu) :
+  /// on porte donc la raison du refus ici pour qu'elle reste visible.
+  String? _accessDenialMessage;
+  String? get accessDenialMessage => _accessDenialMessage;
+
+  void clearAccessDenial() {
+    if (_accessDenialMessage == null) return;
+    _accessDenialMessage = null;
+    notifyListeners();
+  }
+
+  /// Contrôle d'accès post-connexion : seul un conducteur validé, un agent MSR
+  /// ou une demande d'accès en attente est autorisé sur l'app terrain. Tout
+  /// autre compte est déconnecté. Renvoie `null` si l'accès est accordé.
+  Future<String?> ensureMobileStaffAccess() async {
+    _accessDenialMessage = null;
+    await _loadProfile();
+
+    // Conducteur validé ou agent MSR (via le profil) : accès direct.
+    if (_profile?.role.isMobileStaff ?? false) return null;
+
+    // Repli robuste sur l'état d'accès conducteur (RPC sur la table `drivers`
+    // et les demandes) : couvre les comptes conducteur dont le profil n'est pas
+    // encore renseigné, et laisse entrer une demande en attente pour qu'elle
+    // voie l'écran « en attente de vérification ». Tout autre compte est refusé.
+    final status = await driverAccessStatus();
+    if (status == DriverAccessStatus.driver ||
+        status == DriverAccessStatus.pending) {
+      return null;
+    }
+
+    final msg = status == DriverAccessStatus.rejected
+        ? 'Votre demande d\'accès conducteur a été refusée. '
+            'Contactez votre exploitation.'
+        : 'Ce compte n\'est pas autorisé sur l\'app mobile terrain';
+    // Mémorisé AVANT la déconnexion : le notifyListeners de signOut propage le
+    // message au nouvel écran de connexion reconstruit par le routeur.
+    _accessDenialMessage = msg;
+    await signOut();
+    return msg;
+  }
+
+  /// État d'accès conducteur de l'utilisateur courant (routage / connexion).
+  Future<DriverAccessStatus> driverAccessStatus() async {
+    final client = _supabaseService.client;
+    if (client == null || _supabaseService.isOfflineMode) {
+      return DriverAccessStatus.none;
+    }
+    try {
+      final res = await client.rpc('my_driver_access_status');
+      return DriverAccessStatusX.fromDb(res as String?);
+    } catch (e) {
+      debugPrint('Aule: driverAccessStatus error ($e)');
+      return DriverAccessStatus.none;
+    }
+  }
+
+  /// Pré-vérifie un matricule avant la création de compte (statut + nom du
+  /// titulaire si reconnu). Appelable hors authentification.
+  Future<MatriculeCheck> checkMatricule(String employeeId) async {
+    final client = _supabaseService.client;
+    if (client == null || _supabaseService.isOfflineMode) {
+      return const MatriculeCheck(MatriculeStatus.error);
+    }
+    try {
+      final res = await client
+          .rpc('check_driver_matricule', params: {'p_employee_id': employeeId});
+      final row = (res is List && res.isNotEmpty)
+          ? res.first as Map<String, dynamic>
+          : (res as Map<String, dynamic>?);
+      if (row == null) return const MatriculeCheck(MatriculeStatus.error);
+      return MatriculeCheck(
+        MatriculeStatusX.fromDb(row['status'] as String?),
+        firstName: row['first_name'] as String?,
+        lastName: row['last_name'] as String?,
+      );
+    } catch (e) {
+      debugPrint('Aule: checkMatricule error ($e)');
+      return const MatriculeCheck(MatriculeStatus.error);
+    }
+  }
+
+  /// Inscription conducteur (e-mail + mot de passe + matricule). Crée le compte
+  /// puis revendique le matricule. Le matricule décide de l'issue : reconnu →
+  /// accès validé ; déjà utilisé → refus ; inconnu → mise en attente. Si la
+  /// confirmation e-mail est requise, la revendication se fera à la première
+  /// connexion.
+  Future<DriverSignUpResult> signUpDriver({
+    required String email,
+    required String password,
+    required String employeeId,
+    String? firstName,
+    String? lastName,
+    String? phone,
+  }) async {
+    final client = _supabaseService.client;
+    if (client == null || _supabaseService.isOfflineMode) {
+      return DriverSignUpResult.error('Inscription indisponible hors ligne');
+    }
+
+    final matricule = employeeId.trim();
+    final normalizedEmail = email.trim().toLowerCase();
+
+    // Pour l'instant, seules les adresses internes du réseau sont acceptées.
+    if (!normalizedEmail.endsWith('@$proEmailDomain')) {
+      return DriverSignUpResult.error(
+          'Seules les adresses e-mail @$proEmailDomain sont autorisées.');
+    }
+
+    // Refus immédiat si le matricule est déjà revendiqué (pas de compte créé).
+    final pre = await checkMatricule(matricule);
+    if (pre.status == MatriculeStatus.alreadyUsed) {
+      return DriverSignUpResult.alreadyUsed();
+    }
+
+    final displayName = [firstName, lastName]
+        .where((p) => (p ?? '').trim().isNotEmpty)
+        .join(' ');
+
+    try {
+      final res = await client.auth.signUp(
+        email: normalizedEmail,
+        password: password,
+        data: {
+          'signup_type': 'driver',
+          'employee_id': matricule,
+          if (firstName != null && firstName.trim().isNotEmpty)
+            'first_name': firstName.trim(),
+          if (lastName != null && lastName.trim().isNotEmpty)
+            'last_name': lastName.trim(),
+          if (displayName.trim().isNotEmpty) 'display_name': displayName.trim(),
+        },
+      );
+
+      // Confirmation e-mail requise : pas de session, la revendication se fera
+      // à la première connexion.
+      if (res.session == null) {
+        return DriverSignUpResult.emailConfirmationRequired();
+      }
+
+      return claimDriverAccess(employeeId: matricule, phone: phone);
+    } on AuthException catch (e) {
+      return DriverSignUpResult.error(e.message);
+    } catch (e) {
+      return DriverSignUpResult.error('Erreur d\'inscription ($e)');
+    }
+  }
+
+  /// Revendique le matricule pour l'utilisateur **déjà connecté** (après
+  /// vérification de l'OTP d'inscription). Le matricule décide de l'issue :
+  /// reconnu → accès validé ; déjà utilisé → refus (déconnexion) ; inconnu →
+  /// mise en attente de vérification (la fiche n'est pas créée tant que le
+  /// staff n'a pas validé). Idempotente côté RPC.
+  Future<DriverSignUpResult> claimDriverAccess({
+    required String employeeId,
+    String? phone,
+  }) async {
+    final client = _supabaseService.client;
+    if (client == null || _supabaseService.isOfflineMode) {
+      return DriverSignUpResult.error('Revendication indisponible hors ligne');
+    }
+
+    final matricule = employeeId.trim();
+    if (matricule.isEmpty) return DriverSignUpResult.error('Matricule requis');
+
+    try {
+      final outcome = await client.rpc('claim_driver_access', params: {
+        'p_employee_id': matricule,
+        if (phone != null && phone.trim().isNotEmpty) 'p_phone': phone.trim(),
+      });
+      await _loadProfile();
+
+      switch (outcome as String?) {
+        case 'validated':
+          return DriverSignUpResult.validated();
+        case 'pending':
+          return DriverSignUpResult.pending();
+        case 'already_used':
+          // Course rare : matricule pris entre la pré-vérif et la revendication.
+          await signOut();
+          return DriverSignUpResult.alreadyUsed();
+        default:
+          return DriverSignUpResult.error('Matricule invalide');
+      }
+    } catch (e) {
+      return DriverSignUpResult.error('Erreur de revendication ($e)');
     }
   }
 
@@ -229,4 +500,83 @@ class PassengerAuthResult {
   bool get needsEmailConfirmation =>
       status == PassengerAuthStatus.emailConfirmationRequired;
   bool get isError => status == PassengerAuthStatus.error;
+}
+
+/// État d'accès conducteur d'un utilisateur (RPC `my_driver_access_status`).
+enum DriverAccessStatus { driver, pending, rejected, none }
+
+extension DriverAccessStatusX on DriverAccessStatus {
+  static DriverAccessStatus fromDb(String? value) {
+    switch (value) {
+      case 'driver':
+        return DriverAccessStatus.driver;
+      case 'pending':
+        return DriverAccessStatus.pending;
+      case 'rejected':
+        return DriverAccessStatus.rejected;
+      default:
+        return DriverAccessStatus.none;
+    }
+  }
+}
+
+/// Statut d'un matricule lors de la pré-vérification d'inscription.
+enum MatriculeStatus { available, alreadyUsed, unknown, error }
+
+extension MatriculeStatusX on MatriculeStatus {
+  static MatriculeStatus fromDb(String? value) {
+    switch (value) {
+      case 'available':
+        return MatriculeStatus.available;
+      case 'already_used':
+        return MatriculeStatus.alreadyUsed;
+      case 'unknown':
+        return MatriculeStatus.unknown;
+      default:
+        return MatriculeStatus.error;
+    }
+  }
+}
+
+class MatriculeCheck {
+  final MatriculeStatus status;
+  final String? firstName;
+  final String? lastName;
+
+  const MatriculeCheck(this.status, {this.firstName, this.lastName});
+
+  String? get fullName {
+    final n = [firstName, lastName]
+        .where((p) => (p ?? '').trim().isNotEmpty)
+        .map((p) => p!.trim())
+        .join(' ');
+    return n.isEmpty ? null : n;
+  }
+}
+
+/// Issue d'une inscription conducteur.
+enum DriverSignUpStatus {
+  validated, // matricule reconnu → accès immédiat
+  pending, // matricule inconnu → en attente de vérification
+  alreadyUsed, // matricule déjà revendiqué → refus
+  emailConfirmationRequired,
+  error,
+}
+
+class DriverSignUpResult {
+  final DriverSignUpStatus status;
+  final String? message;
+
+  const DriverSignUpResult._(this.status, [this.message]);
+
+  factory DriverSignUpResult.validated() =>
+      const DriverSignUpResult._(DriverSignUpStatus.validated);
+  factory DriverSignUpResult.pending() =>
+      const DriverSignUpResult._(DriverSignUpStatus.pending);
+  factory DriverSignUpResult.alreadyUsed() =>
+      const DriverSignUpResult._(DriverSignUpStatus.alreadyUsed);
+  factory DriverSignUpResult.emailConfirmationRequired() =>
+      const DriverSignUpResult._(DriverSignUpStatus.emailConfirmationRequired);
+  factory DriverSignUpResult.error(String message) =>
+      DriverSignUpResult._(DriverSignUpStatus.error, message);
 }

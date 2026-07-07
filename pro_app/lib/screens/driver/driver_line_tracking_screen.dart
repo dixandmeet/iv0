@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +8,7 @@ import '../../models/gtfs.dart';
 import '../../services/driver/driver_service.dart';
 import '../../services/gtfs_service.dart';
 import '../../widgets/driver/delay_badge.dart';
+import '../../widgets/driver/driver_position_map.dart';
 import '../../widgets/driver/stop_strip.dart';
 import 'driver_report_screen.dart';
 
@@ -89,6 +91,7 @@ class _DriverLineTrackingScreenState extends State<DriverLineTrackingScreen> {
         : '—';
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       children: [
         // Ligne + direction
@@ -118,6 +121,17 @@ class _DriverLineTrackingScreenState extends State<DriverLineTrackingScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 16),
+
+        // Ma position en temps réel
+        DriverPositionMap(
+          userPosition: driverService.lastPosition == null
+              ? null
+              : LatLng(driverService.lastPosition!.latitude,
+                  driverService.lastPosition!.longitude),
+          stops: _stops,
+          currentStopIndex: currentIndex,
+        ),
         const SizedBox(height: 20),
 
         // Avance / retard
@@ -127,8 +141,13 @@ class _DriverLineTrackingScreenState extends State<DriverLineTrackingScreen> {
         const SizedBox(height: 10),
         Row(
           children: [
-            DelayBadge(minutes: driverService.delayMinutes, large: true),
-            const Spacer(),
+            Flexible(
+              child: DelayBadge(
+                minutes: driverService.delayMinutes,
+                large: true,
+              ),
+            ),
+            const SizedBox(width: 8),
             IconButton.filledTonal(
               onPressed: () => driverService.adjustDelay(-1),
               icon: const Icon(LucideIcons.minus),

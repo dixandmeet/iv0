@@ -1,0 +1,390 @@
+/* Landing scrollytelling — port fidèle de « Aule Landing.dc.html ».
+   Palette sombre autonome (indépendante des tokens de thème du dashboard). */
+
+.root {
+  font-family: var(--font-space-grotesk), "Space Grotesk", system-ui, sans-serif;
+  color: #fff;
+  background: #050807;
+  overflow-x: clip;
+}
+
+.root ::selection {
+  background: rgba(51, 191, 163, 0.35);
+  color: #fff;
+}
+
+.nav {
+  width: max-content;
+  flex-wrap: nowrap !important;
+  white-space: nowrap;
+}
+
+/* ---- Animations ---- */
+@keyframes scrollhint {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(10px);
+    opacity: 0.4;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(51, 191, 163, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(51, 191, 163, 0);
+  }
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+.pulseDot {
+  animation: pulse 2.4s infinite;
+}
+
+.scrollHint {
+  animation: scrollhint 1.8s ease-in-out infinite;
+}
+
+.dashPath {
+  animation: dash 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulseDot,
+  .scrollHint,
+  .dashPath {
+    animation: none;
+  }
+}
+
+/* ---- Éléments interactifs (hover impossible en inline) ---- */
+.btnPrimary {
+  text-decoration: none;
+  color: #04211c;
+  background: #33bfa3;
+  font-weight: 600;
+  border-radius: 999px;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.btnPrimary:hover {
+  background: #8deedd;
+  transform: scale(1.05);
+}
+
+.btnGlass {
+  text-decoration: none;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-weight: 500;
+  border-radius: 999px;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.btnGlass:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.navPrimary {
+  text-decoration: none;
+  color: #04211c;
+  background: #33bfa3;
+  font-weight: 600;
+  border-radius: 999px;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.navPrimary:hover {
+  background: #8deedd;
+  transform: scale(1.04);
+}
+
+.navGhost {
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.8);
+  background: transparent;
+  font-weight: 500;
+  border-radius: 999px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.navGhost:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.navLink {
+  color: inherit;
+  text-decoration: none;
+  border-radius: 999px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.navLink:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.footerLink {
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14.5px;
+  transition: color 0.2s ease;
+}
+.footerLink:hover {
+  color: #33bfa3;
+}
+
+.footerMeta {
+  text-decoration: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  transition: color 0.2s ease;
+}
+.footerMeta:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-decoration: none;
+  font-size: 16px;
+  color: #fff;
+  transition: background 0.2s ease;
+}
+.social:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 900px) {
+  .nav {
+    width: calc(100vw - 24px) !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    gap: 10px !important;
+  }
+
+  .navAudience {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .nav {
+    top: 10px !important;
+    width: calc(100vw - 20px) !important;
+    max-width: none !important;
+    min-height: 56px;
+    padding: 8px 9px 8px 12px !important;
+    border-radius: 20px !important;
+  }
+
+  .navBrand {
+    gap: 7px !important;
+  }
+
+  .navBrand img {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  .navBrand span {
+    font-size: 15px !important;
+  }
+
+  .navActions {
+    gap: 4px !important;
+  }
+
+  .navGhost,
+  .navPrimary {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  .root [data-sec] {
+    box-sizing: border-box;
+    overflow: hidden;
+    padding: 82px 18px 22px !important;
+  }
+
+  .root [data-sec="0"] {
+    padding: 74px 18px 18px !important;
+  }
+
+  .root [data-sec] h1 {
+    font-size: clamp(38px, 12vw, 50px) !important;
+    line-height: 1.02 !important;
+  }
+
+  .root [data-sec] h2 {
+    font-size: clamp(29px, 8.5vw, 36px) !important;
+    line-height: 1.06 !important;
+  }
+
+  .root [data-sec] p {
+    font-size: 15px !important;
+    line-height: 1.48 !important;
+  }
+
+  .root [data-layout] {
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+    gap: 18px !important;
+    height: 100%;
+  }
+
+  .root [data-layout="notification"] {
+    flex-direction: column-reverse !important;
+  }
+
+  .root [data-layout="travelers"] {
+    gap: 16px !important;
+  }
+
+  .root [data-copy] {
+    max-width: 100% !important;
+  }
+
+  .root [data-traveler-grid] {
+    width: 100% !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+
+  .root [data-traveler-card] {
+    min-height: 132px !important;
+    padding: 12px !important;
+    border-radius: 16px !important;
+  }
+
+  .root [data-traveler-card] > div {
+    margin-bottom: 8px !important;
+  }
+
+  .root [data-traveler-card] h3 {
+    font-size: 13.5px !important;
+  }
+
+  .root [data-traveler-card] p {
+    margin-top: 5px !important;
+    font-size: 11.5px !important;
+    line-height: 1.35 !important;
+  }
+
+  .root [data-upcoming-badge] {
+    padding: 4px 6px !important;
+    font-size: 9px !important;
+  }
+
+  .root [data-panel] {
+    width: 100% !important;
+    max-width: 340px !important;
+    align-self: center;
+  }
+
+  .root [data-panel="phone"] {
+    display: none !important;
+  }
+
+  .root [data-panel="notification"] {
+    gap: 8px !important;
+  }
+
+  .root [data-panel="trip"] {
+    padding: 15px !important;
+  }
+
+  .root [data-panel="commerce"] {
+    padding: 0 !important;
+  }
+
+  .root [data-community-modes] {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+    margin-top: 18px !important;
+  }
+
+  .root [data-community-mode] {
+    padding: 13px !important;
+    border-radius: 16px !important;
+  }
+
+  .root [data-community-mode] p {
+    margin-top: 9px !important;
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+
+  .root [data-community-chips] {
+    gap: 4px !important;
+    margin-top: 0 !important;
+  }
+
+  .root [data-community-chips] span {
+    padding: 5px 7px !important;
+    font-size: 10.5px !important;
+  }
+
+  .root [data-service-card] {
+    padding: 13px !important;
+    border-radius: 16px !important;
+  }
+
+  .root [data-service-card] p {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+  }
+
+  .downloadFooter {
+    padding: 96px 18px 48px !important;
+  }
+
+  .storeActions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 340px;
+  }
+
+  .storeActions a {
+    text-align: center;
+  }
+
+  .linkFooter {
+    padding: 54px 24px 32px !important;
+  }
+
+  .footerGrid {
+    grid-template-columns: 1fr !important;
+    gap: 34px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .navGhost {
+    display: none !important;
+  }
+
+  .root [data-sec] {
+    padding-inline: 14px !important;
+  }
+}

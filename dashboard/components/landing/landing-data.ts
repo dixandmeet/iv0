@@ -1,156 +1,180 @@
 export const navLinks = [
   { href: "#fonctionnalites", label: "Fonctionnalités" },
   { href: "#comment-ca-marche", label: "Comment ça marche" },
-  { href: "#reseaux", label: "Réseaux couverts" },
+  { href: "#communaute", label: "Communauté" },
+  { href: "#reseaux", label: "Réseaux" },
   { href: "/pro", label: "Aule Pro" },
 ] as const;
 
-export const problems = [
-  {
-    icon: "clock",
-    title: "Attente incertaine",
-    description:
-      "Vous ne savez pas quand le prochain bus ou tram va arriver, ni s'il passera vraiment.",
-  },
-  {
-    icon: "shuffle",
-    title: "Correspondances stressantes",
-    description:
-      "Changer de ligne en urgence sans savoir si vous allez rater votre connexion.",
-  },
-  {
-    icon: "alert",
-    title: "Retards et perturbations",
-    description:
-      "Les infos trafic arrivent trop tard ou sont difficiles à comprendre.",
-  },
-  {
-    icon: "map-pin",
-    title: "Difficulté à trouver le bon arrêt",
-    description:
-      "Plusieurs arrêts proches, des noms similaires : difficile de savoir où attendre.",
-  },
-  {
-    icon: "eye-off",
-    title: "Manque de visibilité",
-    description:
-      "Impossible de voir où se trouve réellement votre véhicule sur le réseau.",
-  },
+export const trustStats = [
+  { value: "Temps réel", label: "Suivi véhicules" },
+  { value: "Gratuit", label: "Pour les voyageurs" },
+  { value: "Naolib", label: "Réseau pilote" },
 ] as const;
+
+export const productSplit = {
+  traveler: {
+    eyebrow: "Application mobile",
+    title: "Aule Voyageur",
+    description:
+      "Le GPS intelligent pour vos trajets quotidiens. Itinéraires, suivi temps réel, alertes et favoris — gratuit pour tous les usagers.",
+    ctaPrimary: { href: "#telecharger", label: "Télécharger l'application" },
+    highlights: [
+      "Itinéraires multimodaux",
+      "Favoris et trajets récurrents",
+      "Plan du réseau interactif",
+    ],
+  },
+  pro: {
+    eyebrow: "Plateforme d'exploitation",
+    title: "Aule Pro",
+    description:
+      "Poste de contrôle web, missions MSR, mode conducteur et administration réseau. Unifiez terrain et exploitation.",
+    ctaPrimary: { href: "/pro", label: "Découvrir Aule Pro" },
+    ctaSecondary: { href: "/login", label: "Espace Pro" },
+    highlights: [
+      "Supervision flotte et incidents",
+      "Missions sécurité réseau",
+      "Reporting et info-voyageur",
+    ],
+  },
+} as const;
 
 export const journeySteps = [
   {
     step: 1,
-    title: "Trouver un itinéraire",
-    description: "Saisissez votre destination, Aule calcule le meilleur trajet.",
+    title: "Rechercher",
+    description: "Saisissez votre destination ou choisissez un trajet récurrent.",
     icon: "search",
   },
   {
     step: 2,
-    title: "Marcher jusqu'à l'arrêt",
-    description: "Guidage piéton jusqu'au bon arrêt, au bon quai.",
+    title: "Se rendre à l'arrêt",
+    description: "Guidage piéton jusqu'au bon quai.",
     icon: "footprints",
   },
   {
     step: 3,
-    title: "Attendre le véhicule",
+    title: "Attendre",
     description: "Temps d'attente en direct et alerte avant l'arrivée.",
     icon: "timer",
   },
   {
     step: 4,
-    title: "Monter à bord",
-    description: "Confirmation visuelle que c'est bien votre ligne.",
+    title: "Monter",
+    description: "Confirmation visuelle de votre ligne.",
     icon: "bus",
   },
   {
     step: 5,
-    title: "Suivre le trajet",
-    description: "Progression en temps réel sur la carte, étape par étape.",
+    title: "Suivre",
+    description: "Progression temps réel sur la carte.",
     icon: "route",
   },
   {
     step: 6,
-    title: "Descendre au bon arrêt",
-    description: "Alerte de descente avant votre arrêt, sans stress.",
+    title: "Descendre",
+    description: "Alerte de descente avant votre arrêt.",
     icon: "bell",
   },
 ] as const;
 
-export const features = [
+export type BentoFeature = {
+  icon: string;
+  title: string;
+  description: string;
+  size: "lg" | "sm";
+};
+
+export const bentoFeatures: BentoFeature[] = [
   {
     icon: "route",
     title: "Itinéraires intelligents",
     description:
       "Multimodal, optimisé temps réel avec correspondances et marche intégrées.",
+    size: "lg",
   },
   {
     icon: "radio",
-    title: "Suivi des véhicules en temps réel",
+    title: "Suivi temps réel",
     description:
       "Positions certifiées et communautaires agrégées pour une fiabilité maximale.",
+    size: "lg",
+  },
+  {
+    icon: "star",
+    title: "Favoris arrêts et lignes",
+    description: "Accès rapide à vos arrêts et lignes les plus fréquents.",
+    size: "sm",
+  },
+  {
+    icon: "home",
+    title: "Trajets récurrents",
+    description: "Domicile, Travail, École — un tap pour lancer l'itinéraire.",
+    size: "sm",
+  },
+  {
+    icon: "map",
+    title: "Plan du réseau",
+    description: "Carte interactive des lignes, arrêts et votre position.",
+    size: "sm",
+  },
+  {
+    icon: "accessibility",
+    title: "Accessibilité PMR",
+    description: "Arrêts adaptés avec recherche et tri par proximité.",
+    size: "sm",
   },
   {
     icon: "bell-ring",
     title: "Alertes d'arrivée",
-    description:
-      "Notifications avant l'arrivée de votre bus, tram ou navibus.",
-  },
-  {
-    icon: "map-pin",
-    title: "Arrêts à proximité",
-    description:
-      "Découvrez les arrêts autour de vous avec horaires et lignes desservies.",
+    description: "Notifications avant l'arrivée de votre véhicule.",
+    size: "sm",
   },
   {
     icon: "compass",
     title: "Navigation immersive",
-    description:
-      "Guidage pas à pas avec carte sombre, zoom automatique et repères clairs.",
+    description: "Guidage pas à pas avec zoom automatique et repères clairs.",
+    size: "sm",
   },
   {
     icon: "alert-triangle",
-    title: "Informations perturbations",
-    description:
-      "Retards, déviations et travaux remontés en direct sur votre trajet.",
+    title: "Perturbations en direct",
+    description: "Retards, déviations et travaux sur votre trajet.",
+    size: "sm",
   },
-] as const;
+  {
+    icon: "map-pin",
+    title: "Arrêts à proximité",
+    description: "Horaires et lignes desservies autour de vous.",
+    size: "sm",
+  },
+];
 
-export const immersiveHighlights = [
+export const communityHighlights = [
   {
-    icon: "navigation",
-    title: "Guidage étape par étape",
+    icon: "shield",
+    title: "GPS passif et anonyme",
     description:
-      "Chaque segment de trajet est clairement indiqué avec durée et mode de transport.",
-    screen: "guidage",
+      "Votre position est utilisée uniquement pour enrichir la carte réseau. Aucune identification personnelle.",
   },
   {
-    icon: "bell-ring",
-    title: "Notifications contextuelles",
+    icon: "clock",
+    title: "Purge automatique",
     description:
-      "Alertes pertinentes au bon moment — arrivée, correspondance, perturbation — sans surcharge.",
-    screen: "notifications",
+      "Les données de localisation sont effacées après 15 minutes. Rien n'est conservé au-delà.",
   },
   {
-    icon: "radio",
-    title: "Suivi du véhicule en approche",
+    icon: "lock",
+    title: "Conforme RGPD",
     description:
-      "Visualisez votre bus ou tram avancer sur la carte en direct, jusqu'à l'arrêt.",
-    screen: "suivi",
+      "Consentement explicite, transparence totale. Vous contrôlez le partage depuis les réglages.",
   },
   {
-    icon: "log-out",
-    title: "Alertes de descente",
+    icon: "users",
+    title: "Carte enrichie par tous",
     description:
-      "Soyez alerté avant votre arrêt pour ne jamais le manquer, même les yeux ailleurs.",
-    screen: "descente",
-  },
-  {
-    icon: "arrow-right-left",
-    title: "Correspondances simplifiées",
-    description:
-      "Instructions claires pour changer de ligne, trouver le bon quai et repartir sereinement.",
-    screen: "correspondance",
+      "Chaque usager contribue à une vision plus précise du réseau, au bénéfice de toute la communauté.",
   },
 ] as const;
 
@@ -193,37 +217,6 @@ export const networks = [
   },
 ] as const;
 
-export const testimonials = [
-  {
-    name: "Marie L.",
-    role: "Étudiante",
-    rating: 5,
-    text: "Je ne rate plus jamais mon tram grâce aux alertes. L'app est claire et rassurante, même quand il y a des perturbations.",
-    avatar: "ML",
-  },
-  {
-    name: "Thomas K.",
-    role: "Actif quotidien",
-    rating: 5,
-    text: "Le suivi en temps réel change tout. Je sais exactement quand partir de chez moi pour attraper mon bus.",
-    avatar: "TK",
-  },
-  {
-    name: "Sophie M.",
-    role: "Touriste",
-    rating: 4,
-    text: "Visiter Nantes sans connaître le réseau était un défi. Aule m'a guidée du début à la fin, c'était fluide.",
-    avatar: "SM",
-  },
-  {
-    name: "Ahmed B.",
-    role: "Voyageur occasionnel",
-    rating: 5,
-    text: "Les correspondances ne me stressent plus. L'app me dit exactement où aller et combien de temps j'ai.",
-    avatar: "AB",
-  },
-] as const;
-
 export const proModules = [
   {
     href: "/pro/regulateur",
@@ -258,8 +251,10 @@ export const proModules = [
 export const footerLinks = {
   product: [
     { href: "#fonctionnalites", label: "Fonctionnalités" },
+    { href: "#communaute", label: "Communauté" },
     { href: "/pro", label: "Aule Pro" },
     { href: "#reseaux", label: "Réseaux couverts" },
+    { href: "/login", label: "Espace Pro" },
   ],
   support: [
     { href: "/aide", label: "Centre d'aide" },

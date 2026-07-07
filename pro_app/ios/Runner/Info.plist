@@ -70,5 +70,11 @@
 	<string>Votre position sert à transmettre la localisation du véhicule pendant votre service et à géolocaliser vos missions terrain.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>L'accès en arrière-plan permet de continuer à transmettre la position du véhicule pendant un service, même quand l'app est en arrière-plan.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>La caméra sert à prendre une photo de profil ou du contenu (photo, vidéo) pour le fil d'actualité.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>La photothèque sert à choisir une photo de profil ou une photo/vidéo à publier sur le fil d'actualité.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Le micro sert à enregistrer le son des vidéos publiées sur le fil d'actualité.</string>
 </dict>
 </plist>
