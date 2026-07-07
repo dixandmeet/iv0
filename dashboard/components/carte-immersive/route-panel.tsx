@@ -35,7 +35,7 @@ export function RoutePanel({
   onClose,
 }: RoutePanelProps) {
   return (
-    <div className="immersive-map-panel immersive-map-panel-anim absolute bottom-6 left-5 z-[399] w-80 rounded-[22px] p-[22px]">
+    <div className="immersive-map-panel immersive-map-panel-anim absolute bottom-6 left-5 z-[399] w-80 max-w-[calc(100vw-40px)] rounded-[22px] p-[22px]">
       <div className="mb-3 flex items-center justify-between">
         <div className="text-[15px] font-semibold">→ {destName}</div>
         <button type="button" onClick={onClose} className="immersive-map-icon-btn" aria-label="Fermer">

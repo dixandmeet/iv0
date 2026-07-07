@@ -18,7 +18,7 @@ type DetailPanelProps = {
 
 export function DetailPanel({ selected, onClose }: DetailPanelProps) {
   return (
-    <div className="immersive-map-panel immersive-map-panel-anim absolute bottom-6 right-5 z-[399] w-80 rounded-[22px] p-[22px]">
+    <div className="immersive-map-panel immersive-map-panel-anim absolute bottom-6 right-5 z-[399] w-80 max-w-[calc(100vw-40px)] rounded-[22px] p-[22px]">
       <div className="mb-3.5 flex items-start justify-between">
         <div className="flex items-center gap-2.5">
           <span className="flex h-[42px] w-[42px] flex-none items-center justify-center rounded-2xl border border-[#33bfa3]/30 bg-[#33bfa3]/[.14] text-xl">

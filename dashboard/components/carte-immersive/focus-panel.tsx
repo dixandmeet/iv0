@@ -89,7 +89,7 @@ export function FocusPanel({
 
       <div
         className="immersive-map-panel immersive-map-panel-anim absolute bottom-6 left-5 z-[399] max-h-[62vh] overflow-y-auto rounded-[22px] p-5"
-        style={{ width: isShop ? 360 : 320 }}
+        style={{ width: isShop ? 360 : 320, maxWidth: "calc(100vw - 40px)" }}
       >
         <div className="mb-3 flex items-center justify-between">
           <div className="text-[15px] font-semibold">{title}</div>

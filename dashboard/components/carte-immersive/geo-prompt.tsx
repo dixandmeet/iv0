@@ -43,7 +43,7 @@ export function GeoPrompt({ promptVisible, deniedNoticeVisible, city, onAllow, o
 
   if (deniedNoticeVisible) {
     return (
-      <div className="immersive-map-panel immersive-map-toast absolute left-1/2 top-[82px] z-[399] -translate-x-1/2 whitespace-nowrap rounded-full px-[18px] py-2.5 text-[13px] text-white/85">
+      <div className="immersive-map-panel immersive-map-toast absolute left-1/2 top-[82px] z-[399] w-[min(420px,86vw)] -translate-x-1/2 rounded-full px-[18px] py-2.5 text-center text-[13px] text-white/85">
         Carte centrée sur {city} — autorisez votre position pour un suivi personnalisé.
       </div>
     );

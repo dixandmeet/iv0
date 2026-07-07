@@ -588,7 +588,7 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
         ref={containerRef}
         style={{ position: "relative", height: `${SCROLL_HEIGHT_VH}vh` }}
       >
-        <div style={{ position: "sticky", top: 0, height: "100vh", overflow: "hidden" }}>
+        <div style={{ position: "sticky", top: 0, height: "100dvh", overflow: "hidden" }}>
           <video
             ref={videoRef}
             muted

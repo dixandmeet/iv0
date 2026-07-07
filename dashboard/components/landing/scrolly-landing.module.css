@@ -185,7 +185,10 @@
   }
 }
 
-@media (max-width: 767px) {
+/* Étendu jusqu'à 1024px : les sections à deux colonnes (texte + panneau à largeur
+   fixe) empilées sur des viewports tablette dépassaient la hauteur 100dvh du
+   conteneur pinné (overflow: hidden), coupant le bas du contenu. */
+@media (max-width: 1024px) {
   .nav {
     top: 10px !important;
     width: calc(100vw - 20px) !important;
