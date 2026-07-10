@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "build": "npm install --prefix dashboard && npm run build --prefix dashboard",
+    "start": "npm run start --prefix dashboard",
+    "dev": "npm run dev --prefix dashboard"
+  },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.0"
