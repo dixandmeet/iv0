@@ -8,7 +8,7 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
 import type { GtfsStop, LiveFleetPosition, NetworkIncident } from "@/lib/types";

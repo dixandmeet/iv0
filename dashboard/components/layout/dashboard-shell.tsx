@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardLogo } from "@/components/layout/dashboard-logo";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
+import { ProfileSwitcher } from "@/components/access/profile-switcher";
 import { DashboardUserCard } from "@/components/layout/dashboard-user-card";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 
@@ -56,6 +57,7 @@ export function DashboardShell({
             )}
           </button>
         </div>
+        <ProfileSwitcher collapsed={collapsed} />
         <DashboardNav collapsed={collapsed} />
         <div className="dashboard-sidebar-footer">
           <DashboardUserCard

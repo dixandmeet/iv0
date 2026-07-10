@@ -1,0 +1,34 @@
+window.AULE_ADMIN_CONFIG = {
+  "refreshMs": 60000,
+  "auleApiBaseUrl": "",
+  "auleApiToken": "",
+  "okinaBearerToken": "",
+  "supabase": {
+    "url": "https://rllcdvuqduuyhdcifiwp.supabase.co",
+    "anonKey": "sb_publishable_SoVrtwgKHm3lkFaW8r5fmA_HEH7VpL6",
+    "schema": "public",
+    "tables": {
+      "sources": "service_sources",
+      "services": "transport_services",
+      "segments": "",
+      "drivers": "drivers"
+    },
+    "limits": {
+      "sources": 100,
+      "services": 3000,
+      "segments": 1000,
+      "drivers": 500
+    }
+  },
+  "sources": {
+    "nantesOpenDataBase": "https://data.nantesmetropole.fr/api/explore/v2.1/catalog/datasets",
+    "bikeAvailability": "244400404_disponibilite-temps-reel-velos-libre-service-naolib-nantes-metropole",
+    "bikeAvailabilityFallback": "244400404_stations-velos-libre-service-nantes-metropole-disponibilites",
+    "parkRelays": "244400404_parcs-relais-nantes-metropole-disponibilites",
+    "publicParkings": "244400404_parkings-publics-nantes-disponibilites",
+    "trafficAlerts": "244400404_alertes-info-trafic-nantes-metropole",
+    "carshareStations": "244400404_stations-autopartage-naolib-nantes-metropole",
+    "transportRealtimeCatalog": "244400404_services_temps_reel_transports_commun_naolib_nantes_metropole_gtfs_rt",
+    "transportServicesCatalog": "244400404_reseau-transports-collectifs-naolib"
+  }
+};

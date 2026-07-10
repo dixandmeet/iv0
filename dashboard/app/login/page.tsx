@@ -8,7 +8,12 @@ export const metadata: Metadata = {
 };
 
 type LoginPageProps = {
-  searchParams: Promise<{ error?: string; mode?: string; reset?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    mode?: string;
+    reset?: string;
+    next?: string;
+  }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -22,12 +27,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     params.reset === "success"
       ? "Votre mot de passe a été mis à jour. Vous pouvez maintenant vous connecter."
       : null;
+  const redirectTo =
+    typeof params.next === "string" && params.next.startsWith("/")
+      ? params.next
+      : undefined;
 
   return (
     <LoginForm
       initialError={initialError}
       initialSuccess={initialSuccess}
       initialMode={initialMode}
+      redirectTo={redirectTo}
     />
   );
 }

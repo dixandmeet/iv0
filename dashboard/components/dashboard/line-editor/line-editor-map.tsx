@@ -11,6 +11,7 @@ import {
 import { Eraser, Loader2, Route } from "lucide-react";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
+import { attachMapLibreErrorHandler } from "@/lib/maplibre-errors";
 import {
   buildRouteCasingLayer,
   buildRouteGlowLayer,
@@ -534,6 +535,7 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
         attributionControl: { compact: true },
       });
       registerMissingImageFallback(map);
+      const detachMapErrorHandler = attachMapLibreErrorHandler(map, "LineEditorMap");
 
       map.addControl(
         new maplibregl.NavigationControl({ visualizePitch: true }),
@@ -633,6 +635,7 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
 
       return () => {
         clearMarkers();
+        detachMapErrorHandler();
         map.remove();
         mapRef.current = null;
       };

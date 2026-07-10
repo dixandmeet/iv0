@@ -21,7 +21,7 @@ export function QuickActionsPanel({
 
   return (
     <div
-      className="immersive-map-panel immersive-map-panel-anim absolute left-5 top-[82px] z-[398] w-[280px] max-w-[calc(100vw-40px)] rounded-[22px] p-4"
+      className="immersive-map-panel immersive-map-panel-anim immersive-map-panel-quick-actions absolute left-5 top-[82px] z-[398] w-[280px] max-w-[calc(100vw-40px)] rounded-[22px] p-4"
     >
       <div className="mb-3 flex items-center justify-between" style={{ marginBottom: collapsed ? 0 : 12 }}>
         <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] text-white/60">

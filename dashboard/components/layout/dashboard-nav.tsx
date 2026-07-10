@@ -2,82 +2,56 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  AlertTriangle,
-  BarChart3,
-  Bus,
-  ClipboardList,
-  MapPin,
-  Megaphone,
-  MessageSquare,
-  Radio,
-  Settings,
-  Shield,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-
-interface NavLink {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  isActive?: (pathname: string) => boolean;
-}
-
-const links: NavLink[] = [
-  {
-    href: "/dashboard",
-    label: "Lignes du réseau",
-    icon: Radio,
-    isActive: (pathname) =>
-      pathname === "/dashboard" || pathname.startsWith("/dashboard/"),
-  },
-  {
-    href: "/stations",
-    label: "Stations",
-    icon: MapPin,
-    isActive: (pathname) =>
-      pathname === "/stations" || pathname.startsWith("/stations/"),
-  },
-  { href: "/alertes", label: "Alertes", icon: AlertTriangle },
-  { href: "/incidents", label: "Incidents", icon: Shield },
-  { href: "/conducteurs", label: "Conducteurs", icon: Users },
-  { href: "/dashboard", label: "Véhicules", icon: Bus },
-  { href: "/communication", label: "Activité", icon: MessageSquare },
-  { href: "/info-voyageur", label: "Info voyageurs", icon: Megaphone },
-  { href: "/reporting", label: "Reporting", icon: BarChart3 },
-  { href: "/missions", label: "Missions MSR", icon: ClipboardList },
-  { href: "#", label: "Paramètres", icon: Settings },
-];
+import { useAccess } from "@/components/access/access-provider";
+import type { AppModule } from "@/lib/access/modules";
 
 interface DashboardNavProps {
   collapsed?: boolean;
 }
 
+function isModuleActive(module: AppModule, pathname: string): boolean {
+  if (!module.route) return false;
+  if (module.route === "/dashboard") {
+    return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  }
+  return pathname === module.route || pathname.startsWith(`${module.route}/`);
+}
+
+/**
+ * Navigation dérivée du registre de modules (permissions × surface). Aucun lien
+ * en dur : les sections et entrées visibles dépendent des profils de
+ * l'utilisateur, résolus dans <AccessProvider>.
+ */
 export function DashboardNav({ collapsed = false }: DashboardNavProps) {
   const pathname = usePathname();
+  const { navGroups } = useAccess();
 
   return (
     <nav className="dashboard-nav">
-      {links.map((link) => {
-        const isActive =
-          link.isActive?.(pathname) ??
-          (link.href !== "#" &&
-            link.href !== "/dashboard" &&
-            (pathname === link.href || pathname.startsWith(`${link.href}/`)));
-
-        return (
-          <Link
-            key={`${link.href}-${link.label}`}
-            href={link.href}
-            className={`dashboard-nav-link${isActive ? " active" : ""}${collapsed ? " dashboard-nav-link--collapsed" : ""}`}
-            title={collapsed ? link.label : undefined}
-          >
-            <link.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
-            <span className="dashboard-nav-link-label flex-1 truncate">{link.label}</span>
-          </Link>
-        );
-      })}
+      {navGroups.map((group) => (
+        <div key={group.group} className="dashboard-nav-group">
+          <div className="dashboard-nav-group-label">{group.label}</div>
+          {group.modules.map((module) => {
+            const active = isModuleActive(module, pathname);
+            return (
+              <Link
+                key={module.id}
+                href={module.route!}
+                className={`dashboard-nav-link${active ? " active" : ""}${collapsed ? " dashboard-nav-link--collapsed" : ""}`}
+                title={collapsed ? module.label : undefined}
+              >
+                <module.icon
+                  className="h-[18px] w-[18px] shrink-0"
+                  strokeWidth={1.5}
+                />
+                <span className="dashboard-nav-link-label flex-1 truncate">
+                  {module.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      ))}
     </nav>
   );
 }

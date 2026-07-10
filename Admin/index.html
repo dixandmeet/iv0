@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Aule Admin Command Center</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2333d6a6'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-family='Arial' font-size='30' font-weight='800' fill='%23061014'%3EA%3C/text%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Navigation principale">
+        <div class="brand">
+          <div class="brand-mark">A</div>
+          <div>
+            <strong>Aule Admin</strong>
+            <span>Centre de commandement</span>
+          </div>
+        </div>
+
+        <nav class="nav" id="primaryNav"></nav>
+
+        <div class="sidebar-status">
+          <div class="status-dot"></div>
+          <div>
+            <strong>Système nominal</strong>
+            <span>Naolib · 99.98% uptime</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <button class="icon-button mobile-menu" id="mobileMenu" aria-label="Menu">
+            <i data-lucide="menu"></i>
+          </button>
+          <div class="global-search" id="searchTrigger" role="button" tabindex="0">
+            <i data-lucide="search"></i>
+            <span>Rechercher utilisateur, ligne, mission, commerce...</span>
+            <kbd>⌘K</kbd>
+          </div>
+          <div class="topbar-actions">
+            <select aria-label="Réseau">
+              <option>Naolib</option>
+              <option>Île-de-France Mobilités</option>
+              <option>TCL Lyon</option>
+            </select>
+            <select aria-label="Dépôt">
+              <option>Tous les dépôts</option>
+              <option>Trentemoult</option>
+              <option>Dalby</option>
+              <option>Trocardière</option>
+            </select>
+            <button class="data-source-pill" id="dataSourcePill" type="button">
+              <i data-lucide="database-zap"></i>
+              <span>Connexion données...</span>
+            </button>
+            <button class="system-pill" type="button">
+              <span class="status-dot"></span>
+              <span>Live</span>
+              <strong id="clock">--:--</strong>
+            </button>
+            <button class="icon-button" aria-label="Notifications">
+              <i data-lucide="bell"></i>
+              <span class="badge-dot"></span>
+            </button>
+          </div>
+        </header>
+
+        <section class="page active" id="dashboard"></section>
+        <section class="page" id="supervision"></section>
+        <section class="page" id="exploitation"></section>
+        <section class="page" id="utilisateurs"></section>
+        <section class="page" id="missions"></section>
+        <section class="page" id="communication"></section>
+        <section class="page" id="marketplace"></section>
+        <section class="page" id="analytics"></section>
+        <section class="page" id="administration"></section>
+      </main>
+    </div>
+
+    <div class="command-palette" id="commandPalette" aria-hidden="true">
+      <div class="palette-panel">
+        <div class="palette-search">
+          <i data-lucide="search"></i>
+          <input id="paletteInput" placeholder="Rechercher dans tout Aule..." />
+          <button class="ghost-button" id="closePalette">Échap</button>
+        </div>
+        <div class="palette-results" id="paletteResults"></div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./config.runtime.js"></script>
+    <script src="./data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

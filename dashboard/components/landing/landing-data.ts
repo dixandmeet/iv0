@@ -219,31 +219,38 @@ export const networks = [
 
 export const proModules = [
   {
-    href: "/pro/regulateur",
-    title: "Poste de contrôle",
+    href: "/pro/exploitation",
+    title: "Centre d'exploitation",
     description:
-      "Supervision flotte, incidents et régulation en temps réel pour les régulateurs.",
+      "Supervision véhicules, incidents, équipes, missions et information voyageurs.",
     icon: "monitor",
   },
   {
-    href: "/pro/msr",
-    title: "Missions sécurité réseau",
+    href: "/pro/controleur",
+    title: "Espace contrôleur",
     description:
-      "Planification et suivi des patrouilles MSR par secteur et zone de contrôle.",
+      "Missions, carte, contrôles, procès-verbaux, équipe et statistiques personnelles.",
     icon: "shield",
   },
   {
     href: "/pro/conducteur",
-    title: "Mode conducteur",
+    title: "Espace conducteur",
     description:
-      "Prise de service automatique par GPS, détection ligne et sens sans saisie.",
+      "Prise de service, planning, véhicule, navigation, messages et échanges.",
     icon: "steering-wheel",
   },
   {
-    href: "/pro/admin",
-    title: "Administration réseau",
+    href: "/pro/vtc",
+    title: "Chauffeur VTC",
     description:
-      "Configuration réseau, utilisateurs, rôles et paramètres d'exploitation.",
+      "Courses, disponibilités, revenus, planning, statistiques et messagerie.",
+    icon: "settings",
+  },
+  {
+    href: "/pro/commercant",
+    title: "Commerçant",
+    description:
+      "Boutique, produits, commandes, promotions, horaires, livraisons, avis et employés.",
     icon: "settings",
   },
 ] as const;

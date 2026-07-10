@@ -7,20 +7,68 @@ type NominatimResult = {
   display_name: string;
   lat: string;
   lon: string;
+  name?: string;
+  address?: NominatimAddress;
 };
 
-type NominatimReverseResult = NominatimResult & {
-  address?: {
-    house_number?: string;
-    road?: string;
-    pedestrian?: string;
-    postcode?: string;
-    city?: string;
-    town?: string;
-    village?: string;
-    municipality?: string;
-  };
+type NominatimAddress = {
+  house_number?: string;
+  road?: string;
+  pedestrian?: string;
+  footway?: string;
+  path?: string;
+  postcode?: string;
+  neighbourhood?: string;
+  suburb?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  county?: string;
+  state?: string;
+  country?: string;
 };
+
+type NominatimReverseResult = NominatimResult;
+
+function normalizeAddressPart(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function extractHouseNumber(query: string) {
+  return query.trim().match(/^(\d{1,5}(?:\s?(?:bis|ter|quater|[a-z]))?)\b/i)?.[1];
+}
+
+function formatAddressLabel(item: NominatimResult, query?: string) {
+  const address = item.address;
+  const road = address?.road ?? address?.pedestrian ?? address?.footway ?? address?.path;
+  const city =
+    address?.city ??
+    address?.town ??
+    address?.village ??
+    address?.municipality ??
+    address?.suburb;
+  const queryHouseNumber = query ? extractHouseNumber(query) : undefined;
+  const normalizedQuery = normalizeAddressPart(query ?? "");
+  const houseNumber =
+    address?.house_number ??
+    (queryHouseNumber && road && normalizedQuery.includes(normalizeAddressPart(road))
+      ? queryHouseNumber
+      : undefined);
+  const street = [houseNumber, road].filter(Boolean).join(" ");
+
+  if (!street && !city) return item.display_name;
+
+  const locality = [address?.postcode, city].filter(Boolean).join(" ");
+  const details = [locality, address?.county, address?.state, address?.country]
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index);
+
+  return [street || item.name, ...details].filter(Boolean).join(", ") || item.display_name;
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -61,16 +109,7 @@ export async function GET(request: Request) {
       }
 
       const data = (await res.json()) as NominatimReverseResult;
-      const street = [data.address?.house_number, data.address?.road ?? data.address?.pedestrian]
-        .filter(Boolean)
-        .join(" ");
-      const city =
-        data.address?.city ??
-        data.address?.town ??
-        data.address?.village ??
-        data.address?.municipality;
-      const locality = [data.address?.postcode, city].filter(Boolean).join(" ");
-      const label = [street, locality].filter(Boolean).join(", ") || data.display_name;
+      const label = formatAddressLabel(data);
 
       return NextResponse.json({
         result: {
@@ -101,7 +140,7 @@ export async function GET(request: Request) {
   url.searchParams.set("countrycodes", "fr");
   url.searchParams.set("viewbox", NANTES_VIEWBOX);
   url.searchParams.set("bounded", "1");
-  url.searchParams.set("addressdetails", "0");
+  url.searchParams.set("addressdetails", "1");
 
   try {
     const res = await fetch(url, {
@@ -120,11 +159,27 @@ export async function GET(request: Request) {
     }
 
     const data = (await res.json()) as NominatimResult[];
-    const results = data.map((item) => ({
-      label: item.display_name,
-      lng: Number(item.lon),
-      lat: Number(item.lat),
-    }));
+    const requestedHouseNumber = extractHouseNumber(q);
+    const seenLabels = new Set<string>();
+    const results = data
+      .map((item) => ({
+        label: formatAddressLabel(item, q),
+        lng: Number(item.lon),
+        lat: Number(item.lat),
+      }))
+      .filter((item) => {
+        if (!Number.isFinite(item.lng) || !Number.isFinite(item.lat)) return false;
+        if (seenLabels.has(item.label)) return false;
+        seenLabels.add(item.label);
+        return true;
+      })
+      .sort((a, b) => {
+        if (!requestedHouseNumber) return 0;
+        const requestedPrefix = `${requestedHouseNumber} `;
+        const aStartsWithNumber = a.label.startsWith(requestedPrefix);
+        const bStartsWithNumber = b.label.startsWith(requestedPrefix);
+        return Number(bStartsWithNumber) - Number(aStartsWithNumber);
+      });
 
     return NextResponse.json({ results });
   } catch {

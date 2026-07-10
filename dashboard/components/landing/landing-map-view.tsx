@@ -4,7 +4,16 @@ import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { useInView } from "framer-motion";
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
+import { attachMapLibreErrorHandler } from "@/lib/maplibre-errors";
 import { cn } from "@/lib/utils";
+import {
+  addExtrudedBuildings,
+  applyDarkReskin,
+  hideGenericPois,
+  registerMissingImageFallback,
+} from "@/components/carte-immersive/map-style";
+import { Vehicle3DLayer } from "@/components/carte-immersive/vehicle-3d-layer";
+import type { MapVehicle } from "@/lib/carte-immersive/vehicles";
 import {
   buildRouteGlowLayer,
   buildRouteLayer,
@@ -32,6 +41,7 @@ type LandingMapViewProps = {
   markers?: LandingMapMarker[];
   routes?: RouteConfig[];
   vehicles?: LandingMapVehicle[];
+  modelVehicles?: MapVehicle[];
   showUserLocation?: { lng: number; lat: number };
   ariaLabel?: string;
   minZoom?: number;
@@ -40,6 +50,10 @@ type LandingMapViewProps = {
   pitch?: number;
   bounds?: MapBounds;
   fitPadding?: number;
+  threeD?: boolean;
+  scrollZoom?: boolean;
+  showControls?: boolean;
+  onVehicleLayerReady?: (layer: Vehicle3DLayer) => void;
 };
 
 function createMarkerElement(marker: LandingMapMarker) {
@@ -161,6 +175,7 @@ export function LandingMapView({
   markers = [],
   routes = [],
   vehicles = [],
+  modelVehicles = [],
   showUserLocation,
   ariaLabel = "Carte interactive",
   minZoom,
@@ -169,53 +184,122 @@ export function LandingMapView({
   pitch = 0,
   bounds,
   fitPadding = 48,
+  threeD = false,
+  scrollZoom = true,
+  showControls = false,
+  onVehicleLayerReady,
 }: LandingMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const vehicleLayerRef = useRef<Vehicle3DLayer | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const routeIdsRef = useRef<string[]>([]);
   const routesRef = useRef(routes);
-  routesRef.current = routes;
+  const modelVehiclesRef = useRef(modelVehicles);
+  const initialMapOptionsRef = useRef({
+    center,
+    zoom,
+    bearing,
+    pitch,
+    minZoom,
+    maxZoom,
+    interactive,
+    threeD,
+    scrollZoom,
+    showControls,
+  });
   const isInView = useInView(containerRef, { once: true, margin: "120px" });
   const shouldInit = eager || isInView;
   const [ready, setReady] = useState(false);
+  const centerLng = center[0];
+  const centerLat = center[1];
+
+  useEffect(() => {
+    routesRef.current = routes;
+  }, [routes]);
+
+  useEffect(() => {
+    modelVehiclesRef.current = modelVehicles;
+  }, [modelVehicles]);
 
   useEffect(() => {
     if (!shouldInit || !containerRef.current || mapRef.current) return;
+    const initialOptions = initialMapOptionsRef.current;
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: createDarkMapStyle(),
-      center,
-      zoom,
-      bearing,
-      pitch,
-      minZoom,
-      maxZoom,
-      interactive,
+      style: initialOptions.threeD
+        ? "https://tiles.openfreemap.org/styles/liberty"
+        : createDarkMapStyle(),
+      center: initialOptions.center,
+      zoom: initialOptions.zoom,
+      bearing: initialOptions.bearing,
+      pitch: initialOptions.pitch,
+      minZoom: initialOptions.minZoom,
+      maxZoom: initialOptions.maxZoom,
+      interactive: initialOptions.interactive,
       attributionControl: false,
+      canvasContextAttributes: initialOptions.threeD
+        ? { antialias: true, preserveDrawingBuffer: false }
+        : undefined,
       fadeDuration: 0,
     });
+    if (!initialOptions.scrollZoom) map.scrollZoom.disable();
+    if (initialOptions.showControls) {
+      map.addControl(
+        new maplibregl.NavigationControl({ visualizePitch: true }),
+        "bottom-right",
+      );
+    }
 
     const handleLoad = () => {
+      if (initialOptions.threeD) {
+        try {
+          map.setSky({
+            "sky-color": "#0a1614",
+            "horizon-color": "#12241f",
+            "fog-color": "#0a1210",
+            "sky-horizon-blend": 0.5,
+            "horizon-fog-blend": 0.6,
+            "fog-ground-blend": 0.6,
+          });
+        } catch {
+          // Certaines versions de MapLibre ne supportent pas le ciel custom.
+        }
+
+        applyDarkReskin(map);
+        addExtrudedBuildings(map);
+        hideGenericPois(map);
+
+        const vehicleLayer = new Vehicle3DLayer({ onSelect: () => {} });
+        map.addLayer(vehicleLayer);
+        vehicleLayer.setVehicles(modelVehiclesRef.current);
+        vehicleLayerRef.current = vehicleLayer;
+        onVehicleLayerReady?.(vehicleLayer);
+      }
+
       syncRoutes(map, routesRef.current, routeIdsRef);
       setReady(true);
     };
 
+    if (initialOptions.threeD) registerMissingImageFallback(map);
+    const detachMapErrorHandler = attachMapLibreErrorHandler(map, "LandingMap");
     map.once("load", handleLoad);
     mapRef.current = map;
 
     return () => {
+      detachMapErrorHandler();
       map.off("load", handleLoad);
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
       routeIdsRef.current = [];
+      vehicleLayerRef.current = null;
       map.remove();
       mapRef.current = null;
       setReady(false);
     };
     // La carte n'est créée qu'une fois ; caméra et routes se mettent à jour via d'autres effets.
-  }, [shouldInit, minZoom, maxZoom, interactive]);
+  }, [shouldInit]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -239,13 +323,13 @@ export function LandingMapView({
     }
 
     map.easeTo({
-      center,
+      center: [centerLng, centerLat],
       zoom,
       bearing,
       pitch,
       duration: 700,
     });
-  }, [ready, bounds, fitPadding, center[0], center[1], zoom, bearing, pitch]);
+  }, [ready, bounds, fitPadding, centerLng, centerLat, zoom, bearing, pitch]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -278,6 +362,10 @@ export function LandingMapView({
       markersRef.current.push(m);
     }
   }, [ready, markers, vehicles, showUserLocation]);
+
+  useEffect(() => {
+    vehicleLayerRef.current?.setVehicles(modelVehicles);
+  }, [modelVehicles]);
 
   useEffect(() => {
     const map = mapRef.current;

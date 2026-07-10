@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { AccessProvider } from "@/components/access/access-provider";
+import { loadAccess } from "@/lib/access/server";
+import type { StaffRole } from "@/lib/types";
 
 export default async function DashboardLayout({
   children,
@@ -21,11 +24,18 @@ export default async function DashboardLayout({
     .maybeSingle();
 
   const displayName = profile?.display_name ?? user.email ?? "Régulateur test";
-  const role = profile?.role ?? "regulator";
+  const role = (profile?.role ?? "regulator") as StaffRole;
+
+  // Accès multi-profils résolu côté serveur : lit profile_assignments +
+  // overrides, avec repli sur le pont `role` tant que la migration n'est pas
+  // appliquée. Les permissions sont figées avant d'être passées au client.
+  const { profiles, permissions } = await loadAccess(supabase, user.id, role);
 
   return (
-    <DashboardShell displayName={displayName} role={role}>
-      {children}
-    </DashboardShell>
+    <AccessProvider profiles={profiles} permissions={permissions} surface="web">
+      <DashboardShell displayName={displayName} role={role}>
+        {children}
+      </DashboardShell>
+    </AccessProvider>
   );
 }

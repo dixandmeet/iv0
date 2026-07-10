@@ -2,6 +2,7 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
+import { attachMapLibreErrorHandler } from "@/lib/maplibre-errors";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CATEGORIES,
@@ -43,6 +44,7 @@ import {
 } from "./top-bar";
 import { QuickActionsPanel } from "./quick-actions-panel";
 import { FiltersPanel, type FilterKey } from "./filters-panel";
+import { BottomNav } from "./bottom-nav";
 import { GeoPrompt } from "./geo-prompt";
 import { RoutePanel, type RouteMode, type RouteStep } from "./route-panel";
 import { FocusPanel, type RideItem, type ShopResultItem, type SortMode } from "./focus-panel";
@@ -58,6 +60,10 @@ import {
 type SelectedKind = "vehicle" | "shop" | null;
 type FocusMode = "ride" | "shop" | null;
 type GeocodeResult = { name: string; label: string; latLng: LatLng };
+type InitialRoutePoint = {
+  label: string;
+  latLng?: LatLng;
+};
 type SearchLineSelection = {
   title: string;
   mode: "bus" | "tram" | "navibus";
@@ -154,6 +160,36 @@ const NAVIBUS_SEARCH_LINES: Array<{
     ],
   },
 ];
+
+function labelName(label: string) {
+  return label.split(",")[0]?.trim() || label;
+}
+
+function parseInitialRouteMode(value: string | null): RouteMode {
+  return value === "foot" || value === "car" || value === "transit"
+    ? value
+    : "transit";
+}
+
+function parseInitialRoutePoint(
+  params: URLSearchParams,
+  labelKey: string,
+  latKey: string,
+  lngKey: string,
+): InitialRoutePoint | null {
+  const label = params.get(labelKey)?.trim() ?? "";
+  const lat = Number(params.get(latKey));
+  const lng = Number(params.get(lngKey));
+
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return {
+      label: label || "Adresse sélectionnée",
+      latLng: [lat, lng],
+    };
+  }
+
+  return label.length >= 3 ? { label } : null;
+}
 
 function createLineStopElement(
   name: string,
@@ -796,6 +832,7 @@ export function ImmersiveMap({
   const [selectedDestination, setSelectedDestination] = useState<GeocodeResult | null>(null);
   const addressSearchRequestRef = useRef(0);
   const [quickCollapsed, setQuickCollapsed] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [showRouteInputs, setShowRouteInputs] = useState(false);
   const [focusMode, setFocusMode] = useState<FocusMode>(null);
   const [shopQuery, setShopQuery] = useState("");
@@ -810,6 +847,8 @@ export function ImmersiveMap({
   const [cartOpen, setCartOpen] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const initialRouteStartedRef = useRef(false);
 
   useEffect(() => {
     trackingStopsVisibleRef.current = trackingStopsVisible;
@@ -1236,7 +1275,7 @@ export function ImmersiveMap({
       return;
     }
     mapRef.current = map;
-    map.on("error", (e) => console.error("[ImmersiveMap] Erreur MapLibre", e.error));
+    const detachMapErrorHandler = attachMapLibreErrorHandler(map, "ImmersiveMap");
     registerMissingImageFallback(map);
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
     map.addControl(createLocateControl(() => locateActionRef.current()), "bottom-right");
@@ -1286,6 +1325,7 @@ export function ImmersiveMap({
       vehicleLayer.moveToTop();
       buildMarkers();
       readyRef.current = true;
+      setMapReady(true);
 
       map.on("moveend", () => {
         if (focusModeRef.current !== "shop" || !shopSearchCenterRef.current) return;
@@ -1295,15 +1335,18 @@ export function ImmersiveMap({
         if (d > 0.003 && !showSearchAreaRef.current) setShowSearchArea(true);
       });
 
-      const knownPosition = userPositionRef.current;
-      const introCenter = knownPosition ?? CITY_CENTER;
-      map.flyTo({
-        center: [introCenter[1], introCenter[0]],
-        zoom: 15.6,
-        pitch: 58,
-        bearing: -18,
-        duration: 2400,
-      });
+      const hasInitialRoute = new URLSearchParams(window.location.search).get("route") === "1";
+      if (!hasInitialRoute) {
+        const knownPosition = userPositionRef.current;
+        const introCenter = knownPosition ?? CITY_CENTER;
+        map.flyTo({
+          center: [introCenter[1], introCenter[0]],
+          zoom: 15.6,
+          pitch: 58,
+          bearing: -18,
+          duration: 2400,
+        });
+      }
       rafRef.current = requestAnimationFrame(tick);
     });
 
@@ -1313,10 +1356,12 @@ export function ImmersiveMap({
       window.removeEventListener("orientationchange", handleViewportResize);
       window.visualViewport?.removeEventListener("resize", handleViewportResize);
       cancelAnimationFrame(rafRef.current);
+      detachMapErrorHandler();
       map.remove();
       mapRef.current = null;
       vehicleLayerRef.current = null;
       readyRef.current = false;
+      setMapReady(false);
     };
     // La carte n'est montée qu'une fois ; les mises à jour passent par les refs et actions ci-dessous.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1744,6 +1789,93 @@ export function ImmersiveMap({
     const active = activeRouteRef.current;
     if (active) void computeRoute(mode, active.origin, active.dest, active.destName);
   };
+
+  useEffect(() => {
+    if (!mapReady || initialRouteStartedRef.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("route") !== "1") return;
+
+    initialRouteStartedRef.current = true;
+    const requestedMode = parseInitialRouteMode(params.get("mode"));
+    const originRequest = parseInitialRoutePoint(params, "from", "fromLat", "fromLng");
+    const destinationRequest = parseInitialRoutePoint(params, "to", "toLat", "toLng");
+
+    const resolvePoint = async (
+      point: InitialRoutePoint | null,
+    ): Promise<GeocodeResult | null> => {
+      if (!point) return null;
+      if (point.latLng) {
+        return {
+          name: labelName(point.label),
+          label: point.label,
+          latLng: point.latLng,
+        };
+      }
+
+      return (await geocodeQuery(point.label))[0] ?? null;
+    };
+
+    const launchInitialRoute = async () => {
+      if (!destinationRequest) {
+        setSearchError("Destination manquante pour calculer l’itinéraire.");
+        setShowRouteInputs(true);
+        return;
+      }
+
+      setRouteMode(requestedMode);
+      setSearchQuery(destinationRequest.label);
+      setSearchError(null);
+      setSelectedKind(null);
+      setSelectedId(null);
+      setFocusMode(null);
+      setShowRouteInputs(true);
+      setQuickCollapsed(true);
+      applyFocus(null);
+      setDestinationLoading(true);
+
+      try {
+        const [originResult, destinationResult] = await Promise.all([
+          resolvePoint(originRequest),
+          resolvePoint(destinationRequest),
+        ]);
+        const fallbackOrigin = userPositionRef.current;
+        const origin = originResult?.latLng ?? fallbackOrigin;
+
+        if (!origin) {
+          setSearchError("Adresse de départ introuvable. Autorisez votre position ou saisissez une adresse.");
+          setGeoPromptVisible(true);
+          return;
+        }
+
+        if (!destinationResult) {
+          setSearchError("Adresse de destination introuvable. Vérifiez la saisie puis réessayez.");
+          return;
+        }
+
+        if (originResult) {
+          setOriginAddress(originResult.label);
+          placeUserMarker(originResult.latLng);
+        }
+
+        setSelectedDestination(destinationResult);
+        setDestName(destinationResult.name);
+        setShowRouteInputs(false);
+        await computeRoute(
+          requestedMode,
+          origin,
+          destinationResult.latLng,
+          destinationResult.name,
+        );
+      } finally {
+        setDestinationLoading(false);
+      }
+    };
+
+    void launchInitialRoute();
+    // Cette lecture d'URL doit s'exécuter une seule fois, dès que la carte est prête.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady]);
 
   const closeRoute = () => {
     setRouteActive(false);
@@ -2816,6 +2948,9 @@ export function ImmersiveMap({
 
   const merchantShop = merchantId ? SHOP_DEFS.find((s) => s.id === merchantId) : null;
 
+  const bottomNavVisible =
+    !tracking && !showRouteInputs && !routeActive && !focusVisible && !visibleDetail && !merchantShop;
+
   const merchantData = useMemo(() => {
     if (!merchantShop) return null;
     const fullMenu = buildMenu(merchantShop);
@@ -2931,7 +3066,9 @@ export function ImmersiveMap({
     : null;
 
   return (
-    <div className="immersive-map-root">
+    <div
+      className={`immersive-map-root${bottomNavVisible ? " immersive-map-root--nav-visible" : ""}`}
+    >
       <div className="immersive-map-canvas">
         <div ref={mapContainerRef} className="h-full w-full" />
         {mapError && (
@@ -3027,8 +3164,21 @@ export function ImmersiveMap({
       />
 
       {!tracking && (
-        <FiltersPanel filters={filters} onToggle={toggleFilter} />
+        <FiltersPanel
+          filters={filters}
+          onToggle={toggleFilter}
+          mobileOpen={filtersOpen && bottomNavVisible}
+        />
       )}
+
+      <BottomNav
+        visible={bottomNavVisible}
+        onRoute={qaRoute}
+        onRide={qaRide}
+        onShop={qaShop}
+        filtersOpen={filtersOpen}
+        onToggleFilters={() => setFiltersOpen((open) => !open)}
+      />
 
       {routeActive && (
         <RoutePanel

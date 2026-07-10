@@ -1,0 +1,347 @@
+import {
+  Bell,
+  BriefcaseBusiness,
+  BusFront,
+  ClipboardCheck,
+  Database,
+  Flag,
+  Map,
+  MessageSquareWarning,
+  PackageCheck,
+  Radio,
+  Route,
+  Settings,
+  ShieldCheck,
+  ShoppingBag,
+  Store,
+  TramFront,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
+
+export type StudioStatus = "done" | "todo" | "attention";
+
+export const studioNetworks = [
+  {
+    id: "naolib",
+    name: "Naolib",
+    city: "Nantes",
+    country: "France",
+    status: "Actif",
+    mode: "Bus, Tram, Navibus",
+    gtfsStatus: "Importées",
+    users: 12487,
+    lines: 87,
+    stops: 1836,
+    vehicles: 318,
+    modules: ["Voyageur", "Pro", "Marketplace", "VTC/Taxi"],
+    lastSync: "Aujourd'hui, 20:42",
+    lastActivity: "Signalement conducteur traité il y a 18 min",
+    description:
+      "Réseau pilote Aule pour Nantes, utilisé pour valider les données transport, les profils Pro et l'expérience Voyageur.",
+  },
+  {
+    id: "future-config",
+    name: "Réseau en configuration",
+    city: "À définir",
+    country: "France",
+    status: "Configuration",
+    mode: "À configurer",
+    gtfsStatus: "À importer",
+    users: 0,
+    lines: 0,
+    stops: 0,
+    vehicles: 0,
+    modules: ["Voyageur"],
+    lastSync: "Aucune synchronisation",
+    lastActivity: "Prévu pour l'onboarding multi-réseaux",
+    description:
+      "Emplacement réservé pour préparer le prochain réseau sans mélanger les données Naolib.",
+  },
+] as const;
+
+export const studioConfigurationChecklist = [
+  {
+    label: "Réseau créé",
+    status: "done",
+    description: "Naolib existe comme réseau de référence.",
+    action: "Ouvrir Naolib",
+    href: "/admin/networks/naolib",
+  },
+  {
+    label: "GTFS importé",
+    status: "done",
+    description: "Données statiques disponibles pour lignes, arrêts et horaires.",
+    action: "Vérifier GTFS",
+    href: "/admin/transport-data",
+  },
+  {
+    label: "Lignes importées",
+    status: "done",
+    description: "Catalogue de lignes prêt pour la carte et les fiches réseau.",
+    action: "Voir les lignes",
+    href: "/admin/networks/naolib",
+  },
+  {
+    label: "Arrêts importés",
+    status: "done",
+    description: "Les arrêts Naolib sont utilisables côté Voyageur.",
+    action: "Contrôler",
+    href: "/admin/transport-data",
+  },
+  {
+    label: "Véhicules configurés",
+    status: "attention",
+    description: "La flotte est connue, le temps réel dépend des prises de service Pro.",
+    action: "Configurer Pro",
+    href: "/admin/apps/pro",
+  },
+  {
+    label: "Utilisateurs rattachés à un réseau",
+    status: "attention",
+    description: "Chaque profil doit garder son contexte réseau et éventuellement dépôt.",
+    action: "Auditer",
+    href: "/admin/users",
+  },
+  {
+    label: "Profils Pro configurés",
+    status: "attention",
+    description: "Conducteurs, contrôleurs, exploitation, commerçants et VTC sont séparés.",
+    action: "Ouvrir Aule Pro",
+    href: "/admin/apps/pro",
+  },
+  {
+    label: "Géolocalisation active",
+    status: "attention",
+    description: "Les positions apparaîtront dès qu'un conducteur active Aule Pro.",
+    action: "Voir la carte",
+    href: "/admin/map",
+  },
+  {
+    label: "Notifications configurées",
+    status: "todo",
+    description: "À relier aux alertes voyageurs et aux consignes exploitation.",
+    action: "Configurer",
+    href: "/admin/settings",
+  },
+  {
+    label: "Marketplace configurée",
+    status: "todo",
+    description: "Gestion globale Studio, distincte de l'espace commerçant.",
+    action: "Préparer",
+    href: "/admin/marketplace",
+  },
+] satisfies readonly {
+  label: string;
+  status: StudioStatus;
+  description: string;
+  action: string;
+  href: string;
+}[];
+
+export const studioQuickAccess = [
+  { label: "Ouvrir Naolib", href: "/admin/networks/naolib", icon: Route },
+  { label: "Gérer les utilisateurs", href: "/admin/users", icon: UsersRound },
+  { label: "Vérifier les données GTFS", href: "/admin/transport-data", icon: Database },
+  { label: "Vérifier la carte", href: "/admin/map", icon: Map },
+  { label: "Configurer Voyageur", href: "/admin/apps/voyageur", icon: UserRound },
+  { label: "Configurer Pro", href: "/admin/apps/pro", icon: BriefcaseBusiness },
+  { label: "Gérer les commerçants", href: "/admin/marketplace", icon: ShoppingBag },
+  { label: "Voir les logs", href: "/admin/logs", icon: ClipboardCheck },
+] as const;
+
+export const studioUsers = [
+  {
+    id: "kevin-admin",
+    name: "Kevin",
+    email: "kevin@aule.app",
+    profile: "Admin interne Aule",
+    userKind: "Admin interne",
+    network: "Aule global",
+    depot: "-",
+    authorizations: "Super admin, Studio",
+    status: "Actif",
+    lastLogin: "Aujourd'hui, 20:31",
+    createdAt: "12/06/2026",
+    apps: ["Admin interne"],
+    permissions: ["studio.read", "studio.configure", "network.manage"],
+  },
+  {
+    id: "driver-naolib-blx",
+    name: "Conducteur Naolib BLX",
+    email: "conducteur.blx@aule.app",
+    profile: "Conducteur",
+    userKind: "Utilisateur Pro",
+    network: "Naolib",
+    depot: "BLX",
+    authorizations: "Bus, Tram",
+    status: "À vérifier",
+    lastLogin: "Hier, 18:04",
+    createdAt: "21/06/2026",
+    apps: ["Pro"],
+    permissions: ["pro.service.start", "pro.vehicle.track"],
+  },
+  {
+    id: "controle-naolib",
+    name: "Contrôle Naolib",
+    email: "controle.naolib@aule.app",
+    profile: "Contrôleur",
+    userKind: "Utilisateur Pro",
+    network: "Naolib",
+    depot: "Commerce",
+    authorizations: "Contrôle réseau",
+    status: "Actif",
+    lastLogin: "Aujourd'hui, 17:12",
+    createdAt: "24/06/2026",
+    apps: ["Pro"],
+    permissions: ["control.map.read", "control.mission.read"],
+  },
+  {
+    id: "agent-exploitation",
+    name: "Agent exploitation Naolib",
+    email: "agent.exploitation@aule.app",
+    profile: "Agent de maîtrise / exploitation",
+    userKind: "Utilisateur Pro",
+    network: "Naolib",
+    depot: "Centre exploitation",
+    authorizations: "Info voyageurs, incidents",
+    status: "Actif",
+    lastLogin: "Aujourd'hui, 19:44",
+    createdAt: "28/06/2026",
+    apps: ["Pro"],
+    permissions: ["operations.announcement.write", "operations.incident.manage"],
+  },
+  {
+    id: "commerce-naolib",
+    name: "Commerce partenaire",
+    email: "commerce.partenaire@aule.app",
+    profile: "Commerçant",
+    userKind: "Utilisateur Pro",
+    network: "Naolib",
+    depot: "-",
+    authorizations: "Boutique uniquement",
+    status: "En attente",
+    lastLogin: "Jamais",
+    createdAt: "02/07/2026",
+    apps: ["Pro"],
+    permissions: ["merchant.shop.manage"],
+  },
+  {
+    id: "voyageur-demo",
+    name: "Voyageur test",
+    email: "voyageur.test@aule.app",
+    profile: "Voyageur",
+    userKind: "Utilisateur Voyageur",
+    network: "Naolib",
+    depot: "-",
+    authorizations: "Compte voyageur",
+    status: "Actif",
+    lastLogin: "Aujourd'hui, 08:12",
+    createdAt: "30/06/2026",
+    apps: ["Voyageur"],
+    permissions: ["traveler.app.read"],
+  },
+] as const;
+
+export const travelerChecks = [
+  ["Géolocalisation navigateur/mobile", "attention", "À valider sur appareil réel."],
+  ["Carte chargée", "done", "Fond de carte et centrage Nantes disponibles."],
+  ["Itinéraire disponible", "done", "Recherche d'itinéraire branchée côté produit."],
+  ["Arrêts visibles", "done", "Arrêts Naolib issus des données transport."],
+  ["Lignes visibles", "done", "Lignes principales prêtes pour l'aperçu."],
+  ["Véhicules visibles", "attention", "Dépend de la géolocalisation conducteur."],
+  ["Alertes affichables", "todo", "À relier aux notifications réseau."],
+] as const;
+
+export const proProfiles = [
+  {
+    title: "Conducteur",
+    goal: "Donner accès à des données utiles pendant la prise de service.",
+    features: [
+      "prise de service",
+      "identification véhicule",
+      "suivi du bus",
+      "GPS parcours de ligne",
+      "prochain arrêt",
+      "avance/retard",
+      "signalement terrain",
+      "fin de service",
+    ],
+  },
+  {
+    title: "Contrôle",
+    goal: "Permettre au contrôleur de maîtriser son environnement immédiat.",
+    features: [
+      "carte autour de moi",
+      "lignes autour de moi",
+      "véhicules autour de moi",
+      "arrêts autour de moi",
+      "incidents autour de moi",
+      "mission en cours",
+      "équipe",
+      "discussion",
+    ],
+  },
+  {
+    title: "Agent de maîtrise / exploitation",
+    goal: "Superviser et communiquer sans devenir administrateur plateforme.",
+    features: [
+      "informations voyageurs",
+      "perturbations",
+      "notifications réseau",
+      "suivi véhicules",
+      "suivi missions",
+      "gestion incidents",
+      "consignes",
+    ],
+  },
+  {
+    title: "Commerçant",
+    goal: "Gérer uniquement sa boutique et son activité marchande.",
+    features: ["produits", "commandes", "horaires", "promotions", "avis", "livraisons"],
+  },
+  {
+    title: "Chauffeur VTC",
+    goal: "Gérer uniquement son activité VTC dans le contexte réseau.",
+    features: ["disponibilité", "courses", "historique", "revenus", "position"],
+  },
+] as const;
+
+export const transportDataGroups = [
+  { title: "GTFS", status: "Importé", detail: "Horaires, routes, trips et stop times.", icon: Database },
+  { title: "Lignes", status: "87 lignes", detail: "Bus, tram et navibus structurés par réseau.", icon: Route },
+  { title: "Arrêts", status: "1 836 arrêts", detail: "Arrêts et stations visibles sur la carte.", icon: Flag },
+  { title: "Dépôts", status: "À consolider", detail: "Contexte nécessaire pour les profils Pro.", icon: BriefcaseBusiness },
+  { title: "Véhicules", status: "318 connus", detail: "Le temps réel dépend des sessions conducteur.", icon: BusFront },
+  { title: "Erreurs", status: "2 attentions", detail: "Correspondances et horaires à surveiller.", icon: MessageSquareWarning },
+] as const;
+
+export const marketplaceRows = [
+  ["Naolib", "Boulangerie Commerce", "Actif", "12 commandes", "Restauration", "Aucun blocage"],
+  ["Naolib", "Kiosque Gare", "En attente", "0 commande", "Presse", "Validation boutique"],
+  ["Naolib", "Café tramway", "Inactif", "3 commandes", "Boissons", "Horaires à confirmer"],
+] as const;
+
+export const settingsSections = [
+  ["Rôles internes Aule", "Accès Studio réservés aux profils internes.", ShieldCheck],
+  ["Permissions", "RBAC par rôle, réseau et contexte dépôt.", ClipboardCheck],
+  ["Modules par réseau", "Voyageur, Pro, Marketplace et VTC/Taxi activables par réseau.", PackageCheck],
+  ["Clés API", "Intégrations cartographie, transport et services externes.", Settings],
+  ["Notifications", "Alertes voyageurs et consignes exploitation.", Bell],
+  ["Stockage", "Fichiers, imports et assets réseau.", Database],
+  ["Sécurité", "Sessions, audit et restrictions d'accès.", ShieldCheck],
+  ["Intégrations", "Connecteurs transport, paiement et communication.", Radio],
+] as const;
+
+export const mapLayers = [
+  ["Bus", BusFront],
+  ["Tram", TramFront],
+  ["Arrêts", Flag],
+  ["Lignes", Route],
+  ["Voyageurs anonymisés", UsersRound],
+  ["Conducteurs", BusFront],
+  ["Contrôleurs", ShieldCheck],
+  ["Commerces", Store],
+  ["VTC/taxis", BriefcaseBusiness],
+  ["Incidents", MessageSquareWarning],
+] as const;

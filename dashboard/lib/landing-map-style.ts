@@ -72,6 +72,46 @@ export const NANTES_BUS_ROUTE: GeoJSON.Feature<GeoJSON.LineString> = {
   },
 };
 
+/**
+ * Coordonnées réelles de l'arrêt Babinière (terminus nord-est de la ligne 1 du
+ * tramway nantais, à La Chapelle-sur-Erdre). Source : 47°15′33″N, 1°32′48″O.
+ */
+export const BABINIERE_STOP: [number, number] = [-1.5467, 47.2592];
+
+/**
+ * Tracé de la navette « Ligne 00 · Babinière ↔ Ranzay » (données démo dashboard),
+ * desservant Newton, Ampère, Batignolles, Beaujoire, Halvêque, Buron et
+ * Haluchère - Batignolles. Stations réelles calées sur leurs coordonnées
+ * (Wikipédia / GTFS Naolib), arrêts intermédiaires interpolés.
+ */
+export const NANTES_LIGNE00_ROUTE: GeoJSON.Feature<GeoJSON.LineString> = {
+  type: "Feature",
+  properties: { name: "Ligne 00 · Babinière ↔ Ranzay", color: "#33BFA3" },
+  geometry: {
+    type: "LineString",
+    coordinates: [
+      [-1.5467, 47.2592], // Babinière (terminus)
+      [-1.5438, 47.2594],
+      [-1.541, 47.2596], // Newton
+      [-1.538, 47.2597],
+      [-1.535, 47.2598], // Ampère
+      [-1.5325, 47.2597],
+      [-1.53, 47.2595], // Batignolles
+      [-1.5278, 47.2592],
+      [-1.5258, 47.2589], // Beaujoire
+      [-1.5232, 47.2581],
+      [-1.5206, 47.2572], // Halvêque
+      [-1.5208, 47.2551],
+      [-1.5212, 47.253], // Buron
+      [-1.5218, 47.251],
+      [-1.5225, 47.2489], // Haluchère - Batignolles
+      [-1.525, 47.2503],
+      [-1.5278, 47.252],
+      [-1.5308, 47.2536], // Ranzay (terminus)
+    ],
+  },
+};
+
 export type MapBounds = [[number, number], [number, number]];
 
 /** Extrait un tronçon d'un itinéraire ligne. */

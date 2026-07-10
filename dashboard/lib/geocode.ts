@@ -21,3 +21,18 @@ export async function searchAddresses(
   const data = (await res.json()) as { results: GeocodeResult[] };
   return data.results ?? [];
 }
+
+export async function reverseGeocodeLocation(
+  location: { lng: number; lat: number },
+  signal?: AbortSignal,
+): Promise<GeocodeResult | null> {
+  const params = new URLSearchParams({
+    lat: String(location.lat),
+    lng: String(location.lng),
+  });
+  const res = await fetch(`/api/geocode?${params}`, { cache: "no-store", signal });
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as { result?: GeocodeResult };
+  return data.result ?? null;
+}

@@ -1,113 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Loader2, Check, MailCheck } from "lucide-react";
+import { Bus, ShieldCheck, Store, ArrowRight, Smartphone, QrCode } from "lucide-react";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AuthNetworkPanel } from "@/components/auth/auth-network-panel";
-import { createClient } from "@/lib/supabase/client";
 import styles from "@/components/auth/auth-form.module.css";
 
-type SignupMode = "voyageur" | "pro";
-
-const NAME_LABEL: Record<SignupMode, string> = {
-  voyageur: "Nom complet",
-  pro: "Nom complet ou commerce",
-};
-
-const NAME_PLACEHOLDER: Record<SignupMode, string> = {
-  voyageur: "Camille Dubois",
-  pro: "Camille Dubois ou Café Louna",
-};
-
-const SUBMIT_LABEL: Record<SignupMode, string> = {
-  voyageur: "Créer mon compte",
-  pro: "Demander un accès Aule Pro",
-};
-
-function passwordStrength(password: string) {
-  let score = 0;
-  if (password.length >= 8) score++;
-  if (/[A-Z]/.test(password) && /[0-9]/.test(password)) score++;
-  if (password.length >= 12 && /[^A-Za-z0-9]/.test(password)) score++;
-
-  const barColor = (n: number) => {
-    if (password.length === 0) return "rgba(255,255,255,0.1)";
-    if (score < n) return "rgba(255,255,255,0.1)";
-    return score === 1 ? "#E4664D" : score === 2 ? "#FFB74D" : "#33BFA3";
-  };
-
-  return [barColor(1), barColor(2), barColor(3)];
-}
-
-type SignupFormProps = {
-  initialMode?: SignupMode;
-};
-
-export function SignupForm({ initialMode = "voyageur" }: SignupFormProps) {
+export function SignupForm({ initialMode = "voyageur" }: { initialMode?: "voyageur" | "pro" }) {
   const router = useRouter();
 
-  const [mode, setMode] = useState<SignupMode>(initialMode);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [terms, setTerms] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [mode, setMode] = useState<"voyageur" | "pro">(initialMode);
+  const [isMobile, setIsMobile] = useState(false);
 
-  const canSubmit = name.trim() !== "" && email.trim() !== "" && password.length >= 8 && terms;
-  const [bar1, bar2, bar3] = passwordStrength(password);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!canSubmit) return;
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-
-    const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          display_name: name.trim(),
-          requested_access: mode === "pro" ? "pro" : null,
-        },
-        emailRedirectTo: `${window.location.origin}/login`,
-      },
-    });
-
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.session) {
-      if (mode === "pro") {
-        setSuccess(
-          "Compte créé. Votre demande d'accès Aule Pro a été enregistrée — un administrateur activera votre rôle prochainement.",
-        );
-        setLoading(false);
-        return;
-      }
-      router.push("/");
-      router.refresh();
-      return;
-    }
-
-    setSuccess(
-      mode === "pro"
-        ? "Vérifiez votre boîte mail pour confirmer votre adresse. Votre demande d'accès Aule Pro sera ensuite examinée par un administrateur."
-        : "Compte créé. Vérifiez votre boîte mail pour confirmer votre adresse, puis connectez-vous.",
-    );
-    setPassword("");
-    setLoading(false);
-  }
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 768px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
 
   return (
     <AuthShell
@@ -130,11 +44,7 @@ export function SignupForm({ initialMode = "voyageur" }: SignupFormProps) {
       <h2 className={styles.title}>Créer un compte</h2>
       <p className={styles.subtitle}>
         Déjà inscrit ?{" "}
-        <Link
-          href={mode === "pro" ? "/login?mode=pro" : "/login"}
-          data-hover
-          className={styles.accentLink}
-        >
+        <Link href="/login" data-hover className={styles.accentLink}>
           Se connecter
         </Link>
       </p>
@@ -162,177 +72,126 @@ export function SignupForm({ initialMode = "voyageur" }: SignupFormProps) {
             color: mode === "pro" ? "#04211c" : "rgba(255,255,255,0.7)",
           }}
         >
-          Aule Pro
+          Professionnel
         </button>
       </div>
 
-      <div className={styles.ssoStack}>
-        <button type="button" data-hover disabled title="Bientôt disponible" className={styles.ssoButton}>
-          <svg width="18" height="18" viewBox="0 0 24 24">
-            <path
-              fill="#fff"
-              d="M21.35 11.1h-9.17v2.98h5.27c-.23 1.4-1.63 4.1-5.27 4.1-3.17 0-5.76-2.62-5.76-5.85s2.59-5.85 5.76-5.85c1.8 0 3.02.77 3.71 1.43l2.53-2.44C16.9 3.6 14.77 2.7 12.18 2.7 7.03 2.7 2.85 6.88 2.85 12.03s4.18 9.33 9.33 9.33c5.39 0 8.96-3.79 8.96-9.13 0-.61-.07-1.08-.16-1.55l-.63.42Z"
-            />
-          </svg>
-          Continuer avec Google
-        </button>
-        <button type="button" data-hover disabled title="Bientôt disponible" className={styles.ssoButton}>
-          <svg width="17" height="17" viewBox="0 0 24 24">
-            <path
-              fill="#fff"
-              d="M16.36 12.9c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.65l.01-.34ZM14.13 5.9c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.77-.97 2.82 1.02.08 2.07-.52 2.71-1.28Z"
-            />
-          </svg>
-          Continuer avec Apple
-        </button>
+      <div className={styles.modeLegend}>
+        {mode === "voyageur" ? (
+          <p className={styles.legendText}>
+            Pour les voyageurs : suivez vos transports en temps réel, calculez vos itinéraires et signalez les perturbations.
+          </p>
+        ) : (
+          <p className={styles.legendText}>
+            Pour les professionnels : accédez aux outils d&apos;exploitation réseau (poste de contrôle, mode conducteur, régulation).
+          </p>
+        )}
       </div>
 
-      <div className={styles.divider}>
-        <div className={styles.dividerLine} />
-        <span className={styles.dividerLabel}>ou par e-mail</span>
-        <div className={styles.dividerLine} />
-      </div>
+      {mode === "voyageur" ? (
+        <div className={styles.proOnboardingCard}>
+          <div className={styles.proFeatureList}>
+            <div className={styles.proFeatureItem}>
+              <div className={styles.proFeatureIcon}>
+                <Smartphone size={18} />
+              </div>
+              <div>
+                <h4 className={styles.proFeatureTitle}>Poursuivez sur mobile</h4>
+                <p className={styles.proFeatureDesc}>
+                  L&apos;expérience voyageur Aule (itinéraires, suivi temps réel, signalements) est exclusivement disponible sur notre application mobile.
+                </p>
+              </div>
+            </div>
+          </div>
 
-      {error && (
-        <p className={styles.alertError} role="alert">
-          {error}
-        </p>
-      )}
+          {!isMobile ? (
+            <div className={styles.qrCard}>
+              <span className={styles.qrBox}>
+                <QrCode size={34} />
+              </span>
+              <div>
+                <div className={styles.qrTextTitle}>Téléchargez l&apos;application</div>
+                <div className={styles.qrTextDesc}>
+                  Scannez ce code pour ouvrir Aule sur votre téléphone et commencer à suivre vos trajets.
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className={styles.mobileHint}>
+              Téléchargez l&apos;application Aule ci-dessous pour commencer à l&apos;utiliser.
+            </p>
+          )}
 
-      {success && (
-        <div className={styles.alertSuccess} role="status" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-          <MailCheck size={16} style={{ flex: "none", marginTop: 2 }} />
-          <span>{success}</span>
+          <div className={styles.storeBadges}>
+            <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path
+                  fill="#fff"
+                  d="M16.36 12.9c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.65l.01-.34ZM14.13 5.9c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.77-.97 2.82 1.02.08 2.07-.52 2.71-1.28Z"
+                />
+              </svg>
+              <span className={styles.storeBadgeText}>
+                <span className={styles.storeBadgeSmall}>Télécharger sur</span>
+                <span className={styles.storeBadgeBig}>App Store</span>
+              </span>
+            </a>
+            <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
+              <svg width="17" height="17" viewBox="0 0 24 24">
+                <path fill="#33BFA3" d="M3.6 2.4 13 12 3.6 21.6c-.3-.2-.6-.6-.6-1.1V3.5c0-.5.3-.9.6-1.1Z" />
+                <path fill="#fff" d="m15.3 9.7 2.9 1.6c.9.5.9 1.9 0 2.4l-2.9 1.6L13 12l2.3-2.3Z" />
+                <path fill="#fff" opacity=".8" d="M4.4 2.1 15 8.6 12.7 11 4.4 2.1Z" />
+                <path fill="#fff" opacity=".6" d="M4.4 21.9 12.7 13 15 15.4 4.4 21.9Z" />
+              </svg>
+              <span className={styles.storeBadgeText}>
+                <span className={styles.storeBadgeSmall}>Disponible sur</span>
+                <span className={styles.storeBadgeBig}>Google Play</span>
+              </span>
+            </a>
+          </div>
         </div>
-      )}
-
-      {!success && (
-        <form
-          onSubmit={handleSubmit}
-          className={styles.form}
-          style={{ marginTop: error ? 16 : 0 }}
-        >
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>{NAME_LABEL[mode]}</span>
-            <input
-              type="text"
-              required
-              autoComplete="name"
-              placeholder={NAME_PLACEHOLDER[mode]}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className={styles.input}
-            />
-          </label>
-
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>E-mail</span>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="vous@exemple.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className={styles.input}
-            />
-          </label>
-
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>Mot de passe</span>
-            <div className={styles.inputWrap}>
-              <input
-                type={showPw ? "text" : "password"}
-                required
-                minLength={8}
-                autoComplete="new-password"
-                placeholder="8 caractères minimum"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`${styles.input} ${styles.inputWithToggle}`}
-              />
-              <button
-                type="button"
-                data-hover
-                onClick={() => setShowPw(!showPw)}
-                className={styles.eyeButton}
-                aria-label={showPw ? "Masquer le mot de passe" : "Afficher le mot de passe"}
-              >
-                {showPw ? <EyeOff size={19} /> : <Eye size={19} />}
-              </button>
+      ) : (
+        <div className={styles.proOnboardingCard}>
+          <div className={styles.proFeatureList}>
+            <div className={styles.proFeatureItem}>
+              <div className={styles.proFeatureIcon}>
+                <Bus size={18} />
+              </div>
+              <div>
+                <h4 className={styles.proFeatureTitle}>Conducteurs & Chauffeurs</h4>
+                <p className={styles.proFeatureDesc}>Profitez de la prise de service automatique et de la détection de ligne en temps réel.</p>
+              </div>
             </div>
-            <div className={styles.strengthBars}>
-              <span className={styles.strengthBar} style={{ background: bar1 }} />
-              <span className={styles.strengthBar} style={{ background: bar2 }} />
-              <span className={styles.strengthBar} style={{ background: bar3 }} />
+            <div className={styles.proFeatureItem}>
+              <div className={styles.proFeatureIcon}>
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <h4 className={styles.proFeatureTitle}>Régulateurs & Exploitation</h4>
+                <p className={styles.proFeatureDesc}>Supervisez les flottes, gérez les incidents de parcours et configurez les alertes voyageurs.</p>
+              </div>
             </div>
-          </label>
-
-          <div
-            role="checkbox"
-            aria-checked={terms}
-            tabIndex={0}
-            onClick={() => setTerms(!terms)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setTerms(!terms);
-              }
-            }}
-            className={styles.termsRow}
-          >
-            <span className={`${styles.termsBox} ${terms ? styles.termsBoxChecked : ""}`}>
-              {terms && <Check size={12} color="#04211c" strokeWidth={3.2} />}
-            </span>
-            <span className={styles.termsLabel}>
-              J&apos;accepte les{" "}
-              <a
-                href="#"
-                data-hover
-                className={styles.accentLink}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              >
-                Conditions
-              </a>{" "}
-              et la{" "}
-              <a
-                href="#"
-                data-hover
-                className={styles.accentLink}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              >
-                Politique de confidentialité
-              </a>{" "}
-              d&apos;Aule.
-            </span>
+            <div className={styles.proFeatureItem}>
+              <div className={styles.proFeatureIcon}>
+                <Store size={18} />
+              </div>
+              <div>
+                <h4 className={styles.proFeatureTitle}>Commerces partenaires</h4>
+                <p className={styles.proFeatureDesc}>Devenez point de vente ou relais partenaire pour améliorer la vie des usagers du réseau.</p>
+              </div>
+            </div>
           </div>
 
           <button
-            type="submit"
+            type="button"
             data-hover
-            disabled={!canSubmit || loading}
+            onClick={() => router.push("/onboarding")}
             className={styles.submitButton}
-            style={{
-              background: canSubmit ? "#33BFA3" : "rgba(255,255,255,0.12)",
-              opacity: canSubmit ? 1 : 0.6,
-            }}
+            style={{ marginTop: 24 }}
           >
-            {loading ? (
-              <>
-                <Loader2 size={17} className={styles.spinner} />
-                Création…
-              </>
-            ) : (
-              SUBMIT_LABEL[mode]
-            )}
+            Commencer l&apos;onboarding pro
+            <ArrowRight size={16} style={{ marginLeft: 6 }} />
           </button>
-        </form>
+        </div>
       )}
     </AuthShell>
   );
