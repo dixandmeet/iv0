@@ -1,12 +1,11 @@
 "use client";
 
-import { CarTaxiFront, Route, ShoppingBag, SlidersHorizontal } from "lucide-react";
+import { Navigation, Route, SlidersHorizontal } from "lucide-react";
 
 type BottomNavProps = {
   visible: boolean;
   onRoute: () => void;
-  onRide: () => void;
-  onShop: () => void;
+  onGuide: () => void;
   filtersOpen: boolean;
   onToggleFilters: () => void;
 };
@@ -14,8 +13,7 @@ type BottomNavProps = {
 export function BottomNav({
   visible,
   onRoute,
-  onRide,
-  onShop,
+  onGuide,
   filtersOpen,
   onToggleFilters,
 }: BottomNavProps) {
@@ -32,17 +30,11 @@ export function BottomNav({
         </span>
         <span>Itinéraire</span>
       </button>
-      <button type="button" onClick={onRide} className="immersive-map-bottom-nav-btn">
+      <button type="button" onClick={onGuide} className="immersive-map-bottom-nav-btn">
         <span className="immersive-map-bottom-nav-icon" aria-hidden="true">
-          <CarTaxiFront size={20} strokeWidth={2.2} />
+          <Navigation size={20} strokeWidth={2.2} />
         </span>
-        <span>Course</span>
-      </button>
-      <button type="button" onClick={onShop} className="immersive-map-bottom-nav-btn">
-        <span className="immersive-map-bottom-nav-icon" aria-hidden="true">
-          <ShoppingBag size={20} strokeWidth={2.2} />
-        </span>
-        <span>Commerces</span>
+        <span>Guidage</span>
       </button>
       <button
         type="button"

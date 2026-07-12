@@ -9890,6 +9890,113 @@ textarea.station-field {
   isolation: isolate;
 }
 
+.immersive-map-weather {
+  position: absolute;
+  inset: 0;
+  z-index: 300;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.immersive-map-weather-sun {
+  position: absolute;
+  top: 10%;
+  right: 16%;
+  width: clamp(170px, 20vw, 320px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  opacity: 0;
+  background: #fff0b8;
+  box-shadow:
+    0 0 60px 26px rgba(255, 196, 113, 0.38),
+    0 0 170px 85px rgba(255, 145, 79, 0.17);
+  filter: blur(1px);
+  transform: translateY(36px);
+  transition: opacity 1.2s ease, transform 1.2s ease;
+}
+
+.immersive-map-weather[data-weather="clear"][data-period="dawn"] .immersive-map-weather-sun,
+.immersive-map-weather[data-weather="clear"][data-period="dusk"] .immersive-map-weather-sun {
+  opacity: 0.82;
+  transform: translateY(0);
+}
+
+.immersive-map-weather[data-period="dusk"] .immersive-map-weather-sun {
+  top: 27%;
+  background: #ffb47c;
+}
+
+.immersive-map-weather[data-weather="clear"][data-period="day"] .immersive-map-weather-sun {
+  top: -10%;
+  opacity: 0.4;
+  transform: translateY(0);
+}
+
+.immersive-map-weather-cloud {
+  position: absolute;
+  width: 38vw;
+  height: 17vw;
+  min-width: 360px;
+  min-height: 165px;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(ellipse at 50% 70%, rgba(231, 237, 239, 0.7), rgba(101, 117, 128, 0.18) 56%, transparent 73%);
+  filter: blur(20px);
+  transition: opacity 1.2s ease;
+  animation: immersive-weather-cloud-drift 30s ease-in-out infinite alternate;
+}
+
+.immersive-map-weather-cloud--one { top: -5%; right: 2%; }
+.immersive-map-weather-cloud--two { top: 14%; right: 38%; animation-delay: -14s; animation-duration: 36s; }
+.immersive-map-weather:not([data-weather="clear"]) .immersive-map-weather-cloud { opacity: 0.6; }
+.immersive-map-weather[data-weather="fog"] .immersive-map-weather-cloud { opacity: 0.82; filter: blur(38px); }
+.immersive-map-weather[data-weather="storm"] .immersive-map-weather-cloud { opacity: 0.88; filter: brightness(0.58) blur(20px); }
+
+.immersive-map-weather-rain,
+.immersive-map-weather-snow {
+  position: absolute;
+  inset: -25%;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.immersive-map-weather-rain {
+  background-image: repeating-linear-gradient(107deg, transparent 0 18px, rgba(216, 235, 242, 0.38) 19px, transparent 21px 34px);
+  background-size: 42px 110px;
+  transform: rotate(-4deg);
+  animation: immersive-weather-rain 0.72s linear infinite;
+}
+
+.immersive-map-weather[data-weather="rain"] .immersive-map-weather-rain { opacity: 0.52; }
+.immersive-map-weather[data-weather="storm"] .immersive-map-weather-rain { opacity: 0.72; animation-duration: 0.46s; }
+
+.immersive-map-weather-snow {
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,.86) 0 2px, transparent 2.8px),
+    radial-gradient(circle, rgba(255,255,255,.66) 0 1.5px, transparent 2.2px);
+  background-position: 0 0, 34px 48px;
+  background-size: 74px 88px, 96px 112px;
+  animation: immersive-weather-snow 7s linear infinite;
+}
+
+.immersive-map-weather[data-weather="snow"] .immersive-map-weather-snow { opacity: 0.74; }
+
+.immersive-map-weather-lightning {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: rgba(210, 226, 255, 0.72);
+}
+
+.immersive-map-weather[data-weather="storm"] .immersive-map-weather-lightning {
+  animation: immersive-weather-lightning 6s steps(1) infinite;
+}
+
+@keyframes immersive-weather-cloud-drift { to { transform: translate3d(-8vw, 2vh, 0) scale(1.08); } }
+@keyframes immersive-weather-rain { to { background-position: -22px 110px; } }
+@keyframes immersive-weather-snow { to { background-position: -22px 176px, 54px 224px; } }
+@keyframes immersive-weather-lightning { 0%, 91%, 94%, 100% { opacity: 0; } 92%, 93% { opacity: .42; } }
+
 .immersive-map-root .maplibregl-ctrl-attrib {
   background: rgba(5, 8, 7, 0.55) !important;
 }
@@ -9932,6 +10039,20 @@ textarea.station-field {
   background: linear-gradient(180deg, rgba(3, 6, 5, 0.6), transparent);
 }
 
+.immersive-map-root[data-period="day"] .immersive-map-vignette {
+  background: radial-gradient(ellipse 105% 90% at 50% 46%, transparent 58%, rgba(3, 6, 5, 0.3) 100%);
+}
+
+.immersive-map-root[data-period="day"] .immersive-map-vignette-top {
+  background: linear-gradient(180deg, rgba(3, 6, 5, 0.42), transparent);
+}
+
+.immersive-map-root[data-weather="rain"] .immersive-map-vignette,
+.immersive-map-root[data-weather="storm"] .immersive-map-vignette,
+.immersive-map-root[data-weather="fog"] .immersive-map-vignette {
+  background: radial-gradient(ellipse 105% 90% at 50% 46%, transparent 48%, rgba(5, 12, 17, 0.58) 100%);
+}
+
 .immersive-map-live-status {
   position: absolute;
   left: 50%;
@@ -9963,6 +10084,22 @@ textarea.station-field {
   box-shadow: 0 0 0 4px rgba(51, 191, 163, 0.14);
 }
 
+.immersive-map-live-status-separator {
+  width: 1px;
+  height: 13px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.immersive-map-live-status-weather {
+  color: rgba(255, 255, 255, 0.64);
+  text-transform: capitalize;
+}
+
+.immersive-map-weather-source {
+  text-transform: none;
+  color: rgba(141, 238, 221, 0.7);
+}
+
 .immersive-map-live-status--preview .immersive-map-live-status-dot {
   background: #f2a93b;
   box-shadow: 0 0 0 4px rgba(242, 169, 59, 0.14);
@@ -9976,6 +10113,11 @@ textarea.station-field {
 @media (max-width: 640px) {
   .immersive-map-live-status {
     bottom: 12px;
+  }
+
+  .immersive-map-live-status-separator,
+  .immersive-map-live-status-weather {
+    display: none;
   }
 }
 

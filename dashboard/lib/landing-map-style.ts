@@ -149,6 +149,9 @@ export type LandingMapMarker = {
   label: string;
   status?: "pilot" | "coming";
   badge?: string;
+  accent?: string;
+  offset?: [number, number];
+  variant?: "default" | "stop";
 };
 
 export type LandingMapVehicle = {

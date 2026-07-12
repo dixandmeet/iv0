@@ -20,6 +20,7 @@ import {
   RadioTower,
   ShoppingBag,
   Smartphone,
+  ArrowUp,
   Users,
 } from "lucide-react";
 import {
@@ -29,6 +30,7 @@ import {
 } from "@/lib/geocode";
 import { EnvironmentSectionMap, HeroInteractiveMap, HeroPhoneMap, ScreenMap } from "./hero-phone-map";
 import styles from "./scrolly-landing.module.css";
+import { useHeroWeather } from "./use-hero-weather";
 
 const GEOLOCATION_CONSENT_KEY = "aule-landing-geolocation-consent";
 const LOGO = "/uploads/logo-1783189856190.png";
@@ -579,6 +581,7 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
   const [geoStatus, setGeoStatus] = useState<GeolocationStatus>("idle");
   const [userLocation, setUserLocation] = useState<UserLocation | undefined>();
   const [originUsesCurrentLocation, setOriginUsesCurrentLocation] = useState(true);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   const markOriginAsCustom = useCallback(() => {
     originUsesCurrentLocationRef.current = false;
@@ -704,6 +707,16 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
   }, []);
 
   useEffect(() => {
+    const updateBackToTopVisibility = () => {
+      setShowBackToTop(window.scrollY > Math.min(window.innerHeight * 0.75, 600));
+    };
+
+    updateBackToTopVisibility();
+    window.addEventListener("scroll", updateBackToTopVisibility, { passive: true });
+    return () => window.removeEventListener("scroll", updateBackToTopVisibility);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     const timer = window.setTimeout(() => {
@@ -810,6 +823,7 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
   }, []);
 
   const mapFocusLocation = originAddress.selected ?? userLocation;
+  const heroWeather = useHeroWeather(mapFocusLocation);
 
   return (
     <div className={`${styles.root} ${styles.variantB} ${fontClassName}`}>
@@ -827,13 +841,13 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
         </div>
         <div className={styles.navAudience}>
           <a href="#fonctionnalites" data-hover className={styles.navLink} onClick={(event) => scrollToStage(1, event)}>
-            Fonctionnalités
+            Voyageurs
+          </a>
+          <a href="/pro" data-hover className={styles.navLink}>
+            Professionnels
           </a>
           <a href="#services" data-hover className={styles.navLink} onClick={(event) => scrollToStage(4, event)}>
-            Services
-          </a>
-          <a href="#vision" data-hover className={styles.navLink} onClick={(event) => scrollToStage(7, event)}>
-            Vision
+            Partenaires
           </a>
         </div>
         <div className={styles.navActions}>
@@ -853,37 +867,69 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
         <div ref={progressBarRef} />
       </div>
 
+      <button
+        type="button"
+        className={`${styles.backToTop} ${showBackToTop ? styles.backToTopVisible : ""}`}
+        onClick={() => scrollToStage(0)}
+        aria-label="Revenir en haut de la page"
+        title="Revenir en haut"
+        aria-hidden={!showBackToTop}
+        tabIndex={showBackToTop ? 0 : -1}
+      >
+        <ArrowUp size={21} strokeWidth={2.4} aria-hidden="true" />
+      </button>
+
       <section ref={containerRef} className={styles.stage} data-screen-label="Stage immersif">
         <div className={styles.stickyStage}>
           <div
             data-sec
             data-screen-label="01 hero"
             className={styles.mapHero}
+            data-period={heroWeather.period}
+            data-weather={heroWeather.condition}
             style={{ opacity: 1, visibility: "visible" }}
           >
             <HeroInteractiveMap
               className={styles.mapHeroCanvas}
               focusLocation={mapFocusLocation}
               userLocation={userLocation}
+              weather={heroWeather}
             />
+            <div className={styles.weatherScene} aria-hidden="true">
+              <span className={styles.weatherSun} />
+              <span className={`${styles.weatherCloud} ${styles.weatherCloudOne}`} />
+              <span className={`${styles.weatherCloud} ${styles.weatherCloudTwo}`} />
+              <span className={styles.weatherRain} />
+              <span className={styles.weatherSnow} />
+              <span className={styles.weatherLightning} />
+            </div>
             <div className={styles.mapHeroVeil} aria-hidden="true" />
+            <div className={styles.weatherStatus} aria-label={`Météo actuelle : ${heroWeather.label}`}>
+              <span aria-hidden="true" />
+              <div>
+                <strong>{heroWeather.temperature != null ? `${Math.round(heroWeather.temperature)}°` : "Nantes"}</strong>
+                <small>{heroWeather.label}</small>
+              </div>
+            </div>
             <div className={styles.mapHeroContent}>
               <div className={styles.heroBadge}>
-                <span className={styles.pulseDot} /> Carte 3D interactive en temps réel
+                <span className={styles.pulseDot} /> SAEIV — Système d&apos;aide à
+                l&apos;exploitation et à l&apos;information voyageurs
               </div>
               <h1 className={styles.heroTitle}>
-                Explorez votre ville <span>en mouvement</span>.
+                L&apos;information voyageurs et les <span>outils métier</span>, réunis.
               </h1>
               <p className={styles.heroCopy}>
-                Déplacez la carte, observez les véhicules, repérez les arrêts et choisissez
-                immédiatement le meilleur prochain geste pour votre trajet.
+                Aule centralise et diffuse les informations utiles aux voyageurs en temps
+                réel, tout en donnant aux professionnels du transport et aux partenaires les
+                outils pour les produire, les enrichir et piloter le réseau.
               </p>
               <div className={styles.heroActions}>
                 <a href="/carte-immersive" data-hover className={styles.btnGlass}>
-                  Ouvrir la carte interactive
+                  Explorer la carte voyageurs
                 </a>
-                <a href="#download" data-hover className={styles.btnPrimary}>
-                  Télécharger l&apos;application
+                <a href="/pro" data-hover className={styles.btnPrimary}>
+                  Découvrir Aule Pro
                 </a>
               </div>
             </div>
@@ -1211,7 +1257,10 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
 
         <div className={styles.footerBottom}>
           <span>© 2026 Aule. Tous droits réservés.</span>
-          <span>Aule · Aule Pro · Mobilités connectées</span>
+          <span>
+            Aule · Aule Pro · Mobilités connectées · Météo par{" "}
+            <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a>
+          </span>
         </div>
       </footer>
 

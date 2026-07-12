@@ -9,6 +9,7 @@ export type AdminStudioUser = {
   name: string;
   email: string;
   profile: string;
+  role: string;
   userKind: string;
   network: string;
   depot: string;
@@ -78,7 +79,18 @@ type AuthUserLite = {
   };
 };
 
-const fallbackUsers: AdminStudioUser[] = studioUsers.map((user) => ({ ...user }));
+function fallbackRole(profile: string) {
+  if (profile.includes("Admin")) return "admin";
+  if (profile.includes("Conducteur")) return "driver";
+  if (profile.includes("Contrôleur")) return "msr_agent";
+  if (profile.includes("maîtrise")) return "msr_supervisor";
+  return profile.includes("Voyageur") ? "passenger" : "passenger";
+}
+
+const fallbackUsers: AdminStudioUser[] = studioUsers.map((user) => ({
+  ...user,
+  role: fallbackRole(user.profile),
+}));
 
 function getServiceClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -264,6 +276,7 @@ export async function loadAdminStudioUsers(): Promise<AdminStudioUsersResult> {
       name,
       email,
       profile: profileKeys.length ? profileKeys.map(profileLabel).join(", ") : profileFromRole(profile.role),
+      role: profile.role,
       userKind: kind,
       network: contextString(firstContext, ["network", "reseau", "réseau"]) ?? (kind === "Admin interne" ? "Aule global" : "Naolib"),
       depot: contextString(firstContext, ["depot", "dépôt", "depot_name"]) ?? depot?.name ?? depot?.code ?? "-",
@@ -287,6 +300,7 @@ export async function loadAdminStudioUsers(): Promise<AdminStudioUsersResult> {
         name,
         email: driver.email,
         profile: "Conducteur",
+        role: "driver",
         userKind: "Utilisateur Pro",
         network: "Naolib",
         depot: depot?.name ?? depot?.code ?? "-",

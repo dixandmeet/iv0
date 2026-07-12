@@ -18,6 +18,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "dashboard", "run", "dev"],
       "port": 3001
+    },
+    {
+      "name": "sae-web",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd SAE && flutter run -d web-server --web-port 5183"],
+      "port": 5183
     }
   ]
 }

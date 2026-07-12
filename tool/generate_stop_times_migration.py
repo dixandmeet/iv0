@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Génère supabase/migrations/018_gtfs_stop_times.sql depuis un export GTFS legacy.
+"""OBSOLÈTE — ne plus utiliser. Voir tool/rebuild_stop_times_from_semitan.py.
+
+Ce script fusionnait tous les trajets réels d'une ligne dans un seul trip
+`T-<route>-0` (dédup par (stop_id, route_id)), avec un stop_sequence = compteur
+« premier vu » et des horaires mélangés → `gtfs_stop_times` non monotone (ETA
+absurdes). Remplacé par la migration 030 qui écrit de vrais itinéraires ordonnés.
+
+Génère supabase/migrations/018_gtfs_stop_times.sql depuis un export GTFS legacy.
 
 Usage :
     python3 tool/generate_stop_times_migration.py /chemin/vers/gtfs-legacy

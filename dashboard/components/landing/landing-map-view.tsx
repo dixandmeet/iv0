@@ -8,8 +8,11 @@ import { attachMapLibreErrorHandler } from "@/lib/maplibre-errors";
 import { cn } from "@/lib/utils";
 import {
   addExtrudedBuildings,
+  applyAtmosphereSky,
+  applyAtmosphereReskin,
   applyDarkReskin,
   hideGenericPois,
+  type MapAtmosphere,
   registerMissingImageFallback,
 } from "@/components/carte-immersive/map-style";
 import { Vehicle3DLayer } from "@/components/carte-immersive/vehicle-3d-layer";
@@ -32,6 +35,15 @@ type RouteConfig = {
   glow?: boolean;
 };
 
+type ZoneConfig = {
+  id: string;
+  data: GeoJSON.Feature<GeoJSON.Polygon>;
+  color: string;
+  label?: string;
+  labelPosition?: [number, number];
+  fillOpacity?: number;
+};
+
 type LandingMapViewProps = {
   center: [number, number];
   zoom: number;
@@ -40,6 +52,7 @@ type LandingMapViewProps = {
   eager?: boolean;
   markers?: LandingMapMarker[];
   routes?: RouteConfig[];
+  zones?: ZoneConfig[];
   vehicles?: LandingMapVehicle[];
   modelVehicles?: MapVehicle[];
   showUserLocation?: { lng: number; lat: number };
@@ -54,12 +67,14 @@ type LandingMapViewProps = {
   scrollZoom?: boolean;
   showControls?: boolean;
   onVehicleLayerReady?: (layer: Vehicle3DLayer) => void;
+  atmosphere?: MapAtmosphere;
 };
 
 function createMarkerElement(marker: LandingMapMarker) {
   const isPilot = marker.status === "pilot";
   const el = document.createElement("div");
-  el.className = "landing-map-marker";
+  el.className = `landing-map-marker${marker.variant === "stop" ? " landing-map-marker-stop" : ""}`;
+  if (marker.accent) el.style.setProperty("--landing-marker-accent", marker.accent);
   el.innerHTML = `
     <div class="landing-map-marker-inner ${isPilot ? "landing-map-marker-pilot" : "landing-map-marker-coming"}">
       ${isPilot ? '<span class="landing-map-marker-pulse" aria-hidden="true"></span>' : ""}
@@ -92,6 +107,72 @@ function createUserLocationElement() {
     <span class="landing-map-user-dot" aria-hidden="true"></span>
   `;
   return el;
+}
+
+function createZoneLabelElement(label: string) {
+  const el = document.createElement("div");
+  el.className = "landing-map-zone-label";
+  const icon = document.createElement("span");
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "🛍️";
+  el.append(icon, document.createTextNode(label));
+  return el;
+}
+
+function removeZone(map: maplibregl.Map, id: string) {
+  const layerIds = [`${id}-outline`, `${id}-fill`];
+  for (const layerId of layerIds) {
+    if (map.getLayer(layerId)) map.removeLayer(layerId);
+  }
+  if (map.getSource(id)) map.removeSource(id);
+}
+
+function syncZones(
+  map: maplibregl.Map,
+  zones: ZoneConfig[],
+  zoneIdsRef: MutableRefObject<string[]>,
+) {
+  if (!map.isStyleLoaded()) return;
+
+  const activeIds = new Set(zones.map((zone) => zone.id));
+  for (const id of zoneIdsRef.current) {
+    if (!activeIds.has(id)) removeZone(map, id);
+  }
+  zoneIdsRef.current = zones.map((zone) => zone.id);
+
+  zones.forEach((zone) => {
+    const existing = map.getSource(zone.id) as maplibregl.GeoJSONSource | undefined;
+    if (existing) {
+      existing.setData(zone.data);
+    } else {
+      map.addSource(zone.id, { type: "geojson", data: zone.data });
+    }
+
+    if (!map.getLayer(`${zone.id}-fill`)) {
+      map.addLayer({
+        id: `${zone.id}-fill`,
+        type: "fill",
+        source: zone.id,
+        paint: {
+          "fill-color": zone.color,
+          "fill-opacity": zone.fillOpacity ?? 0.16,
+        },
+      });
+    }
+    if (!map.getLayer(`${zone.id}-outline`)) {
+      map.addLayer({
+        id: `${zone.id}-outline`,
+        type: "line",
+        source: zone.id,
+        paint: {
+          "line-color": zone.color,
+          "line-width": 2.5,
+          "line-opacity": 0.9,
+          "line-dasharray": [2, 1.5],
+        },
+      });
+    }
+  });
 }
 
 function removeRoute(map: maplibregl.Map, id: string) {
@@ -174,6 +255,7 @@ export function LandingMapView({
   eager = false,
   markers = [],
   routes = [],
+  zones = [],
   vehicles = [],
   modelVehicles = [],
   showUserLocation,
@@ -188,14 +270,18 @@ export function LandingMapView({
   scrollZoom = true,
   showControls = false,
   onVehicleLayerReady,
+  atmosphere,
 }: LandingMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const vehicleLayerRef = useRef<Vehicle3DLayer | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const routeIdsRef = useRef<string[]>([]);
+  const zoneIdsRef = useRef<string[]>([]);
   const routesRef = useRef(routes);
+  const zonesRef = useRef(zones);
   const modelVehiclesRef = useRef(modelVehicles);
+  const atmosphereRef = useRef(atmosphere);
   const initialMapOptionsRef = useRef({
     center,
     zoom,
@@ -219,8 +305,16 @@ export function LandingMapView({
   }, [routes]);
 
   useEffect(() => {
+    zonesRef.current = zones;
+  }, [zones]);
+
+  useEffect(() => {
     modelVehiclesRef.current = modelVehicles;
   }, [modelVehicles]);
+
+  useEffect(() => {
+    atmosphereRef.current = atmosphere;
+  }, [atmosphere]);
 
   useEffect(() => {
     if (!shouldInit || !containerRef.current || mapRef.current) return;
@@ -254,21 +348,15 @@ export function LandingMapView({
 
     const handleLoad = () => {
       if (initialOptions.threeD) {
-        try {
-          map.setSky({
-            "sky-color": "#0a1614",
-            "horizon-color": "#12241f",
-            "fog-color": "#0a1210",
-            "sky-horizon-blend": 0.5,
-            "horizon-fog-blend": 0.6,
-            "fog-ground-blend": 0.6,
-          });
-        } catch {
-          // Certaines versions de MapLibre ne supportent pas le ciel custom.
-        }
-
-        applyDarkReskin(map);
         addExtrudedBuildings(map);
+        applyAtmosphereSky(
+          map,
+          atmosphereRef.current ?? { period: "night", condition: "clear" },
+        );
+        if (atmosphereRef.current) {
+          applyAtmosphereReskin(map, atmosphereRef.current);
+        }
+        else applyDarkReskin(map);
         hideGenericPois(map);
 
         const vehicleLayer = new Vehicle3DLayer({ onSelect: () => {} });
@@ -278,6 +366,7 @@ export function LandingMapView({
         onVehicleLayerReady?.(vehicleLayer);
       }
 
+      syncZones(map, zonesRef.current, zoneIdsRef);
       syncRoutes(map, routesRef.current, routeIdsRef);
       setReady(true);
     };
@@ -293,6 +382,7 @@ export function LandingMapView({
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
       routeIdsRef.current = [];
+      zoneIdsRef.current = [];
       vehicleLayerRef.current = null;
       map.remove();
       mapRef.current = null;
@@ -306,6 +396,12 @@ export function LandingMapView({
     if (!map || !ready) return;
     syncRoutes(map, routes, routeIdsRef);
   }, [ready, routes]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    syncZones(map, zones, zoneIdsRef);
+  }, [ready, zones]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -340,8 +436,21 @@ export function LandingMapView({
 
     markers.forEach((marker) => {
       const el = createMarkerElement(marker);
-      const m = new maplibregl.Marker({ element: el, anchor: "center" })
+      const m = new maplibregl.Marker({
+        element: el,
+        anchor: "center",
+        offset: marker.offset,
+      })
         .setLngLat([marker.lng, marker.lat])
+        .addTo(map);
+      markersRef.current.push(m);
+    });
+
+    zones.forEach((zone) => {
+      if (!zone.label || !zone.labelPosition) return;
+      const el = createZoneLabelElement(zone.label);
+      const m = new maplibregl.Marker({ element: el, anchor: "center" })
+        .setLngLat(zone.labelPosition)
         .addTo(map);
       markersRef.current.push(m);
     });
@@ -361,11 +470,18 @@ export function LandingMapView({
         .addTo(map);
       markersRef.current.push(m);
     }
-  }, [ready, markers, vehicles, showUserLocation]);
+  }, [ready, markers, vehicles, zones, showUserLocation]);
 
   useEffect(() => {
     vehicleLayerRef.current?.setVehicles(modelVehicles);
   }, [modelVehicles]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || !atmosphere) return;
+    applyAtmosphereSky(map, atmosphere);
+    applyAtmosphereReskin(map, atmosphere);
+  }, [atmosphere, ready]);
 
   useEffect(() => {
     const map = mapRef.current;

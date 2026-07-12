@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 export const metadata: Metadata = {
   title: "Carte immersive",
   description:
-    "Explorez la carte 3D immersive d'Aule : itinéraires en temps réel, VTC, taxis et commerçants à proximité.",
+    "Calculez vos itinéraires en bus, tram, navibus ou voiture et profitez du guidage en temps réel avec Aule.",
   robots: { index: false, follow: false },
 };
 

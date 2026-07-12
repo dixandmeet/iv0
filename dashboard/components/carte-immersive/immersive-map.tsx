@@ -9,7 +9,6 @@ import {
   CITY_CENTER,
   ROUTE_DELTAS,
   SHOP_DEFS,
-  SHOP_DELTAS,
   VEHICLE_DEFS,
   buildMenu,
   fmt,
@@ -21,13 +20,16 @@ import type { MapVehicle } from "@/lib/carte-immersive/vehicles";
 import { useImmersiveFleet } from "@/hooks/use-immersive-fleet";
 import {
   addExtrudedBuildings,
-  applyDarkReskin,
+  applyAtmosphereReskin,
+  applyAtmosphereSky,
   ensureRouteLayer,
   ensureTransitTracesLayer,
   hideGenericPois,
   registerMissingImageFallback,
   setTransitTracesFilter,
 } from "./map-style";
+import { useHeroWeather } from "@/components/landing/use-hero-weather";
+import { MapWeatherScene } from "./map-weather-scene";
 import type {
   DashboardLineSearchItem,
   RealLineTrace,
@@ -36,7 +38,11 @@ import { loadCustomRegulationLines } from "@/lib/regulation-custom-line";
 import { loadLineEditorDraft } from "@/lib/line-editor-persistence";
 import { getVoicePoints, isStopType } from "@/lib/line-editor-utils";
 import { travelerCommentsForVehicle } from "@/lib/traveler-comments";
-import { createDestElement, createShopElement, createUserElement } from "./map-markers";
+import {
+  fetchRegisteredStopsFromDatabase,
+  type RegisteredStop,
+} from "@/lib/registered-stops";
+import { createDestElement, createUserElement } from "./map-markers";
 import {
   TopBar,
   type GlobalSearchSuggestion,
@@ -49,6 +55,10 @@ import { GeoPrompt } from "./geo-prompt";
 import { RoutePanel, type RouteMode, type RouteStep } from "./route-panel";
 import { FocusPanel, type RideItem, type ShopResultItem, type SortMode } from "./focus-panel";
 import { DetailPanel, type SelectedDetail } from "./detail-panel";
+import {
+  StopSchedulePanel,
+  type SelectedMapStop,
+} from "./stop-schedule-panel";
 import { MerchantSheet, type MenuChip, type CartLine } from "./merchant-sheet";
 import { Vehicle3DLayer } from "./vehicle-3d-layer";
 import {
@@ -166,9 +176,7 @@ function labelName(label: string) {
 }
 
 function parseInitialRouteMode(value: string | null): RouteMode {
-  return value === "foot" || value === "car" || value === "transit"
-    ? value
-    : "transit";
+  return value === "car" ? "car" : "transit";
 }
 
 function parseInitialRoutePoint(
@@ -780,17 +788,26 @@ export function ImmersiveMap({
   const locateActionRef = useRef<() => void>(() => {});
   const realPathsRef = useRef(realPaths);
   const { vehicles: liveVehicles, mode: fleetMode, stale: fleetStale } = useImmersiveFleet();
+  const [weatherLocation, setWeatherLocation] = useState({
+    lat: CITY_CENTER[0],
+    lng: CITY_CENTER[1],
+  });
+  const mapWeather = useHeroWeather(weatherLocation);
+  const mapWeatherRef = useRef(mapWeather);
+  mapWeatherRef.current = mapWeather;
 
   const [filters, setFilters] = useState<Record<FilterKey, boolean>>({
     bus: true,
     tram: true,
-    vtc: true,
-    taxi: true,
-    shop: true,
+    vtc: false,
+    taxi: false,
+    shop: false,
   });
   const [selectedKind, setSelectedKind] = useState<SelectedKind>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const [stopCatalog, setStopCatalog] = useState<RegisteredStop[]>([]);
+  const [selectedStop, setSelectedStop] = useState<SelectedMapStop | null>(null);
   const [searchLineSelection, setSearchLineSelection] =
     useState<SearchLineSelection | null>(null);
   const [publishedCustomLines, setPublishedCustomLines] = useState<
@@ -815,7 +832,7 @@ export function ImmersiveMap({
   const [geoPromptVisible, setGeoPromptVisible] = useState(false);
   const [geoDeniedNoticeVisible, setGeoDeniedNoticeVisible] = useState(false);
   const [destName, setDestName] = useState("");
-  const [routeMode, setRouteMode] = useState<RouteMode>("foot");
+  const [routeMode, setRouteMode] = useState<RouteMode>("transit");
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distanceM: number; durationMin: number; steps: RouteStep[] } | null>(
@@ -848,6 +865,20 @@ export function ImmersiveMap({
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchRegisteredStopsFromDatabase()
+      .then((stops) => {
+        if (!cancelled) setStopCatalog(stops);
+      })
+      .catch(() => {
+        if (!cancelled) setStopCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const initialRouteStartedRef = useRef(false);
 
   useEffect(() => {
@@ -950,15 +981,6 @@ export function ImmersiveMap({
   const buildMarkers = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
-
-    for (const s of SHOP_DEFS) {
-      const delta = SHOP_DELTAS[s.id];
-      const el = createShopElement(s.emoji, () => apiRef.current.select("shop", s.id));
-      const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
-        .setLngLat([CITY_CENTER[1] + delta[1], CITY_CENTER[0] + delta[0]])
-        .addTo(map);
-      shopMarkersRef.current[s.id] = marker;
-    }
 
     const userEl = createUserElement();
     const initialUserPosition = userPositionRef.current ?? CITY_CENTER;
@@ -1290,21 +1312,9 @@ export function ImmersiveMap({
     window.visualViewport?.addEventListener("resize", handleViewportResize);
 
     map.on("load", () => {
-      try {
-        map.setSky({
-          "sky-color": "#0a1614",
-          "horizon-color": "#12241f",
-          "fog-color": "#0a1210",
-          "sky-horizon-blend": 0.5,
-          "horizon-fog-blend": 0.6,
-          "fog-ground-blend": 0.6,
-        });
-      } catch {
-        // certains navigateurs/versions du style ne supportent pas le ciel custom
-      }
-
-      applyDarkReskin(map);
       addExtrudedBuildings(map);
+      applyAtmosphereSky(map, mapWeatherRef.current);
+      applyAtmosphereReskin(map, mapWeatherRef.current);
       hideGenericPois(map);
       ensureRouteLayer(map);
       ensureTransitTracesLayer(
@@ -1366,6 +1376,14 @@ export function ImmersiveMap({
     // La carte n'est montée qu'une fois ; les mises à jour passent par les refs et actions ci-dessous.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !readyRef.current || !map.isStyleLoaded()) return;
+    applyAtmosphereSky(map, mapWeather);
+    applyAtmosphereReskin(map, mapWeather);
+    vehicleLayerRef.current?.moveToTop();
+  }, [mapWeather]);
 
   // Refs "toujours à jour" pour les callbacks de la carte (moveend) qui ne doivent pas être recréés.
   const focusModeRef = useRef<FocusMode>(null);
@@ -1473,6 +1491,15 @@ export function ImmersiveMap({
 
   const placeUserMarker = (position: LatLng) => {
     userPositionRef.current = position;
+    const roundedLocation = {
+      lat: Number(position[0].toFixed(2)),
+      lng: Number(position[1].toFixed(2)),
+    };
+    setWeatherLocation((current) =>
+      current.lat === roundedLocation.lat && current.lng === roundedLocation.lng
+        ? current
+        : roundedLocation,
+    );
     userMarkerRef.current?.setLngLat([position[1], position[0]]);
   };
 
@@ -1943,17 +1970,6 @@ export function ImmersiveMap({
     }
   };
 
-  const flyGentle = () => {
-    const map = mapRef.current;
-    if (!map) return;
-    map.flyTo({
-      center: map.getCenter(),
-      zoom: Math.max(map.getZoom(), 16.6),
-      pitch: view3D ? 58 : 0,
-      duration: 1100,
-    });
-  };
-
   const clearFocus = () => {
     setFocusMode(null);
     setShowRouteInputs(false);
@@ -1969,32 +1985,17 @@ export function ImmersiveMap({
     setSelectedId(null);
     applyFocus(null);
   };
-  const qaRide = () => {
-    ensureVisible(["vtc", "taxi"]);
-    setFocusMode("ride");
-    setSelectedKind(null);
-    setSelectedId(null);
-    setRouteActive(false);
-    setSearchError(null);
-    setShowRouteInputs(true);
-    setQuickCollapsed(true);
-    applyFocus("ride");
-    flyGentle();
-  };
-  const qaShop = () => {
-    ensureVisible(["shop"]);
-    setFocusMode("shop");
-    setSelectedKind(null);
-    setSelectedId(null);
-    setRouteActive(false);
+  const qaGuide = () => {
+    setFocusMode(null);
     setShowRouteInputs(false);
-    setShowSearchArea(false);
+    setRouteActive(false);
+    setGlobalSearchQuery("");
     setQuickCollapsed(true);
-    applyFocus("shop");
-    flyGentle();
-    if (mapRef.current) shopSearchCenterRef.current = mapRef.current.getCenter();
+    applyFocus(null);
+    requestAnimationFrame(() => {
+      document.getElementById("immersive-line-search")?.focus();
+    });
   };
-
   const searchThisArea = () => {
     setShowSearchArea(false);
     if (mapRef.current) shopSearchCenterRef.current = mapRef.current.getCenter();
@@ -2057,6 +2058,14 @@ export function ImmersiveMap({
 
   // ===== Dérivés pour le rendu =====
   const globalSearchSuggestions = useMemo<GlobalSearchSuggestion[]>(() => {
+    const stopSuggestions = stopCatalog.map((stop) => ({
+      id: `stop:${stop.id}`,
+      category: "stop" as const,
+      mode: "stop" as const,
+      title: stop.stationName || stop.name,
+      subtitle: `${stop.name}${stop.code ? ` · ${stop.code}` : ""}`,
+      keywords: `${stop.name} ${stop.stationName ?? ""} ${stop.code} arrêt station horaires passages`,
+    }));
     const uniqueDashboardLines = new Map(
       [...dashboardLines, ...publishedCustomLines].map((line) => [line.id, line]),
     );
@@ -2078,38 +2087,8 @@ export function ImmersiveMap({
       };
     });
 
-    const driverSuggestions = VEHICLE_DEFS.filter(
-      (vehicle) => vehicle.type === "vtc" || vehicle.type === "taxi",
-    ).map((vehicle) => ({
-      id: `driver:${vehicle.id}`,
-      category: "driver" as const,
-      mode: vehicle.type,
-      title:
-        vehicle.type === "vtc"
-          ? vehicle.driver ?? "Chauffeur VTC"
-          : `Taxi · ${vehicle.station ?? "Disponible"}`,
-      subtitle:
-        vehicle.type === "vtc"
-          ? `VTC · ★ ${vehicle.rating} · Arrivée ${vehicle.eta}`
-          : `Taxi disponible · Arrivée ${vehicle.eta}`,
-      keywords: `${vehicle.station ?? ""} chauffeur voiture ${vehicle.dist ?? ""}`,
-    }));
-
-    const merchantSuggestions = SHOP_DEFS.map((shop) => ({
-      id: `merchant:${shop.id}`,
-      category: "merchant" as const,
-      mode: "shop" as const,
-      title: shop.name,
-      subtitle: `${shop.cat} · ${shop.dist} · ${shop.open ? "Ouvert" : "Fermé"}`,
-      keywords: `${shop.catKey} ${shop.cat} commerce boutique ${shop.rating}`,
-    }));
-
-    return [
-      ...lineSuggestions,
-      ...driverSuggestions,
-      ...merchantSuggestions,
-    ];
-  }, [dashboardLines, publishedCustomLines]);
+    return [...stopSuggestions, ...lineSuggestions];
+  }, [dashboardLines, publishedCustomLines, stopCatalog]);
 
   const focusSearchCoordinates = useCallback(
     (coords: LatLng[], maxZoom = 16.5) => {
@@ -2305,6 +2284,24 @@ export function ImmersiveMap({
       setSelectedKind(null);
       setSelectedId(null);
       applyFocus(null);
+
+      if (suggestion.id.startsWith("stop:")) {
+        const stopId = suggestion.id.slice("stop:".length);
+        const stop = stopCatalog.find((item) => item.id === stopId);
+        if (!stop) return;
+        setSelectedStop({
+          id: stop.id,
+          name: stop.name,
+          code: stop.code,
+          stationName: stop.stationName,
+        });
+        if (stop.coordinates) {
+          focusSearchCoordinates([[stop.coordinates[1], stop.coordinates[0]]], 17.2);
+        }
+        return;
+      }
+
+      setSelectedStop(null);
 
       if (suggestion.id.startsWith("merchant:")) {
         const shopId = suggestion.id.slice("merchant:".length);
@@ -2949,7 +2946,7 @@ export function ImmersiveMap({
   const merchantShop = merchantId ? SHOP_DEFS.find((s) => s.id === merchantId) : null;
 
   const bottomNavVisible =
-    !tracking && !showRouteInputs && !routeActive && !focusVisible && !visibleDetail && !merchantShop;
+    !tracking && !showRouteInputs && !routeActive && !focusVisible && !visibleDetail && !merchantShop && !selectedStop;
 
   const merchantData = useMemo(() => {
     if (!merchantShop) return null;
@@ -3068,6 +3065,8 @@ export function ImmersiveMap({
   return (
     <div
       className={`immersive-map-root${bottomNavVisible ? " immersive-map-root--nav-visible" : ""}`}
+      data-period={mapWeather.period}
+      data-weather={mapWeather.condition}
     >
       <div className="immersive-map-canvas">
         <div ref={mapContainerRef} className="h-full w-full" />
@@ -3077,6 +3076,7 @@ export function ImmersiveMap({
           </div>
         )}
       </div>
+      <MapWeatherScene weather={mapWeather} />
       <div className="immersive-map-vignette" />
       <div className="immersive-map-vignette-top" />
       {!tracking && (
@@ -3085,13 +3085,19 @@ export function ImmersiveMap({
             fleetStale ? " immersive-map-live-status--stale" : ""
           }`}
           aria-live="polite"
+          aria-label={`${fleetMode === "live" ? "Temps réel" : "Mode aperçu"}. Météo : ${mapWeather.label}`}
         >
           <span className="immersive-map-live-status-dot" />
-          {fleetMode === "live"
+          <span>{fleetMode === "live"
             ? fleetStale
               ? "Temps réel · signal en attente"
               : `${liveVehicles.length} véhicule${liveVehicles.length > 1 ? "s" : ""} en direct`
-            : "Mode aperçu"}
+            : "Mode aperçu"}</span>
+          <span className="immersive-map-live-status-separator" aria-hidden="true" />
+          <span className="immersive-map-live-status-weather">
+            {mapWeather.temperature != null ? `${Math.round(mapWeather.temperature)}° · ` : ""}
+            {mapWeather.label} · <span className="immersive-map-weather-source">Open-Meteo</span>
+          </span>
         </div>
       )}
 
@@ -3151,8 +3157,7 @@ export function ImmersiveMap({
         collapsed={quickCollapsed}
         onToggleCollapse={() => setQuickCollapsed((c) => !c)}
         onRoute={qaRoute}
-        onRide={qaRide}
-        onShop={qaShop}
+        onGuide={qaGuide}
       />
 
       <GeoPrompt
@@ -3174,8 +3179,7 @@ export function ImmersiveMap({
       <BottomNav
         visible={bottomNavVisible}
         onRoute={qaRoute}
-        onRide={qaRide}
-        onShop={qaShop}
+        onGuide={qaGuide}
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen((open) => !open)}
       />
@@ -3215,6 +3219,10 @@ export function ImmersiveMap({
 
       {visibleDetail && (
         <DetailPanel selected={visibleDetail} onClose={closeSelection} />
+      )}
+
+      {selectedStop && (
+        <StopSchedulePanel key={selectedStop.id} stop={selectedStop} onClose={() => setSelectedStop(null)} />
       )}
 
       {trackingPanelData && (

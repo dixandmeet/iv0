@@ -28,7 +28,12 @@ async function requireAdmin() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: NextResponse.json({ error: "Non authentifié" }, { status: 401 }) };
+    return {
+      error: NextResponse.json(
+        { error: "Votre session a expiré. Reconnectez-vous pour enregistrer les modifications.", loginRequired: true },
+        { status: 401 },
+      ),
+    };
   }
 
   const { data: profile } = await supabase

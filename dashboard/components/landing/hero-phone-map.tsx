@@ -6,17 +6,16 @@ import type { Vehicle3DLayer } from "@/components/carte-immersive/vehicle-3d-lay
 import { pathLen, pointAt, type LatLng } from "@/lib/carte-immersive/geo";
 import type { MapVehicle } from "@/lib/carte-immersive/vehicles";
 import {
-  BABINIERE_STOP,
   boundsFromCoordinates,
   NANTES_BUS_ROUTE,
   NANTES_CENTER,
-  NANTES_LIGNE00_ROUTE,
   NANTES_TRAM_ROUTE,
   NANTES_WALK_ROUTE,
   sliceLineRoute,
   type MapBounds,
 } from "@/lib/landing-map-style";
 import styles from "./scrolly-landing.module.css";
+import type { HeroWeather } from "./use-hero-weather";
 
 function routeToPath(route: GeoJSON.Feature<GeoJSON.LineString>): LatLng[] {
   return route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
@@ -128,15 +127,108 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
   const rafRef = useRef(0);
   const [vehicleLayerReady, setVehicleLayerReady] = useState(false);
 
-  const linePath = useMemo(() => routeToPath(NANTES_LIGNE00_ROUTE), []);
+  const commerceLine1 = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(
+    () => ({
+      type: "Feature",
+      properties: { name: "Tram 1 · Commerce" },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-1.5638, 47.2119],
+          [-1.5609, 47.2131],
+          [-1.5582, 47.2137],
+          [-1.5557, 47.214],
+          [-1.5533, 47.2144],
+          [-1.5508, 47.215],
+        ],
+      },
+    }),
+    [],
+  );
+
+  const commerceLines23 = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(
+    () => ({
+      type: "Feature",
+      properties: { name: "Trams 2 et 3 · Commerce" },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-1.5582, 47.2201],
+          [-1.5574, 47.2179],
+          [-1.5565, 47.2159],
+          [-1.5558, 47.2143],
+          [-1.5551, 47.2128],
+          [-1.5545, 47.2107],
+        ],
+      },
+    }),
+    [],
+  );
+
+  const commerceLine3 = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(
+    () => ({
+      ...commerceLines23,
+      properties: { name: "Tram 3 · Commerce" },
+      geometry: {
+        ...commerceLines23.geometry,
+        coordinates: commerceLines23.geometry.coordinates.map(([lng, lat]) => [
+          lng + 0.00012,
+          lat - 0.00002,
+        ]),
+      },
+    }),
+    [commerceLines23],
+  );
+
+  const line1Path = useMemo(() => routeToPath(commerceLine1), [commerceLine1]);
+  const lines23Path = useMemo(() => routeToPath(commerceLines23), [commerceLines23]);
 
   const routes = useMemo(
     () => [
       {
-        id: "section-ligne00-route",
-        data: NANTES_LIGNE00_ROUTE,
-        color: "#33BFA3",
-        width: 6,
+        id: "section-commerce-line-1",
+        data: commerceLine1,
+        color: "#36D6B5",
+        width: 4.5,
+      },
+      {
+        id: "section-commerce-line-2",
+        data: commerceLines23,
+        color: "#FF6B7D",
+        width: 4,
+      },
+      {
+        id: "section-commerce-line-3",
+        data: commerceLine3,
+        color: "#6C9CFF",
+        width: 4,
+      },
+    ],
+    [commerceLine1, commerceLine3, commerceLines23],
+  );
+
+  const zones = useMemo(
+    () => [
+      {
+        id: "section-commerce-zone",
+        color: "#8DEEDD",
+        fillOpacity: 0.12,
+        data: {
+          type: "Feature" as const,
+          properties: { name: "Pôle d'échanges Commerce" },
+          geometry: {
+            type: "Polygon" as const,
+            coordinates: [[
+              [-1.5588, 47.2158],
+              [-1.5568, 47.2165],
+              [-1.5538, 47.2152],
+              [-1.5536, 47.2125],
+              [-1.5562, 47.2118],
+              [-1.559, 47.2131],
+              [-1.5588, 47.2158],
+            ]],
+          },
+        },
       },
     ],
     [],
@@ -145,28 +237,28 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
   const modelVehicles = useMemo<MapVehicle[]>(
     () => [
       {
-        id: "section-bus",
-        type: "bus",
-        mode: "preview",
-        lng: BABINIERE_STOP[0],
-        lat: BABINIERE_STOP[1],
-        heading: 90,
-        speedMps: 6,
-        recordedAt: new Date().toISOString(),
-        routeId: "00",
-        destination: "Ranzay",
-      },
-      {
-        id: "section-tram",
+        id: "section-tram-1",
         type: "tram",
         mode: "preview",
-        lng: BABINIERE_STOP[0],
-        lat: BABINIERE_STOP[1],
+        lng: -1.5609,
+        lat: 47.2131,
         heading: 90,
         speedMps: 8,
         recordedAt: new Date().toISOString(),
-        routeId: "00",
-        destination: "Babinière",
+        routeId: "1",
+        destination: "Beaujoire",
+      },
+      {
+        id: "section-tram-2",
+        type: "tram",
+        mode: "preview",
+        lng: -1.5574,
+        lat: 47.2179,
+        heading: 165,
+        speedMps: 8,
+        recordedAt: new Date().toISOString(),
+        routeId: "2",
+        destination: "Gare de Pont-Rousseau",
       },
     ],
     [],
@@ -175,34 +267,26 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
   const markers = useMemo(
     () => [
       {
-        id: "relais-babiniere",
-        lng: -1.5462,
-        lat: 47.2596,
-        label: "Relais P+R Babinière",
+        id: "commerce-line-1-stop",
+        lng: -1.5553,
+        lat: 47.21385,
+        label: "Commerce · Ligne 1",
         status: "pilot" as const,
-        badge: "Café",
+        badge: "L1",
+        accent: "#36D6B5",
+        offset: [62, 22] as [number, number],
+        variant: "stop" as const,
       },
       {
-        id: "cafe-erdre",
-        lng: -1.5388,
-        lat: 47.2566,
-        label: "Café de l'Erdre",
+        id: "commerce-lines-2-3-stop",
+        lng: -1.55615,
+        lat: 47.21455,
+        label: "Commerce · Lignes 2 & 3",
         status: "pilot" as const,
-      },
-      {
-        id: "superette-ranzay",
-        lng: -1.5303,
-        lat: 47.254,
-        label: "Supérette Ranzay",
-        status: "pilot" as const,
-        badge: "Ouvert",
-      },
-      {
-        id: "boulangerie-haluchere",
-        lng: -1.5229,
-        lat: 47.2493,
-        label: "Boulangerie Haluchère",
-        status: "coming" as const,
+        badge: "L2 · L3",
+        accent: "#FF7184",
+        offset: [-68, -28] as [number, number],
+        variant: "stop" as const,
       },
     ],
     [],
@@ -221,8 +305,8 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
       const now = performance.now() / 1000;
       animatePreviewAlongPath(
         layer,
-        "section-bus",
-        linePath,
+        "section-tram-1",
+        line1Path,
         now,
         0.00064,
         0,
@@ -230,8 +314,8 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
       );
       animatePreviewAlongPath(
         layer,
-        "section-tram",
-        linePath,
+        "section-tram-2",
+        lines23Path,
         now,
         0.00058,
         0.0445,
@@ -242,40 +326,48 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [vehicleLayerReady, linePath]);
+  }, [vehicleLayerReady, line1Path, lines23Path]);
 
   return (
     <div data-par="1.3" className={styles.environmentMapPanel}>
       <LandingMapView
-        center={[-1.5338, 47.2582]}
-        zoom={14.6}
-        bearing={-24}
-        pitch={60}
+        center={[-1.5557, 47.2141]}
+        zoom={15.9}
+        bearing={-14}
+        pitch={48}
         interactive={false}
         eager
         threeD
         scrollZoom={false}
         routes={routes}
+        zones={zones}
         modelVehicles={modelVehicles}
         markers={markers}
         onVehicleLayerReady={handleVehicleLayerReady}
         className={className ?? styles.environmentMapCanvas}
-        ariaLabel="Carte 3D de la ligne 00 Babinière ↔ Ranzay, avec véhicules en circulation et commerces à proximité"
+        ariaLabel="Carte 3D du pôle d'échanges Commerce au centre-ville de Nantes, avec les arrêts des lignes 1, 2 et 3"
       />
       <div className={styles.environmentMapVeil} aria-hidden="true" />
-      <div className={styles.environmentMapDeparture}>Ligne 00 · Babinière → Ranzay</div>
+      <div className={styles.environmentMapDeparture}>
+        <span className={styles.environmentMapDepartureIcon} aria-hidden="true">
+          <i />
+        </span>
+        <span className={styles.environmentMapDepartureCopy}>
+          <small>Pôle d&apos;échanges</small>
+          <strong>Commerce · Nantes Centre</strong>
+        </span>
+        <span className={styles.environmentMapDepartureStatus}>3 lignes</span>
+      </div>
       <div className={styles.environmentMapLegend}>
+        <span className={styles.environmentMapLegendLabel}>Réseau</span>
         <span className={styles.environmentMapLegendItem}>
-          <i className={styles.environmentMapLegendDotTram} aria-hidden="true" />
-          Ligne 00
+          <i className={styles.environmentMapLine1} aria-hidden="true">1</i>
+          Est ↔ Ouest
         </span>
         <span className={styles.environmentMapLegendItem}>
-          <i className={styles.environmentMapLegendDotBus} aria-hidden="true" />
-          Véhicules
-        </span>
-        <span className={styles.environmentMapLegendItem}>
-          <i className={styles.environmentMapLegendDotShop} aria-hidden="true" />
-          Commerces
+          <i className={styles.environmentMapLine2} aria-hidden="true">2</i>
+          <i className={styles.environmentMapLine3} aria-hidden="true">3</i>
+          Nord ↔ Sud
         </span>
       </div>
     </div>
@@ -286,10 +378,12 @@ export function HeroInteractiveMap({
   className,
   focusLocation,
   userLocation,
+  weather,
 }: {
   className?: string;
   focusLocation?: UserLocation;
   userLocation?: UserLocation;
+  weather?: HeroWeather;
 }) {
   const routes = useMemo(
     () => [
@@ -405,6 +499,7 @@ export function HeroInteractiveMap({
       showUserLocation={userLocation}
       className={className}
       ariaLabel="Carte 3D interactive de Nantes avec véhicules, itinéraires et services Aule"
+      atmosphere={weather ? { period: weather.period, condition: weather.condition } : undefined}
     />
   );
 }

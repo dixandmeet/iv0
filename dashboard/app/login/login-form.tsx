@@ -73,6 +73,7 @@ async function checkWebDashboardAccess(
 export function LoginForm({
   initialError = null,
   initialSuccess = null,
+  initialMode = "voyageur",
   redirectTo,
 }: LoginFormProps) {
   const router = useRouter();
@@ -90,6 +91,7 @@ export function LoginForm({
   const [success, setSuccess] = useState<string | null>(initialSuccess);
   const [showMobileInvitation, setShowMobileInvitation] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const isProMode = initialMode === "pro";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -224,13 +226,15 @@ export function LoginForm({
         <AuthNetworkPanel
           heading={
             <>
-              Bon retour parmi
+              {isProMode ? "Pilotez Aule avec" : "Bon retour parmi"}
               <br />
-              les voyageurs connectés.
+              {isProMode ? "votre espace professionnel." : "les voyageurs connectés."}
             </>
           }
-          tagline="Retrouvez vos trajets, vos arrêts favoris et le réseau en temps réel, là où vous vous étiez arrêté."
-          footnote="Réseau suivi en direct par la communauté"
+          tagline={isProMode
+            ? "Connectez-vous pour administrer les réseaux, les utilisateurs et les accès Aule Studio."
+            : "Retrouvez vos trajets, vos arrêts favoris et le réseau en temps réel, là où vous vous étiez arrêté."}
+          footnote={isProMode ? "Accès sécurisé Aule Studio" : "Réseau suivi en direct par la communauté"}
           mainPath="M-20 720 L120 700 L220 560 L300 520 L420 380 L520 300 L640 220"
           secondaryPath="M-20 800 L160 780 L320 640 L640 600"
           accentDot={{ cx: 300, cy: 520 }}
@@ -244,7 +248,8 @@ export function LoginForm({
     >
       <h2 className={styles.title}>Connexion</h2>
       <p className={styles.subtitle}>
-        Pas encore de compte ?{" "}
+        {isProMode ? "Utilisez un compte administrateur autorisé." : "Pas encore de compte ?"}{" "}
+        {!isProMode ? (
         <Link
           href="/signup"
           data-hover
@@ -252,6 +257,7 @@ export function LoginForm({
         >
           Créer un compte
         </Link>
+        ) : null}
       </p>
 
       {showMobileInvitation ? (
@@ -451,7 +457,7 @@ export function LoginForm({
                 <div className={styles.fieldHeader}>
                   <span className={styles.fieldLabel}>Mot de passe</span>
                   <Link
-                    href={`/forgot-password?mode=voyageur${
+                    href={`/forgot-password?mode=${initialMode}${
                       email.trim()
                         ? `&email=${encodeURIComponent(email.trim())}`
                         : ""

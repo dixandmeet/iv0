@@ -1,13 +1,12 @@
 "use client";
 
 export type RouteStep = { icon: string; label: string; detail: string; duration: string };
-export type RouteMode = "foot" | "car" | "transit";
+export type RouteMode = "car" | "transit";
 
 type RouteModeOption = { key: RouteMode; icon: string; label: string };
 
 const MODE_OPTIONS: RouteModeOption[] = [
-  { key: "foot", icon: "🚶", label: "À pied" },
-  { key: "transit", icon: "🚋", label: "Transport" },
+  { key: "transit", icon: "🚋", label: "Bus · Tram · Navibus" },
   { key: "car", icon: "🚗", label: "Voiture" },
 ];
 

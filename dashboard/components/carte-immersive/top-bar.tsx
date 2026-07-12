@@ -12,8 +12,8 @@ export type ImmersiveViewer = {
 
 export type GlobalSearchSuggestion = {
   id: string;
-  category: "line" | "driver" | "merchant";
-  mode: "bus" | "tram" | "navibus" | "vtc" | "taxi" | "shop";
+  category: "stop" | "line" | "driver" | "merchant";
+  mode: "stop" | "bus" | "tram" | "navibus" | "vtc" | "taxi" | "shop";
   title: string;
   subtitle: string;
   keywords?: string;
@@ -53,12 +53,14 @@ function getInitials(displayName: string): string {
 }
 
 const SEARCH_GROUP_LABELS: Record<GlobalSearchSuggestion["category"], string> = {
+  stop: "Arrêts et stations",
   line: "Lignes",
   driver: "Chauffeurs",
   merchant: "Commerçants",
 };
 
 const SEARCH_MODE_ICONS: Record<GlobalSearchSuggestion["mode"], string> = {
+  stop: "🚏",
   bus: "🚌",
   tram: "🚋",
   navibus: "⛴️",
@@ -234,8 +236,9 @@ export function TopBar({
               onFocus={() => setSearchOpen(true)}
               onKeyDown={handleGlobalSearchKeyDown}
               className="immersive-map-global-search-input"
-              placeholder="Ligne, chauffeur ou commerçant…"
-              aria-label="Rechercher une ligne, un chauffeur ou un commerçant"
+              id="immersive-line-search"
+              placeholder="Rechercher un arrêt ou une ligne…"
+              aria-label="Rechercher un arrêt ou une ligne"
               role="combobox"
               aria-autocomplete="list"
               aria-expanded={searchOpen}
