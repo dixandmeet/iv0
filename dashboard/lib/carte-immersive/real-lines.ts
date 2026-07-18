@@ -2,9 +2,12 @@ import type { createClient } from "@/lib/supabase/server";
 import { buildDepotRegulationLines } from "@/lib/regulation-depot";
 import { buildRegulationLines } from "@/lib/regulation-data";
 import type { GtfsRoute } from "@/lib/types";
+import type { LineEditorState } from "@/lib/line-editor-types";
+import type { RegulationLine } from "@/lib/regulation-mock-data";
 import { CITY_CENTER } from "./data";
 import type { LatLng } from "./geo";
 import realLineShapes from "./real-line-shapes.json";
+import aleopLineShapes from "./aleop-line-shapes.json";
 
 const CROP_RADIUS_DEG = 0.02;
 
@@ -74,14 +77,48 @@ export type DashboardLineSearchItem = {
   color: string;
 };
 
+type NetworkLineCatalogRow = {
+  network_id: string;
+  line_id: string;
+  short_name: string;
+  long_name: string;
+  transport_mode: string;
+  color: string;
+  data: Partial<RegulationLine> | null;
+  editor_state: LineEditorState | null;
+};
+
+function transportModeLabel(mode: string): string {
+  if (mode === "tram") return "Tramway";
+  if (mode === "boat") return "Navibus";
+  if (mode === "shuttle") return "Navette";
+  return "Bus";
+}
+
+function directionEnds(direction: string, longName: string): [string, string] {
+  const values = (direction || longName)
+    .split(/↔|→/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [values[0] ?? "Départ", values[values.length - 1] ?? "Arrivée"];
+}
+
 /** Construit le même catalogue de lignes réseau que le dashboard de régulation. */
 export async function loadDashboardLineCatalog(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<DashboardLineSearchItem[]> {
-  const { data } = await supabase
-    .from("gtfs_routes")
-    .select("route_id, route_short_name, route_long_name, route_type, route_color")
-    .order("route_short_name");
+  const [{ data }, { data: networkLineRows }] = await Promise.all([
+    supabase
+      .from("gtfs_routes")
+      .select("route_id, route_short_name, route_long_name, route_type, route_color")
+      .order("route_short_name"),
+    supabase
+      .from("network_lines")
+      .select(
+        "network_id, line_id, short_name, long_name, transport_mode, color, data, editor_state",
+      )
+      .order("short_name"),
+  ]);
 
   const routes = (data as GtfsRoute[] | null) ?? [];
   const schemaLines = buildDepotRegulationLines([], []);
@@ -97,7 +134,7 @@ export async function loadDashboardLineCatalog(
     ];
   }
 
-  return lines
+  const catalog = lines
     .map((line) => ({
       id: line.id,
       routeId: line.routeId,
@@ -107,10 +144,36 @@ export async function loadDashboardLineCatalog(
       transportType: line.transportType,
       depotCode: line.depotCode,
       color: line.lineColor,
-    }))
-    .sort((a, b) =>
-      a.shortName.localeCompare(b.shortName, "fr", { numeric: true }),
-    );
+    }));
+
+  const publishedNetworkLines = ((networkLineRows as NetworkLineCatalogRow[] | null) ?? [])
+    .filter((row) => row.editor_state?.status === "published")
+    .map((row): DashboardLineSearchItem => {
+      const [directionOrigin, directionDestination] = directionEnds(
+        row.editor_state?.directionAller ?? "",
+        row.long_name,
+      );
+      return {
+        id: `network:${row.network_id}:${row.line_id}`,
+        routeId: row.line_id,
+        shortName:
+          row.editor_state?.shortName?.trim() || row.short_name || row.line_id,
+        origin: row.data?.origin?.trim() || directionOrigin,
+        destination: row.data?.destination?.trim() || directionDestination,
+        transportType: transportModeLabel(
+          row.editor_state?.transportMode || row.transport_mode,
+        ),
+        depotCode: row.data?.depotCode?.trim() || "Réseau",
+        color: row.editor_state?.color || row.color || "#2563EB",
+      };
+    });
+
+  const merged = new Map(catalog.map((line) => [line.id, line]));
+  for (const line of publishedNetworkLines) merged.set(line.id, line);
+
+  return [...merged.values()].sort((a, b) =>
+    a.shortName.localeCompare(b.shortName, "fr", { numeric: true }),
+  );
 }
 
 /** Tracés à afficher tels quels sur la carte (transparence : on montre la ligne suivie par chaque véhicule). */
@@ -123,11 +186,37 @@ export function loadRealLineTraces(): RealLineTrace[] {
   return traces;
 }
 
+type AleopLineShape = { id: string; short: string; type: "bus"; color: string; coords: LatLng[] };
+
+/**
+ * Tracés des lignes interurbaines Aléop (Loire-Atlantique), affichés en
+ * permanence sur la carte immersive à côté du réseau TAN. Contrairement aux
+ * lignes TAN (urbaines, rognées autour du centre-ville par cropAroundCenter),
+ * on garde les tracés ENTIERS : l'interurbain Aléop rayonne bien au-delà de
+ * Nantes et serait tronqué à néant par le rognage à ~2 km. Un point tous les
+ * ~40 m (shapes GTFS Aléop, déjà denses). Voir tool/build_network_assets.py.
+ */
+export function loadAleopLineTraces(): RealLineTrace[] {
+  return (aleopLineShapes as unknown as AleopLineShape[]).map((t) => ({
+    id: t.id,
+    type: t.type,
+    color: t.color,
+    coords: t.coords,
+  }));
+}
+
 type PublishedLineTraceRow = {
   line_id: string;
   transport_mode: string;
   color: string;
   variants: { direction: "aller" | "retour"; coordinates: [number, number][] }[];
+};
+
+type PublishedNetworkTraceRow = {
+  line_id: string;
+  transport_mode: string;
+  color: string;
+  editor_state: LineEditorState | null;
 };
 
 /**
@@ -138,7 +227,12 @@ type PublishedLineTraceRow = {
 export async function loadPublishedLineTraces(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<RealLineTrace[]> {
-  const { data } = await supabase.rpc("get_published_line_traces");
+  const [{ data }, { data: networkLineRows }] = await Promise.all([
+    supabase.rpc("get_published_line_traces"),
+    supabase
+      .from("network_lines")
+      .select("line_id, transport_mode, color, editor_state"),
+  ]);
   const rows = (data as PublishedLineTraceRow[] | null) ?? [];
 
   const traces: RealLineTrace[] = [];
@@ -155,6 +249,30 @@ export async function loadPublishedLineTraces(
       // coordinates éditeur en [lng,lat], LatLng carte immersive en [lat,lng]
       coords: variant.coordinates.map(([lng, lat]) => [lat, lng]),
     });
+  }
+
+  // Les états publiés de network_lines constituent la source de repli. Cela
+  // rend immédiatement visibles les lignes créées avant la synchronisation RPC.
+  const tracedIds = new Set(traces.map((trace) => trace.id));
+  for (const row of (networkLineRows as PublishedNetworkTraceRow[] | null) ?? []) {
+    const state = row.editor_state;
+    if (!state || state.status !== "published") continue;
+
+    const lineId = state.shortName?.trim() || row.line_id;
+    if (tracedIds.has(lineId)) continue;
+
+    const points = state.pointsAller ?? [];
+    if (points.length < 2) continue;
+    traces.push({
+      id: lineId,
+      type:
+        (state.transportMode || row.transport_mode) === "tram" ? "tram" : "bus",
+      color: state.color || row.color || "#2563EB",
+      coords: points.map(
+        (point) => [point.coordinates[1], point.coordinates[0]] as LatLng,
+      ),
+    });
+    tracedIds.add(lineId);
   }
   return traces;
 }
