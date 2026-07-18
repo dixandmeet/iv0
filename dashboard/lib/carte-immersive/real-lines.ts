@@ -188,6 +188,12 @@ export function loadRealLineTraces(): RealLineTrace[] {
 
 type AleopLineShape = { id: string; short: string; type: "bus"; color: string; coords: LatLng[] };
 
+// Couleur unique du réseau Aléop : les tracés interurbains doivent se LIRE
+// comme un réseau distinct du TAN (dont les lignes ont des couleurs variées).
+// Un aplat unique est plus lisible que 29 couleurs GTFS qui se noient dans le
+// réseau nantais. Changer ici pour retoucher toute la nappe Aléop.
+const ALEOP_LINE_COLOR = "#2FA84F";
+
 /**
  * Tracés des lignes interurbaines Aléop (Loire-Atlantique), affichés en
  * permanence sur la carte immersive à côté du réseau TAN. Contrairement aux
@@ -200,7 +206,7 @@ export function loadAleopLineTraces(): RealLineTrace[] {
   return (aleopLineShapes as unknown as AleopLineShape[]).map((t) => ({
     id: t.id,
     type: t.type,
-    color: t.color,
+    color: ALEOP_LINE_COLOR,
     coords: t.coords,
   }));
 }
