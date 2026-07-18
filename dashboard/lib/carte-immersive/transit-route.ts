@@ -312,6 +312,165 @@ async function findTransferMatch(
   return best;
 }
 
+// Rayon de correspondance à pied entre deux arrêts (mètres). Relie deux
+// réseaux distincts (ex. TAN ↔ Aléop) dont les arrêts, même à un pôle
+// d'échange commun, sont deux `stops` différents jamais réunis par
+// findTransferMatch (qui exige un arrêt commun).
+const WALK_TRANSFER_RADIUS_M = 500;
+const MAX_WALK_TRANSFER_PROBES = 30;
+
+type StopGeo = { name: string; coords: [number, number] };
+
+async function fetchStopsByIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: string[],
+): Promise<Map<string, StopGeo>> {
+  const map = new Map<string, StopGeo>();
+  if (!ids.length) return map;
+  const { data } = await supabase.from("stops").select("id, name, geom").in("id", ids);
+  for (const row of data ?? []) {
+    const coords = pointCoordinates(row.geom);
+    if (coords) map.set(row.id as string, { name: (row.name as string) ?? "arrêt", coords });
+  }
+  return map;
+}
+
+type WalkingTransferMatch = {
+  originStop: NearbyStop;
+  destStop: NearbyStop;
+  originLine: ServingLine;
+  fromStop: StopGeo; // descente (ligne origine)
+  toStop: StopGeo; // montée (ligne destination), à distance de marche
+  departLine: ServingLine; // ligne destination vue à l'arrêt de montée
+  destLine: ServingLine;
+  walkMeters: number;
+  score: number;
+};
+
+/**
+ * Correspondance à pied entre réseaux : on descend d'une ligne (origine),
+ * on marche jusqu'à un arrêt VOISIN — potentiellement d'un autre réseau —
+ * qui dessert une ligne menant à destination. Complète findTransferMatch,
+ * qui ne relie que des arrêts strictement identiques (donc jamais deux
+ * réseaux). N'est tenté qu'en dernier recours (coûteux en requêtes).
+ */
+async function findWalkingTransferMatch(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  originStops: NearbyStop[],
+  destStops: NearbyStop[],
+  originLinesByStop: Map<string, ServingLine[]>,
+  destLinesByStop: Map<string, ServingLine[]>,
+): Promise<WalkingTransferMatch | null> {
+  const destByRouteDir = new Map<string, { destStop: NearbyStop; destLine: ServingLine }>();
+  for (const destStop of destStops) {
+    for (const destLine of destLinesByStop.get(destStop.stop_id) ?? []) {
+      const key = `${destLine.route_id}:${destLine.direction_id}`;
+      const existing = destByRouteDir.get(key);
+      if (!existing || destStop.distance_m < existing.destStop.distance_m) {
+        destByRouteDir.set(key, { destStop, destLine });
+      }
+    }
+  }
+  if (!destByRouteDir.size) return null;
+
+  const servingLinesCache = new Map<string, Promise<ServingLine[]>>();
+  const getServingLinesCached = (stopId: string) => {
+    let promise = servingLinesCache.get(stopId);
+    if (!promise) {
+      promise = fetchServingLines(supabase, stopId);
+      servingLinesCache.set(stopId, promise);
+    }
+    return promise;
+  };
+
+  // Point de descente candidat : arrêt en aval d'une ligne origine, d'où l'on
+  // tentera de rejoindre à pied une ligne menant à destination.
+  type AlightCandidate = { originStop: NearbyStop; originLine: ServingLine; alightId: string; from: StopGeo };
+  const candidates: AlightCandidate[] = [];
+  const seenAlight = new Set<string>();
+  for (const originStop of originStops.slice(0, MAX_TRANSFER_ORIGIN_STOPS)) {
+    for (const originLine of originLinesByStop.get(originStop.stop_id) ?? []) {
+      if (originLine.trip_id == null || originLine.stop_sequence == null) continue;
+      const downstream = await fetchDownstreamStops(supabase, originLine.trip_id, originLine.stop_sequence);
+      if (!downstream.length) continue;
+      const uuidMap = await mapGtfsIdsToUuidStops(supabase, downstream.map((d) => d.gtfsStopId));
+      const alightIds = [...new Set(uuidMap.values())].filter((id) => id !== originStop.stop_id);
+      const alightGeo = await fetchStopsByIds(supabase, alightIds);
+      for (const [alightId, from] of alightGeo) {
+        // Un même arrêt de descente peut être atteint par plusieurs lignes
+        // origine / quais : on ne le sonde qu'une fois (sinon les doublons
+        // saturent le budget de sondage avant les vrais points d'échange).
+        if (seenAlight.has(alightId)) continue;
+        seenAlight.add(alightId);
+        candidates.push({ originStop, originLine, alightId, from });
+      }
+    }
+  }
+  if (!candidates.length) return null;
+
+  // On sonde en priorité les descentes les PLUS PROCHES de la destination : la
+  // correspondance utile est là où les deux réseaux se croisent, souvent loin
+  // de l'origine sur une longue ligne. Sans ce tri, le plafond de sondage
+  // s'épuisait près de l'origine (asymétrie selon le sens du trajet).
+  const destProxy =
+    destStops.map((d) => pointCoordinates(d.geom)).find((c): c is [number, number] => c != null) ?? null;
+  if (destProxy) {
+    candidates.sort(
+      (a, b) => haversineMeters(a.from.coords, destProxy) - haversineMeters(b.from.coords, destProxy),
+    );
+  }
+
+  let best: WalkingTransferMatch | null = null;
+
+  for (const { originStop, originLine, alightId, from } of candidates.slice(0, MAX_WALK_TRANSFER_PROBES)) {
+    // Arrêts voisins (tous réseaux) de ce point de descente.
+    const { data: nearby } = await supabase.rpc("get_nearby_stops", {
+      p_lng: from.coords[0],
+      p_lat: from.coords[1],
+      p_radius_m: WALK_TRANSFER_RADIUS_M,
+      p_audience: "passenger",
+    });
+    for (const cand of (nearby as NearbyStop[]) ?? []) {
+      if (cand.stop_id === alightId || cand.stop_id === originStop.stop_id) continue;
+      const candLines = await getServingLinesCached(cand.stop_id);
+      for (const cl of candLines) {
+        if (cl.route_id === originLine.route_id) continue; // pas la même ligne
+        const destEntry =
+          destByRouteDir.get(`${cl.route_id}:${cl.direction_id}`) ??
+          destByRouteDir.get(`${cl.route_id}:0`) ??
+          destByRouteDir.get(`${cl.route_id}:1`);
+        if (!destEntry) continue;
+        if (
+          cl.stop_sequence != null &&
+          destEntry.destLine.stop_sequence != null &&
+          cl.stop_sequence >= destEntry.destLine.stop_sequence
+        ) {
+          continue; // mauvais sens : on monterait après la descente
+        }
+        const candCoords = pointCoordinates(cand.geom);
+        if (!candCoords) continue;
+        const walkMeters = haversineMeters(from.coords, candCoords);
+        const score = originStop.distance_m + destEntry.destStop.distance_m + walkMeters;
+        if (!best || score < best.score) {
+          best = {
+            originStop,
+            destStop: destEntry.destStop,
+            originLine,
+            fromStop: from,
+            toStop: { name: cand.stop_name, coords: candCoords },
+            departLine: cl,
+            destLine: destEntry.destLine,
+            walkMeters,
+            score,
+          };
+        }
+      }
+    }
+  }
+
+  return best;
+}
+
 function buildWalkStep(label: string, distance: number, duration: number): TransitStep {
   return { icon: "🚶", label, detail: distanceLabel(distance), duration: durationLabel(duration) };
 }
@@ -334,6 +493,64 @@ function buildRideStep(
 
 type WalkSegment = { coordinates: [number, number][]; distance: number; duration: number };
 type WalkFetcher = (from: [number, number], to: [number, number]) => Promise<WalkSegment>;
+
+/** Construit l'itinéraire d'une correspondance à pied inter-réseaux :
+ *  marche → ligne A → marche (changement d'arrêt) → ligne B → marche. */
+async function buildWalkingTransferResult(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  from: [number, number],
+  to: [number, number],
+  w: WalkingTransferMatch,
+  fetchWalkSegment: WalkFetcher,
+): Promise<TransitResult> {
+  const originCoords = pointCoordinates(w.originStop.geom);
+  const destCoords = pointCoordinates(w.destStop.geom);
+  if (!originCoords || !destCoords) throw new Error("Position des arrêts introuvable");
+
+  const [walk1, walkTransfer, walk2] = await Promise.all([
+    fetchWalkSegment(from, originCoords),
+    fetchWalkSegment(w.fromStop.coords, w.toStop.coords),
+    fetchWalkSegment(destCoords, to),
+  ]);
+
+  const [shapesA, shapesB] = await Promise.all([
+    loadShapesForRoute(supabase, w.originLine.route_id),
+    loadShapesForRoute(supabase, w.destLine.route_id),
+  ]);
+  const segA = routeAlongShapes(shapesA, originCoords, w.fromStop.coords) ?? [originCoords, w.fromStop.coords];
+  const segB = routeAlongShapes(shapesB, w.toStop.coords, destCoords) ?? [w.toStop.coords, destCoords];
+
+  const straightA = haversineMeters(originCoords, w.fromStop.coords);
+  const straightB = haversineMeters(w.toStop.coords, destCoords);
+  const inVehicleA = estimateInVehicleSeconds(w.originLine.time_from_terminus_seconds, null, straightA);
+  const inVehicleB = estimateInVehicleSeconds(
+    w.departLine.time_from_terminus_seconds,
+    w.destLine.time_from_terminus_seconds,
+    straightB,
+  );
+  const waitA = AVG_WAIT_SECONDS[w.originLine.route_type === 0 ? "tram" : "bus"];
+  const waitB = AVG_WAIT_SECONDS[w.destLine.route_type === 0 ? "tram" : "bus"];
+
+  return {
+    coordinates: [
+      ...walk1.coordinates,
+      ...segA,
+      ...walkTransfer.coordinates,
+      ...segB,
+      ...walk2.coordinates,
+    ],
+    distance: walk1.distance + straightA + walkTransfer.distance + straightB + walk2.distance,
+    duration:
+      walk1.duration + waitA + inVehicleA + walkTransfer.duration + waitB + inVehicleB + walk2.duration,
+    steps: [
+      buildWalkStep(`Marche jusqu'à l'arrêt ${w.originStop.stop_name}`, walk1.distance, walk1.duration),
+      buildRideStep(w.originLine, w.fromStop.name, waitA, inVehicleA),
+      buildWalkStep(`Correspondance à pied jusqu'à ${w.toStop.name}`, walkTransfer.distance, walkTransfer.duration),
+      buildRideStep(w.destLine, w.destStop.stop_name, waitB, inVehicleB),
+      buildWalkStep("Marche jusqu'à destination", walk2.distance, walk2.duration),
+    ],
+  };
+}
 
 /** Calcule un itinéraire marche + transport en commun réel (une ligne directe, ou une correspondance), à partir des arrêts et horaires GTFS en base. */
 export async function computeTransitRoute(
@@ -395,6 +612,16 @@ export async function computeTransitRoute(
   const transfer = await findTransferMatch(supabase, originStops, destStops, originLinesByStop, destLinesByStop);
 
   if (!transfer) {
+    const walking = await findWalkingTransferMatch(
+      supabase,
+      originStops,
+      destStops,
+      originLinesByStop,
+      destLinesByStop,
+    );
+    if (walking) {
+      return await buildWalkingTransferResult(supabase, from, to, walking, fetchWalkSegment);
+    }
     throw new Error(
       "Aucun trajet en transport en commun trouvé entre ces deux points, même avec une correspondance (essayez la voiture ou la marche)",
     );
