@@ -33,6 +33,25 @@ Migrations à exécuter **après** [`../schema.sql`](../schema.sql) et [`../seed
 | `032_feed_posts.sql` | Fil d'actualité communautaire (mur partagé) + bucket Storage `feed-media` |
 | `062_immersive_public_fleet.sql` | Positions de flotte anonymisées pour la carte immersive publique |
 | `063_line_editor_traces.sql` | Tracés de lignes publiés depuis l'éditeur de ligne (dashboard) → carte immersive |
+| `064_network_tenancy_self_service.sql` | Réseaux autonomes et isolation multi-tenant |
+| `065_driver_network_selection.sql` | Réseau actif des conducteurs |
+| `066_gtfs_routes_network_scope.sql` | Rattachement des lignes GTFS aux réseaux |
+| `067_theoretical_fleet.sql` | Flotte théorique compressée et RPC radar |
+| `068_production_security_hardening.sql` | Durcissement rôles/RPC, GPS et rétention |
+| `069_schedule_vehicle_position_purge.sql` | Active Supabase Cron et purge chaque heure les positions GPS de plus de 24 h |
+| `073_aleop_pdl_import.sql` | Importe les arrêts et lignes Aléop Pays de la Loire |
+| `074_transit_routing_performance.sql` | Index de performance du routage historique |
+| `075_timetable_journey_planner.sql` | Moteur horaire multi-alternatives, 0 à 2 correspondances, perturbations et PMR |
+| `20260708000000_pro_multi_profile_access.sql` | Profils cumulables + overrides de permissions (ex-`dashboard/supabase/migrations`) |
+| `20260708000001_admin_control_center.sql` | Ressources/rôles/audit Aule Studio (ex-`dashboard/supabase/migrations`) |
+| `20260708000002_admin_rls_platform_admin.sql` | Policies RLS d'écriture pour l'admin plateforme (ex-`dashboard/supabase/migrations`) |
+
+> **Traçabilité** : le projet live suit les migrations dans
+> `supabase_migrations.schema_migrations`. Toute nouvelle migration doit être
+> appliquée via `supabase migration up` **ou**, si elle est passée en SQL brut,
+> accompagnée d'un `INSERT INTO supabase_migrations.schema_migrations (version, name)`
+> dans la même session — sinon l'onglet Migrations du dashboard Supabase diverge
+> (déjà arrivé deux fois, audits du 06/07 et du 22/07/2026).
 
 ### Liste de référence des conducteurs (`driver_roster`)
 
@@ -108,8 +127,10 @@ Les modèles HTML en français sont versionnés dans [`../templates/`](../templa
 | `purge_old_user_locations()` | 15 min | RGPD passagers |
 | `aggregate_community_vehicles()` | 1 min | Flotte communautaire |
 | `refresh_live_fleet_positions()` | 30 s | Couche unifiée + fiabilité |
+| `purge_old_vehicle_positions(interval '24 hours')` | Chaque heure à :17 UTC | Purge des positions conducteurs précises |
 
-Configurer via **Database → Extensions → pg_cron** ou un Edge Function cron Supabase.
+La migration `069_schedule_vehicle_position_purge.sql` active `pg_cron` et
+crée automatiquement le job nommé `purge-vehicle-positions-hourly`.
 
 ## Coordonnées dépôts
 

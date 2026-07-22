@@ -68,7 +68,7 @@ function rlsSetupRequired(message: string) {
     {
       error: message,
       setupRequired:
-        "Applique les migrations dashboard/supabase/migrations/20260708_admin_control_center.sql et 20260708_admin_rls_platform_admin.sql dans Supabase (ou renseigne SUPABASE_SERVICE_ROLE_KEY dans .env.local).",
+        "Applique les migrations supabase/migrations/20260708000001_admin_control_center.sql et 20260708000002_admin_rls_platform_admin.sql dans Supabase (ou renseigne SUPABASE_SERVICE_ROLE_KEY dans .env.local).",
     },
     { status: 500 },
   );
