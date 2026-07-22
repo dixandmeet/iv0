@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "npm install --prefix dashboard && npm run build --prefix dashboard",
+    "build": "npm install --prefix dashboard && npm run build --prefix dashboard && ln -sfn dashboard/.next .next",
     "start": "npm run start --prefix dashboard",
     "dev": "npm run dev --prefix dashboard"
   },
