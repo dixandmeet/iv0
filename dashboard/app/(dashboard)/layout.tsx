@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { AccessProvider } from "@/components/access/access-provider";
 import { loadAccess } from "@/lib/access/server";
+import { loadNetworkContext } from "@/lib/network/server";
+import { NetworkProvider } from "@/components/network/network-provider";
 import type { StaffRole } from "@/lib/types";
 
 export default async function DashboardLayout({
@@ -30,12 +32,26 @@ export default async function DashboardLayout({
   // overrides, avec repli sur le pont `role` tant que la migration n'est pas
   // appliquée. Les permissions sont figées avant d'être passées au client.
   const { profiles, permissions } = await loadAccess(supabase, user.id, role);
+  const networkContext = await loadNetworkContext(supabase, user.id);
+
+  if (!networkContext) redirect("/onboarding");
+  if (networkContext.canManage && !networkContext.network.setupCompletedAt) {
+    redirect("/configuration/reseau");
+  }
+  const effectiveProfiles = networkContext.canManage && !profiles.includes("network_admin")
+    ? [...profiles, "network_admin" as const]
+    : profiles;
+  const effectivePermissions = networkContext.canManage && !permissions.includes("ops.network_manage")
+    ? [...permissions, "ops.network_manage" as const]
+    : permissions;
 
   return (
-    <AccessProvider profiles={profiles} permissions={permissions} surface="web">
-      <DashboardShell displayName={displayName} role={role}>
-        {children}
-      </DashboardShell>
-    </AccessProvider>
+    <NetworkProvider value={networkContext}>
+      <AccessProvider profiles={effectiveProfiles} permissions={effectivePermissions} surface="web">
+        <DashboardShell displayName={displayName} role={role} network={networkContext.network} canManageNetwork={networkContext.canManage}>
+          {children}
+        </DashboardShell>
+      </AccessProvider>
+    </NetworkProvider>
   );
 }

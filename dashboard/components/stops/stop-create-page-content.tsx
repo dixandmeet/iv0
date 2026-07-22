@@ -12,6 +12,7 @@ import { EMPTY_STOP_FORM, StopForm } from "@/components/stops/stop-form";
 import { StopDetailMap } from "@/components/stops/stop-detail-map";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/empty-state";
+import { useNetwork } from "@/components/network/network-provider";
 
 interface StopCreatePageContentProps {
   stationId: string;
@@ -19,6 +20,7 @@ interface StopCreatePageContentProps {
 
 export function StopCreatePageContent({ stationId }: StopCreatePageContentProps) {
   const router = useRouter();
+  const { canManage } = useNetwork();
   const { detail, loading, error, refresh } = useStationDetail(stationId);
   const { createStop, submitting, error: actionError } = useStopActions();
   const [form, setForm] = useState<StopFormPayload>(EMPTY_STOP_FORM);
@@ -40,8 +42,12 @@ export function StopCreatePageContent({ stationId }: StopCreatePageContentProps)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.code.trim()) return;
-    const id = await createStop(stationId, form);
-    router.push(`/stations/${stationId}/arrets/${id}`);
+    try {
+      const id = await createStop(stationId, form);
+      router.push(`/stations/${stationId}/arrets/${id}`);
+    } catch {
+      // Le hook expose l'erreur dans la bannière ; éviter une erreur runtime non interceptée.
+    }
   };
 
   const handleCancel = () => {
@@ -63,6 +69,20 @@ export function StopCreatePageContent({ stationId }: StopCreatePageContentProps)
           <h2>Station introuvable</h2>
           <Button asChild variant="outline">
             <Link href="/stations">Retour</Link>
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  if (!canManage) {
+    return (
+      <main className="dashboard-panel stops-page stops-edit-page">
+        <div className="stops-edit-empty stops-glass-card">
+          <h2>Accès en lecture seule</h2>
+          <p>Vous devez être administrateur du réseau pour ajouter un arrêt.</p>
+          <Button asChild variant="outline">
+            <Link href={`/stations?station=${stationId}`}>Retour aux arrêts</Link>
           </Button>
         </div>
       </main>

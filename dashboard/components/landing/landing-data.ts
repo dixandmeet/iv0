@@ -98,7 +98,7 @@ export const bentoFeatures: BentoFeature[] = [
     icon: "radio",
     title: "Suivi temps réel",
     description:
-      "Positions certifiées et communautaires agrégées pour une fiabilité maximale.",
+      "Positions opérateur et données disponibles selon le réseau pilote.",
     size: "lg",
   },
   {
@@ -154,15 +154,15 @@ export const bentoFeatures: BentoFeature[] = [
 export const communityHighlights = [
   {
     icon: "shield",
-    title: "GPS passif et anonyme",
+    title: "Activation progressive",
     description:
-      "Votre position est utilisée uniquement pour enrichir la carte réseau. Aucune identification personnelle.",
+      "Les contributions communautaires seront ouvertes réseau par réseau, après validation des règles de confidentialité.",
   },
   {
     icon: "clock",
-    title: "Purge automatique",
+    title: "Conservation limitée",
     description:
-      "Les données de localisation sont effacées après 15 minutes. Rien n'est conservé au-delà.",
+      "Chaque catégorie de donnée est soumise à une durée documentée et à une purge adaptée à son usage.",
   },
   {
     icon: "lock",
@@ -172,9 +172,9 @@ export const communityHighlights = [
   },
   {
     icon: "users",
-    title: "Carte enrichie par tous",
+    title: "Bientôt selon les réseaux",
     description:
-      "Chaque usager contribue à une vision plus précise du réseau, au bénéfice de toute la communauté.",
+      "Les signalements voyageurs ne sont pas encore généralisés à l'ensemble des réseaux.",
   },
 ] as const;
 
@@ -239,20 +239,6 @@ export const proModules = [
       "Prise de service, planning, véhicule, navigation, messages et échanges.",
     icon: "steering-wheel",
   },
-  {
-    href: "/pro/vtc",
-    title: "Chauffeur VTC",
-    description:
-      "Courses, disponibilités, revenus, planning, statistiques et messagerie.",
-    icon: "settings",
-  },
-  {
-    href: "/pro/commercant",
-    title: "Commerçant",
-    description:
-      "Boutique, produits, commandes, promotions, horaires, livraisons, avis et employés.",
-    icon: "settings",
-  },
 ] as const;
 
 export const footerLinks = {
@@ -275,7 +261,3 @@ export const footerLinks = {
     { href: "https://instagram.com", label: "Instagram", icon: "instagram" },
   ],
 } as const;
-
-export const appStoreUrl = "https://apps.apple.com/app/aule";
-export const playStoreUrl =
-  "https://play.google.com/store/apps/details?id=fr.aule.app";

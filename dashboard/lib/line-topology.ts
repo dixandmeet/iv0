@@ -1,4 +1,9 @@
 import type { RouteTimelinePoint } from "@/lib/regulation-data";
+import type {
+  LineEditorState,
+  LineVoice,
+  RoutePoint,
+} from "@/lib/line-editor-types";
 
 /** Rôle d'un nœud dans la topologie de ligne. */
 export type TopologyNodeRole = "terminus" | "hub" | "stop";
@@ -10,6 +15,8 @@ export interface LineVariant {
   /** Identifiant stable (signature de séquence d'arrêts). */
   id: string;
   tripId: string;
+  /** Toutes les courses GTFS regroupées dans ce parcours, aller et retour inclus. */
+  tripIds?: string[];
   headsign: string;
   directionId: number;
   origin: string;
@@ -73,6 +80,19 @@ function sequenceKey(stopIds: string[]): string {
   return stopIds.join(">");
 }
 
+function bidirectionalSequenceKey(stopIds: string[]): string {
+  const forward = sequenceKey(stopIds);
+  const backward = sequenceKey([...stopIds].reverse());
+  return forward.localeCompare(backward) <= 0 ? forward : backward;
+}
+
+function physicalStopIds(trip: TripStopSequence): string[] {
+  return trip.stopIds.map((stopId, index) => {
+    const stationId = trip.stops[index]?.stationId?.trim();
+    return stationId ? `station:${stationId}` : stopId;
+  });
+}
+
 function isPrefixOf(shorter: string[], longer: string[]): boolean {
   if (shorter.length > longer.length) return false;
   return shorter.every((id, i) => id === longer[i]);
@@ -84,19 +104,86 @@ function isSuffixOf(shorter: string[], longer: string[]): boolean {
   return shorter.every((id, i) => id === longer[offset + i]);
 }
 
-function commonPrefixLength(a: string[], b: string[]): number {
-  const len = Math.min(a.length, b.length);
-  let i = 0;
-  while (i < len && a[i] === b[i]) i += 1;
-  return i;
+function isContiguousPartOf(shorter: string[], longer: string[]): boolean {
+  if (shorter.length > longer.length) return false;
+  const limit = longer.length - shorter.length;
+  for (let start = 0; start <= limit; start++) {
+    if (shorter.every((id, index) => id === longer[start + index])) return true;
+  }
+  return false;
+}
+
+interface CommonBlock {
+  variantStart: number;
+  mainStart: number;
+  length: number;
+}
+
+/** Plus long tronçon contigu partagé, même lorsqu'une ligne bifurque aux deux extrémités. */
+function longestCommonBlock(variant: string[], main: string[]): CommonBlock {
+  let best: CommonBlock = { variantStart: 0, mainStart: 0, length: 0 };
+
+  for (let variantStart = 0; variantStart < variant.length; variantStart++) {
+    for (let mainStart = 0; mainStart < main.length; mainStart++) {
+      let length = 0;
+      while (
+        variantStart + length < variant.length &&
+        mainStart + length < main.length &&
+        variant[variantStart + length] === main[mainStart + length]
+      ) {
+        length += 1;
+      }
+      if (length > best.length) {
+        best = { variantStart, mainStart, length };
+      }
+    }
+  }
+
+  return best;
+}
+
+function orientVariantToMain(
+  variant: LineVariant,
+  mainStopIds: string[],
+): LineVariant {
+  const forward = longestCommonBlock(variant.stopIds, mainStopIds);
+  const reversedStopIds = [...variant.stopIds].reverse();
+  const backward = longestCommonBlock(reversedStopIds, mainStopIds);
+  const shouldReverse =
+    backward.length > forward.length ||
+    (backward.length === forward.length &&
+      backward.length > 0 &&
+      backward.variantStart < forward.variantStart);
+
+  if (!shouldReverse) return variant;
+  return {
+    ...variant,
+    origin: variant.destination,
+    destination: variant.origin,
+    stopIds: reversedStopIds,
+    stops: [...variant.stops].reverse(),
+  };
 }
 
 function classifyVariant(
   variant: Omit<LineVariant, "kind">,
   mainStopIds: string[],
 ): VariantKind {
-  if (sequenceKey(variant.stopIds) === sequenceKey(mainStopIds)) return "full";
-  if (isPrefixOf(variant.stopIds, mainStopIds) || isSuffixOf(variant.stopIds, mainStopIds)) {
+  const reversedMain = [...mainStopIds].reverse();
+  if (
+    sequenceKey(variant.stopIds) === sequenceKey(mainStopIds) ||
+    sequenceKey(variant.stopIds) === sequenceKey(reversedMain)
+  ) {
+    return "full";
+  }
+  if (
+    isPrefixOf(variant.stopIds, mainStopIds) ||
+    isSuffixOf(variant.stopIds, mainStopIds) ||
+    isPrefixOf(variant.stopIds, reversedMain) ||
+    isSuffixOf(variant.stopIds, reversedMain) ||
+    isContiguousPartOf(variant.stopIds, mainStopIds) ||
+    isContiguousPartOf(variant.stopIds, reversedMain)
+  ) {
     return "partial";
   }
   return "branch";
@@ -115,8 +202,15 @@ export function buildVariantsFromTrips(trips: TripStopSequence[]): LineVariant[]
 
   for (const trip of trips) {
     if (trip.stopIds.length < 2) continue;
-    const key = sequenceKey(trip.stopIds);
-    if (bySequence.has(key)) continue;
+    const stopIds = physicalStopIds(trip);
+    const key = bidirectionalSequenceKey(stopIds);
+    const existing = bySequence.get(key);
+    if (existing) {
+      if (!existing.tripIds?.includes(trip.tripId)) {
+        existing.tripIds = [...(existing.tripIds ?? [existing.tripId]), trip.tripId];
+      }
+      continue;
+    }
 
     const origin = trip.stops[0]?.name ?? "—";
     const destination = trip.stops[trip.stops.length - 1]?.name ?? "—";
@@ -124,13 +218,14 @@ export function buildVariantsFromTrips(trips: TripStopSequence[]): LineVariant[]
     bySequence.set(key, {
       id: key,
       tripId: trip.tripId,
+      tripIds: [trip.tripId],
       headsign: trip.headsign || destination,
       directionId: trip.directionId,
       origin,
       destination,
       label: buildVariantLabel(origin, destination, trip.headsign),
       kind: "full",
-      stopIds: trip.stopIds,
+      stopIds,
       stops: trip.stops,
     });
   }
@@ -151,9 +246,17 @@ export function buildVariantsFromTrips(trips: TripStopSequence[]): LineVariant[]
 export function layoutLineTopology(variants: LineVariant[]): LineTopology | null {
   if (variants.length === 0) return null;
 
-  const main = variants.reduce((a, b) =>
+  const selectedMain = variants.reduce((a, b) =>
     a.stopIds.length >= b.stopIds.length ? a : b,
   );
+  const orientedVariants = variants.map((variant) =>
+    variant.id === selectedMain.id
+      ? variant
+      : orientVariantToMain(variant, selectedMain.stopIds),
+  );
+  const main =
+    orientedVariants.find((variant) => variant.id === selectedMain.id) ??
+    selectedMain;
 
   const nodeById = new Map<string, TopologyNode>();
   const edgeMap = new Map<string, TopologyEdge>();
@@ -228,22 +331,18 @@ export function layoutLineTopology(variants: LineVariant[]): LineTopology | null
   }
 
   // Variantes secondaires
-  for (const variant of variants) {
+  for (const variant of orientedVariants) {
     if (variant.id === main.id) continue;
 
-    const prefixLen = commonPrefixLength(variant.stopIds, main.stopIds);
-    const divergesFromMain =
-      variant.kind === "branch" ||
-      (prefixLen < variant.stopIds.length &&
-        prefixLen < main.stopIds.length &&
-        variant.stopIds[prefixLen] !== main.stopIds[prefixLen]);
+    const common = longestCommonBlock(variant.stopIds, main.stopIds);
+    const divergesFromMain = variant.kind === "branch";
 
     if (!divergesFromMain) {
       for (let i = 0; i < variant.stopIds.length; i++) {
         const stopId = variant.stopIds[i];
         const stop = variant.stops.find((s) => s.stopId === stopId) ?? variant.stops[i];
         if (!stop) continue;
-        ensureNode(stopId, stop, i, 0);
+        ensureNode(stopId, stop, common.mainStart + i, 0);
       }
       for (let i = 0; i < variant.stopIds.length - 1; i++) {
         addEdge(variant.stopIds[i], variant.stopIds[i + 1], variant.id);
@@ -253,41 +352,61 @@ export function layoutLineTopology(variants: LineVariant[]): LineTopology | null
 
     const lane = nextLane;
     nextLane += 1;
-    const divergeColumn = Math.max(prefixLen - 1, 0);
 
-    for (let i = prefixLen; i < variant.stopIds.length; i++) {
-      const stopId = variant.stopIds[i];
-      const stop = variant.stops.find((s) => s.stopId === stopId) ?? variant.stops[i];
-      if (!stop) continue;
-      const column = divergeColumn + (i - prefixLen + 1);
-      ensureNode(stopId, stop, column, lane);
+    if (common.length > 0) {
+      for (let i = 0; i < common.variantStart; i++) {
+        const stopId = variant.stopIds[i];
+        const stop = variant.stops.find((s) => s.stopId === stopId) ?? variant.stops[i];
+        if (!stop) continue;
+        const column = Math.max(0, common.mainStart - common.variantStart + i);
+        ensureNode(stopId, stop, column, lane);
+      }
+
+      const suffixStart = common.variantStart + common.length;
+      const mainSuffixColumn = common.mainStart + common.length;
+      for (let i = suffixStart; i < variant.stopIds.length; i++) {
+        const stopId = variant.stopIds[i];
+        const stop = variant.stops.find((s) => s.stopId === stopId) ?? variant.stops[i];
+        if (!stop) continue;
+        ensureNode(stopId, stop, mainSuffixColumn + (i - suffixStart), lane);
+      }
+
+      if (common.variantStart > 0) {
+        const junction = nodeById.get(variant.stopIds[common.variantStart]);
+        if (junction) junction.role = "hub";
+      }
+      if (suffixStart < variant.stopIds.length) {
+        const junction = nodeById.get(variant.stopIds[suffixStart - 1]);
+        if (junction) junction.role = "hub";
+      }
+    } else {
+      for (let i = 0; i < variant.stopIds.length; i++) {
+        const stopId = variant.stopIds[i];
+        const stop = variant.stops.find((s) => s.stopId === stopId) ?? variant.stops[i];
+        if (!stop) continue;
+        ensureNode(stopId, stop, i, lane);
+      }
     }
 
-    if (prefixLen > 0) {
-      const junctionId = variant.stopIds[prefixLen - 1];
-      const junction = nodeById.get(junctionId);
-      if (junction) junction.role = "hub";
-    }
-
-    for (let i = Math.max(prefixLen - 1, 0); i < variant.stopIds.length - 1; i++) {
+    for (let i = 0; i < variant.stopIds.length - 1; i++) {
       addEdge(variant.stopIds[i], variant.stopIds[i + 1], variant.id);
     }
   }
 
   // Terminus et rôles
   const terminusIds = new Set<string>();
-  for (const variant of variants) {
+  for (const variant of orientedVariants) {
     if (variant.stopIds.length === 0) continue;
     terminusIds.add(variant.stopIds[0]);
     terminusIds.add(variant.stopIds[variant.stopIds.length - 1]);
   }
 
-  for (const variant of variants) {
+  for (const variant of orientedVariants) {
     const first = variant.stopIds[0];
     const last = variant.stopIds[variant.stopIds.length - 1];
     const firstNode = nodeById.get(first);
     const lastNode = nodeById.get(last);
-    if (firstNode && !firstNode.terminusFor.includes(variant.destination)) {
+    if (firstNode && !firstNode.terminusFor.includes(variant.origin)) {
       firstNode.terminusFor.push(variant.origin);
     }
     if (lastNode && !lastNode.terminusFor.includes(variant.destination)) {
@@ -301,7 +420,7 @@ export function layoutLineTopology(variants: LineVariant[]): LineTopology | null
     }
   }
 
-  const allVariantIds = variants.map((v) => v.id);
+  const allVariantIds = orientedVariants.map((v) => v.id);
   for (const edge of edgeMap.values()) {
     edge.isCommon = allVariantIds.every((id) => edge.variantIds.includes(id));
   }
@@ -314,19 +433,19 @@ export function layoutLineTopology(variants: LineVariant[]): LineTopology | null
   const laneCount = nodes.reduce((max, n) => Math.max(max, n.lane + 1), 0);
 
   const uniqueTermini = new Set<string>();
-  for (const v of variants) {
+  for (const v of orientedVariants) {
     uniqueTermini.add(v.origin);
     uniqueTermini.add(v.destination);
   }
 
-  const hasBranch = variants.some((v) => v.kind === "branch");
-  const hasMultipleVariants = variants.length > 1;
+  const hasBranch = orientedVariants.some((v) => v.kind === "branch");
+  const hasMultipleVariants = orientedVariants.length > 1;
   const isComplex = hasBranch || (hasMultipleVariants && uniqueTermini.size > 2);
 
   return {
     nodes,
     edges: [...edgeMap.values()],
-    variants,
+    variants: orientedVariants,
     mainVariantId: main.id,
     columnCount,
     laneCount,
@@ -340,12 +459,97 @@ export function buildLineTopologyFromTrips(trips: TripStopSequence[]): LineTopol
   return layoutLineTopology(variants);
 }
 
+function normalizedEditorStopId(point: RoutePoint): string {
+  const name = point.stop?.name
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (name) return `editor-name:${name}`;
+
+  const code = point.stop?.code.trim().toLocaleUpperCase("fr");
+  return code ? `editor-code:${code}` : `editor-point:${point.id}`;
+}
+
+function editorStops(points: RoutePoint[]): RouteTimelinePoint[] {
+  return points
+    .filter((point) => point.type !== "passage" && point.stop)
+    .map((point, index) => {
+      return {
+        stopId: normalizedEditorStopId(point),
+        name: point.stop?.name.trim() || `Arrêt ${index + 1}`,
+        coordinates: [...point.coordinates] as [number, number],
+        theoreticalTime: "—",
+      };
+    });
+}
+
+function editorVoiceSequences(
+  state: LineEditorState,
+  voice: LineVoice,
+): TripStopSequence[] {
+  const trunk = voice === "aller" ? state.pointsAller : state.pointsRetour;
+  const branches = voice === "aller" ? state.branchesAller : state.branchesRetour;
+  const originLegs = voice === "aller" ? state.originLegsAller : state.originLegsRetour;
+  const candidates: Array<{ id: string; points: RoutePoint[] }> = [
+    { id: "trunk", points: trunk },
+  ];
+
+  for (const branch of branches) {
+    const forkIndex = trunk.findIndex((point) => point.id === branch.forkPointId);
+    if (forkIndex < 0) continue;
+    candidates.push({
+      id: `branch-${branch.id}`,
+      points: [...trunk.slice(0, forkIndex + 1), ...branch.points],
+    });
+  }
+
+  for (const leg of originLegs) {
+    const mergeIndex = trunk.findIndex((point) => point.id === leg.mergePointId);
+    if (mergeIndex < 0) continue;
+    candidates.push({
+      id: `origin-${leg.id}`,
+      points: [...leg.points, ...trunk.slice(mergeIndex)],
+    });
+  }
+
+  return candidates.flatMap((candidate) => {
+    const stops = editorStops(candidate.points);
+    if (stops.length < 2) return [];
+    return [{
+      tripId: `editor-${voice}-${candidate.id}`,
+      headsign: stops[stops.length - 1].name,
+      directionId: voice === "aller" ? 0 : 1,
+      shapeId: null,
+      stopIds: stops.map((stop) => stop.stopId),
+      stops,
+    }];
+  });
+}
+
+/** Construit le plan opérationnel depuis la topologie explicitement enregistrée dans l’éditeur. */
+export function buildLineTopologyFromEditorState(
+  state: LineEditorState,
+): LineTopology | null {
+  return buildLineTopologyFromTrips([
+    ...editorVoiceSequences(state, "aller"),
+    ...editorVoiceSequences(state, "retour"),
+  ]);
+}
+
 export function variantForTripId(
   topology: LineTopology,
   tripId: string | null | undefined,
 ): LineVariant | null {
   if (!tripId) return null;
-  return topology.variants.find((v) => v.tripId === tripId) ?? null;
+  return (
+    topology.variants.find(
+      (variant) =>
+        variant.tripId === tripId || variant.tripIds?.includes(tripId),
+    ) ?? null
+  );
 }
 
 export function resolveActiveVariant(
@@ -376,6 +580,26 @@ export function stopsForVariant(variant: LineVariant): RouteTimelinePoint[] {
 
 export function topologyMinWidth(columnCount: number, stopColumnPx = 72): number {
   return 72 + columnCount * stopColumnPx;
+}
+
+/**
+ * Réduit uniformément les colonnes pour que toute la topologie tienne dans la
+ * largeur disponible. La largeur préférée est conservée sur les lignes courtes.
+ */
+export function fitTopologyColumnWidth(
+  columnCount: number,
+  availableWidth: number,
+  preferredWidth = 72,
+  leadingColumnWidth = 72,
+): number {
+  if (columnCount <= 0 || availableWidth <= leadingColumnWidth) {
+    return preferredWidth;
+  }
+
+  return Math.min(
+    preferredWidth,
+    Math.max(1, (availableWidth - leadingColumnWidth) / columnCount),
+  );
 }
 
 /** Position d'un véhicule sur le plan (colonne + voie + % le long du segment). */

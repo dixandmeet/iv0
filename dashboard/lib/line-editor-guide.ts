@@ -113,7 +113,7 @@ export const LINE_EDITOR_GUIDE_SECTIONS: LineEditorGuideSection[] = [
     ].join("\n"),
     bullets: [
       "Créer un hub — sélectionnez un arrêt du tronc et changez son type en « Hub / correspondance » dans le panneau latéral.",
-      "Migration automatique — si des arrêts précèdent déjà le hub sur le tronc, l'éditeur les transforme en départs convergents distincts (ex. Beaujoire et Babinière avant Haluchère).",
+      "Le changement de type conserve le parcours — les arrêts restent sur le tronc, dans leur ordre actuel. Les départs convergents se créent ensuite explicitement avec les actions du hub.",
       "Actions disponibles sur un hub — ajouter un point de départ convergent, ajouter une branche sortante, consulter la liste des variantes rattachées.",
       "Le hub reste un arrêt à part entière : nom, code, accessibilité, correspondances voyageur.",
     ],

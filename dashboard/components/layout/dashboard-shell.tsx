@@ -7,18 +7,23 @@ import { DashboardNav } from "@/components/layout/dashboard-nav";
 import { ProfileSwitcher } from "@/components/access/profile-switcher";
 import { DashboardUserCard } from "@/components/layout/dashboard-user-card";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import type { NetworkSummary } from "@/lib/network/types";
 
 const STORAGE_KEY = "dashboard-sidebar-collapsed";
 
 interface DashboardShellProps {
   displayName: string;
   role: string;
+  network: NetworkSummary;
+  canManageNetwork: boolean;
   children: React.ReactNode;
 }
 
 export function DashboardShell({
   displayName,
   role,
+  network,
+  canManageNetwork,
   children,
 }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -42,7 +47,7 @@ export function DashboardShell({
     >
       <aside className="dashboard-sidebar">
         <div className="dashboard-sidebar-header">
-          <DashboardLogo collapsed={collapsed} />
+          <DashboardLogo collapsed={collapsed} network={network} canManage={canManageNetwork} />
           <button
             type="button"
             className="dashboard-sidebar-toggle"

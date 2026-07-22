@@ -7,33 +7,22 @@ import {
   ArrowLeft,
   BadgeCheck,
   Bus,
-  Car,
   Check,
-  Coffee,
   Eye,
   EyeOff,
   Loader2,
   Lock,
   MapPin,
-  MoreHorizontal,
-  Network,
-  Pill,
+  Plus,
   QrCode,
   Radio,
-  Route,
   Search,
   ShieldCheck,
-  ShoppingCart,
   SlidersHorizontal,
-  Smartphone,
-  Store,
   Ticket,
   TramFront,
   User,
-  UtensilsCrossed,
-  Warehouse,
   Waypoints,
-  Wheat,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { StaffRole } from "@/lib/types";
@@ -42,13 +31,13 @@ import styles from "./onboarding-wizard.module.css";
 const STORAGE_KEY = "aulepro-onboarding-v1";
 const ACCENT = "#33BFA3";
 
-type ProfileKey = "conducteur" | "controleur" | "vtc" | "commercant" | "agent";
+type ProfileKey = "conducteur" | "controleur" | "regulateur" | "exploitation" | "maitrise";
 
-type ChoiceStep = "profile" | "genre" | "mode" | "habilitation" | "fonction" | "typeCommerce";
-type ListStep = "reseau" | "zone";
-type Step = "welcome" | ChoiceStep | ListStep | "etabInfo" | "account" | "confirmation" | "download";
+type ChoiceStep = "profile" | "mode" | "habilitation";
+type ListStep = "reseau";
+type Step = "welcome" | ChoiceStep | ListStep | "identity" | "account" | "confirmation";
 
-type DataField = "reseau" | "genre" | "mode" | "habilitation" | "fonction" | "zone" | "typeCommerce";
+type DataField = "reseau" | "mode" | "habilitation" | "fonction";
 
 type ChoiceItem = {
   key: string;
@@ -64,17 +53,11 @@ type ListItem = {
 };
 
 const PROFILES: ChoiceItem[] = [
-  { key: "conducteur", label: "Conducteur", desc: "Conduite de bus ou de tramway.", icon: <Bus size={22} /> },
-  { key: "controleur", label: "Contrôleur", desc: "Contrôle des titres et accompagnement des voyageurs.", icon: <Ticket size={22} /> },
-  { key: "vtc", label: "Chauffeur VTC", desc: "Professionnel du transport individuel.", icon: <Car size={22} /> },
-  { key: "commercant", label: "Commerçant", desc: "Professionnel partenaire présent sur Aule.", icon: <Store size={22} /> },
-  { key: "agent", label: "Agent de maîtrise / Exploitation", desc: "Encadrement, régulation ou exploitation du réseau.", icon: <BadgeCheck size={22} /> },
-];
-
-const GENRES: ChoiceItem[] = [
-  { key: "homme", label: "Homme", icon: <User size={22} /> },
-  { key: "femme", label: "Femme", icon: <User size={22} /> },
-  { key: "autre", label: "Autre / Ne se prononce pas", icon: <User size={22} /> },
+  { key: "conducteur", label: "Conducteur", desc: "Conduite d'un bus ou d'un tramway du réseau.", icon: <Bus size={22} /> },
+  { key: "controleur", label: "Contrôleur", desc: "Contrôle des titres et intervention sur le réseau.", icon: <Ticket size={22} /> },
+  { key: "regulateur", label: "Régulateur", desc: "Régulation du trafic en temps réel.", icon: <Radio size={22} /> },
+  { key: "exploitation", label: "Agent d'exploitation", desc: "Exploitation quotidienne du réseau.", icon: <SlidersHorizontal size={22} /> },
+  { key: "maitrise", label: "Agent de maîtrise", desc: "Encadrement des équipes terrain.", icon: <BadgeCheck size={22} /> },
 ];
 
 const MODES: ChoiceItem[] = [
@@ -88,67 +71,46 @@ const HABILITATIONS: ChoiceItem[] = [
   { key: "intervention", label: "Contrôle + Intervention", desc: "Contrôle et intervention sur le réseau.", icon: <ShieldCheck size={22} /> },
 ];
 
-const FONCTIONS: ChoiceItem[] = [
-  { key: "regulateur", label: "Régulateur", desc: "Régulation du trafic en temps réel.", icon: <Radio size={22} /> },
-  { key: "exploitation", label: "Agent d'exploitation", desc: "Exploitation quotidienne du réseau.", icon: <SlidersHorizontal size={22} /> },
-  { key: "maitrise", label: "Agent de maîtrise", desc: "Encadrement des équipes terrain.", icon: <BadgeCheck size={22} /> },
-  { key: "depot", label: "Responsable de dépôt", desc: "Gestion d'un dépôt.", icon: <Warehouse size={22} /> },
-  { key: "ligne", label: "Responsable de ligne", desc: "Supervision d'une ou plusieurs lignes.", icon: <Route size={22} /> },
-  { key: "autre", label: "Autre fonction", desc: "Une autre fonction d'encadrement.", icon: <MoreHorizontal size={22} /> },
-];
-
-const COMMERCES: ChoiceItem[] = [
-  { key: "restaurant", label: "Restaurant", desc: "Restauration sur place.", icon: <UtensilsCrossed size={22} /> },
-  { key: "cafe", label: "Café", desc: "Café, bar, salon de thé.", icon: <Coffee size={22} /> },
-  { key: "boulangerie", label: "Boulangerie", desc: "Boulangerie, pâtisserie.", icon: <Wheat size={22} /> },
-  { key: "supermarche", label: "Supermarché", desc: "Alimentation générale.", icon: <ShoppingCart size={22} /> },
-  { key: "pharmacie", label: "Pharmacie", desc: "Officine, parapharmacie.", icon: <Pill size={22} /> },
-  { key: "autre", label: "Autre commerce", desc: "Un autre type d'établissement.", icon: <Store size={22} /> },
-];
-
 const RESEAUX: ListItem[] = [{ key: "naolib", label: "Naolib", desc: "Nantes Métropole" }];
 
-const ZONES: ListItem[] = [
-  { key: "nantes", label: "Nantes", desc: "Loire-Atlantique" },
-  { key: "paris", label: "Paris", desc: "Île-de-France" },
-  { key: "lyon", label: "Lyon", desc: "Auvergne-Rhône-Alpes" },
-  { key: "marseille", label: "Marseille", desc: "Provence-Alpes-Côte d'Azur" },
-  { key: "bordeaux", label: "Bordeaux", desc: "Nouvelle-Aquitaine" },
-  { key: "toulouse", label: "Toulouse", desc: "Occitanie" },
-  { key: "lille", label: "Lille", desc: "Hauts-de-France" },
-  { key: "rennes", label: "Rennes", desc: "Bretagne" },
-  { key: "strasbourg", label: "Strasbourg", desc: "Grand Est" },
-  { key: "nice", label: "Nice", desc: "Provence-Alpes-Côte d'Azur" },
-];
-
 const CHOICE_CONFIG: Record<ChoiceStep, { title: string; subtitle: string; field: DataField | "profile"; items: ChoiceItem[] }> = {
-  profile: { title: "Qui êtes-vous ?", subtitle: "Sélectionnez le profil qui correspond à votre activité.", field: "profile", items: PROFILES },
-  genre: { title: "Comment vous identifiez-vous ?", subtitle: "Cette information reste confidentielle et sert à personnaliser Aule.", field: "genre", items: GENRES },
+  profile: { title: "Quel est votre métier ?", subtitle: "L'inscription Aule Pro est réservée aux équipes opérationnelles du réseau.", field: "profile", items: PROFILES },
   mode: { title: "Quels véhicules conduisez-vous ?", subtitle: "Vous pourrez le modifier à tout moment.", field: "mode", items: MODES },
   habilitation: { title: "Quelles sont vos habilitations ?", subtitle: "Sélectionnez votre niveau d'intervention.", field: "habilitation", items: HABILITATIONS },
-  fonction: { title: "Quelle est votre fonction ?", subtitle: "Sélectionnez votre rôle sur le réseau.", field: "fonction", items: FONCTIONS },
-  typeCommerce: { title: "Quel type de commerce ?", subtitle: "Choisissez la catégorie la plus proche.", field: "typeCommerce", items: COMMERCES },
 };
 
 const LIST_CONFIG: Record<ListStep, { title: string; subtitle: string; field: DataField; items: ListItem[]; placeholder: string }> = {
-  reseau: { title: "À quel réseau appartenez-vous ?", subtitle: "Recherchez votre réseau de transport.", field: "reseau", items: RESEAUX, placeholder: "Rechercher un réseau..." },
-  zone: { title: "Votre zone d'activité principale", subtitle: "Où exercez-vous le plus souvent ?", field: "zone", items: ZONES, placeholder: "Rechercher une ville..." },
+  reseau: { title: "Votre réseau de transport", subtitle: "Sélectionnez le réseau auquel vous êtes rattaché.", field: "reseau", items: RESEAUX, placeholder: "Rechercher un réseau..." },
 };
 
 const PROFILE_FLOW: Record<ProfileKey, Step[]> = {
-  conducteur: ["reseau", "genre", "mode"],
-  controleur: ["reseau", "genre", "habilitation"],
-  agent: ["reseau", "genre", "fonction"],
-  vtc: ["genre", "zone"],
-  commercant: ["typeCommerce", "etabInfo"],
+  conducteur: ["reseau", "identity", "mode"],
+  controleur: ["reseau", "identity", "habilitation"],
+  regulateur: ["reseau", "identity"],
+  exploitation: ["reseau", "identity"],
+  maitrise: ["reseau", "identity"],
 };
 
 function flowFor(profile: ProfileKey | ""): Step[] {
-  if (profile === "conducteur" || profile === "controleur" || profile === "vtc") {
-    return ["welcome", "profile", "download"];
-  }
   const cond = profile ? PROFILE_FLOW[profile] : [];
   return ["welcome", "profile", ...cond, "account", "confirmation"];
+}
+
+function isProfileKey(value: unknown): value is ProfileKey {
+  return value === "conducteur" || value === "controleur" || value === "regulateur" || value === "exploitation" || value === "maitrise";
+}
+
+function restoreProfile(saved: Record<string, unknown>): ProfileKey | "" {
+  if (isProfileKey(saved.profile)) return saved.profile;
+  // Migration des brouillons v2 : l'ancien profil générique `agent`
+  // demandait sa spécialité dans une quatrième étape désormais supprimée.
+  if (saved.profile === "agent" && saved.data && typeof saved.data === "object") {
+    const fonction = (saved.data as Partial<DataState>).fonction;
+    if (fonction === "regulateur" || fonction === "exploitation" || fonction === "maitrise") {
+      return fonction;
+    }
+  }
+  return "";
 }
 
 function labelOf(items: { key: string; label: string }[], key: string) {
@@ -156,38 +118,31 @@ function labelOf(items: { key: string; label: string }[], key: string) {
 }
 
 // Rôle attribué à l'inscription (lu par le trigger handle_new_auth_user).
-// Seuls msr_supervisor / regulator / admin ont accès au dashboard web ; les
-// autres profils (conducteur, contrôleur, VTC, commerçant) utilisent l'app
-// mobile. On n'attribue jamais "admin" automatiquement.
-function roleForOnboarding(profile: ProfileKey | "", fonction: string): StaffRole {
+// On n'attribue jamais "admin" automatiquement.
+function roleForOnboarding(profile: ProfileKey | ""): StaffRole {
   switch (profile) {
     case "conducteur":
-    case "vtc":
       return "driver";
     case "controleur":
       return "msr_agent";
-    case "agent":
-      switch (fonction) {
-        case "maitrise":
-        case "depot":
-        case "ligne":
-          return "msr_supervisor";
-        case "regulateur":
-        case "exploitation":
-        default:
-          return "regulator";
-      }
-    case "commercant":
+    case "maitrise":
+      return "msr_supervisor";
+    case "regulateur":
+    case "exploitation":
+      return "regulator";
     default:
       return "passenger";
   }
 }
 
 type DataState = Record<DataField, string>;
-const emptyData: DataState = { reseau: "", genre: "", mode: "", habilitation: "", fonction: "", zone: "", typeCommerce: "" };
+const emptyData: DataState = { reseau: "", mode: "", habilitation: "", fonction: "" };
 
-type EtabState = { nom: string; adresse: string; tel: string; site: string };
-const emptyEtab: EtabState = { nom: "", adresse: "", tel: "", site: "" };
+type IdentityState = { fullName: string; employeeId: string };
+const emptyIdentity: IdentityState = { fullName: "", employeeId: "" };
+
+type CustomNetworkState = { name: string; operator: string; territory: string };
+const emptyCustomNetwork: CustomNetworkState = { name: "", operator: "", territory: "" };
 
 type AccountState = { email: string; password: string; confirm: string; terms: boolean };
 const emptyAccount: AccountState = { email: "", password: "", confirm: "", terms: false };
@@ -213,24 +168,60 @@ export function OnboardingWizard() {
   const [step, setStep] = useState<Step>("welcome");
   const [profile, setProfile] = useState<ProfileKey | "">("");
   const [data, setData] = useState<DataState>(emptyData);
-  const [etab, setEtab] = useState<EtabState>(emptyEtab);
+  const [identity, setIdentity] = useState<IdentityState>(emptyIdentity);
+  const [customNetwork, setCustomNetwork] = useState<CustomNetworkState>(emptyCustomNetwork);
+  const [addingNetwork, setAddingNetwork] = useState(false);
   const [account, setAccount] = useState<AccountState>(emptyAccount);
   const [showPw, setShowPw] = useState(false);
   const [search, setSearch] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resendingConfirmation, setResendingConfirmation] = useState(false);
+  const [confirmationNotice, setConfirmationNotice] = useState<string | null>(null);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw);
-        if (saved.step) setStep(saved.step);
-        if (saved.profile) setProfile(saved.profile);
-        if (saved.data) setData((d) => ({ ...d, ...saved.data }));
-        if (saved.etab) setEtab((e) => ({ ...e, ...saved.etab }));
-        if (saved.account) setAccount((a) => ({ ...a, ...saved.account, password: "", confirm: "" }));
+        const saved = JSON.parse(raw) as Record<string, unknown>;
+        const savedProfile = restoreProfile(saved);
+        const savedFlow = flowFor(savedProfile);
+        const savedStep =
+          typeof saved.step === "string" && savedFlow.includes(saved.step as Step)
+            ? (saved.step as Step)
+            : savedProfile
+              ? "profile"
+              : saved.profile === "agent"
+                ? "profile"
+                : "welcome";
+        // Hydratation ponctuelle d'un brouillon stocké localement.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setStep(savedStep);
+        setProfile(savedProfile);
+        if (saved.data && typeof saved.data === "object") {
+          setData((current) => ({ ...current, ...(saved.data as Partial<DataState>) }));
+        }
+        if (saved.identity && typeof saved.identity === "object") {
+          setIdentity((current) => ({ ...current, ...(saved.identity as Partial<IdentityState>) }));
+        }
+        if (saved.customNetwork && typeof saved.customNetwork === "object") {
+          setCustomNetwork((current) => ({
+            ...current,
+            ...(saved.customNetwork as Partial<CustomNetworkState>),
+          }));
+        }
+        if (saved.addingNetwork === true && (saved.data as Partial<DataState> | undefined)?.reseau === "custom") {
+          setAddingNetwork(true);
+        }
+        if (saved.account && typeof saved.account === "object") {
+          setAccount((current) => ({
+            ...current,
+            ...(saved.account as Partial<AccountState>),
+            password: "",
+            confirm: "",
+          }));
+        }
       }
     } catch {
       // ignore corrupted storage
@@ -247,14 +238,16 @@ export function OnboardingWizard() {
           step,
           profile,
           data,
-          etab,
+          identity,
+          customNetwork,
+          addingNetwork,
           account: { email: account.email, terms: account.terms },
         }),
       );
     } catch {
       // ignore storage failures (private mode, quota, ...)
     }
-  }, [hydrated, step, profile, data, etab, account.email, account.terms]);
+  }, [hydrated, step, profile, data, identity, customNetwork, addingNetwork, account.email, account.terms]);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
@@ -264,9 +257,13 @@ export function OnboardingWizard() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  const flow = useMemo(() => flowFor(profile), [profile]);
+  // Avant la sélection, le parcours conducteur sert de longueur de référence.
+  // Les métiers d'exploitation passent ensuite à quatre étapes, la fonction
+  // étant désormais choisie directement dans la première étape.
+  const flow = useMemo(() => flowFor(profile || "conducteur"), [profile]);
   const idx = flow.indexOf(step);
-  const total = flow.length;
+  const actionSteps: Step[] = flow.filter((item) => item !== "welcome" && item !== "confirmation");
+  const actionIndex = Math.max(0, actionSteps.indexOf(step));
 
   const goNext = useCallback(() => {
     const i = flow.indexOf(step);
@@ -278,30 +275,53 @@ export function OnboardingWizard() {
   }, [flow, step]);
 
   const goBack = useCallback(() => {
+    if (step === "reseau" && addingNetwork) {
+      setAddingNetwork(false);
+      setData((current) => ({ ...current, reseau: "" }));
+      setError(null);
+      return;
+    }
     const i = flow.indexOf(step);
     if (i > 0) {
       setStep(flow[i - 1]);
       setSearch("");
       setError(null);
     }
-  }, [flow, step]);
-
-  const restart = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // ignore
-    }
-    setStep("welcome");
-    setProfile("");
-    setData(emptyData);
-    setEtab(emptyEtab);
-    setAccount(emptyAccount);
-    setSearch("");
-    setError(null);
-  }, []);
+  }, [addingNetwork, flow, step]);
 
   async function submitAccount() {
+    if (!isProfileKey(profile)) {
+      setStep("profile");
+      setError("Sélectionnez un métier autorisé pour créer un compte Aule Pro.");
+      return;
+    }
+    const requiredSteps = PROFILE_FLOW[profile];
+    const professionalDataComplete = requiredSteps.every((requiredStep) => {
+      if (requiredStep === "identity") {
+        return Boolean(identity.fullName.trim() && identity.employeeId.trim());
+      }
+      if (requiredStep in CHOICE_CONFIG) {
+        const field = CHOICE_CONFIG[requiredStep as ChoiceStep].field;
+        return field === "profile" ? Boolean(profile) : Boolean(data[field]);
+      }
+      if (requiredStep in LIST_CONFIG) {
+        const selectedNetwork = data[LIST_CONFIG[requiredStep as ListStep].field];
+        if (selectedNetwork === "custom") {
+          return Boolean(
+            customNetwork.name.trim() &&
+              customNetwork.operator.trim() &&
+              customNetwork.territory.trim(),
+          );
+        }
+        return Boolean(selectedNetwork);
+      }
+      return true;
+    });
+    if (!professionalDataComplete) {
+      setError("Certaines informations professionnelles sont manquantes.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -311,13 +331,27 @@ export function OnboardingWizard() {
       password: account.password,
       options: {
         data: {
-          role: roleForOnboarding(profile, data.fonction),
+          role: roleForOnboarding(profile),
+          display_name: identity.fullName.trim(),
           requested_access: "pro",
           onboarding_profile: profile,
           onboarding_data: data,
-          onboarding_etablissement: profile === "commercant" ? etab : undefined,
+          onboarding_identity: {
+            full_name: identity.fullName.trim(),
+            employee_id: identity.employeeId.trim(),
+          },
+          onboarding_network_request:
+            data.reseau === "custom"
+              ? {
+                  name: customNetwork.name.trim(),
+                  operator: customNetwork.operator.trim(),
+                  territory: customNetwork.territory.trim(),
+                  status: "active",
+                }
+              : undefined,
+          onboarding_version: 2,
         },
-        emailRedirectTo: `${window.location.origin}/login?mode=pro`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?mode=pro`,
       },
     });
 
@@ -331,7 +365,38 @@ export function OnboardingWizard() {
     goNext();
   }
 
-  const etabOk = etab.nom.trim() !== "" && etab.adresse.trim() !== "" && etab.tel.trim() !== "";
+  async function resendConfirmation() {
+    if (resendingConfirmation || !account.email.trim()) return;
+
+    setResendingConfirmation(true);
+    setConfirmationNotice(null);
+
+    const supabase = createClient();
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email: account.email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?mode=pro`,
+      },
+    });
+
+    setResendingConfirmation(false);
+
+    if (resendError?.status === 429 || resendError?.code === "over_email_send_rate_limit") {
+      setConfirmationNotice("Trop de demandes ont été envoyées. Patientez quelques minutes avant de réessayer.");
+      return;
+    }
+
+    setConfirmationNotice(
+      "Si cette adresse attend encore une confirmation, un nouvel e-mail vient d’être envoyé. Si le compte était déjà confirmé, connectez-vous directement.",
+    );
+  }
+
+  const identityOk = identity.fullName.trim().length >= 3 && identity.employeeId.trim().length >= 2;
+  const customNetworkOk =
+    customNetwork.name.trim().length >= 2 &&
+    customNetwork.operator.trim().length >= 2 &&
+    customNetwork.territory.trim().length >= 2;
   const score = passwordScore(account.password);
   const emailOk = /.+@.+\..+/.test(account.email);
   const confirmMismatch = account.confirm.length > 0 && account.confirm !== account.password;
@@ -340,10 +405,10 @@ export function OnboardingWizard() {
   const showWelcome = step === "welcome";
   const showChoice = step in CHOICE_CONFIG;
   const showList = step in LIST_CONFIG;
-  const showForm = step === "etabInfo";
+  const showIdentity = step === "identity";
   const showAccount = step === "account";
   const showDone = step === "confirmation";
-  const showDownload = step === "download";
+  const shouldOfferMobile = profile === "conducteur" || profile === "controleur";
 
   let canContinue = true;
   let continueLabel = "Continuer";
@@ -352,9 +417,10 @@ export function OnboardingWizard() {
     const current = cfg.field === "profile" ? profile : data[cfg.field as DataField];
     canContinue = Boolean(current);
   } else if (showList) {
-    canContinue = Boolean(data[LIST_CONFIG[step as ListStep].field]);
-  } else if (showForm) {
-    canContinue = etabOk;
+    const selected = data[LIST_CONFIG[step as ListStep].field];
+    canContinue = selected === "custom" ? customNetworkOk : Boolean(selected);
+  } else if (showIdentity) {
+    canContinue = identityOk;
   } else if (showAccount) {
     canContinue = accountOk;
     continueLabel = "Créer mon compte";
@@ -366,16 +432,18 @@ export function OnboardingWizard() {
     // Ne montrer que les champs de la branche du profil courant, dans l'ordre du flux.
     const steps = PROFILE_FLOW[profile];
     rows.push({ label: "Profil", value: labelOf(PROFILES, profile) });
-    if (steps.includes("reseau") && data.reseau) rows.push({ label: "Réseau", value: labelOf(RESEAUX, data.reseau) });
+    if (steps.includes("reseau") && data.reseau) {
+      rows.push({
+        label: "Réseau",
+        value: data.reseau === "custom" ? customNetwork.name : labelOf(RESEAUX, data.reseau),
+      });
+    }
     if (steps.includes("mode") && data.mode) rows.push({ label: "Mode de conduite", value: labelOf(MODES, data.mode) });
     if (steps.includes("habilitation") && data.habilitation) rows.push({ label: "Habilitations", value: labelOf(HABILITATIONS, data.habilitation) });
-    if (steps.includes("fonction") && data.fonction) rows.push({ label: "Fonction", value: labelOf(FONCTIONS, data.fonction) });
-    if (steps.includes("zone") && data.zone) rows.push({ label: "Zone d'activité", value: labelOf(ZONES, data.zone) });
-    if (steps.includes("typeCommerce") && data.typeCommerce) rows.push({ label: "Type de commerce", value: labelOf(COMMERCES, data.typeCommerce) });
-    if (steps.includes("etabInfo") && etab.nom) rows.push({ label: "Établissement", value: etab.nom });
-    if (steps.includes("genre") && data.genre) rows.push({ label: "Genre", value: labelOf(GENRES, data.genre) });
+    if (identity.fullName) rows.push({ label: "Nom", value: identity.fullName });
+    if (identity.employeeId) rows.push({ label: "Identifiant professionnel", value: identity.employeeId });
     return rows;
-  }, [profile, data, etab.nom]);
+  }, [profile, data, identity, customNetwork.name]);
 
   function handleContinue() {
     if (!canContinue || loading) return;
@@ -438,7 +506,9 @@ export function OnboardingWizard() {
           <div className={styles.progressTrack}>
             <div
               className={styles.progressBar}
-              style={{ width: `${total > 1 ? Math.round((idx / (total - 1)) * 100) : 0}%` }}
+              style={{
+                width: `${actionSteps.length > 1 ? Math.round((actionIndex / (actionSteps.length - 1)) * 100) : 0}%`,
+              }}
             />
           </div>
         )}
@@ -453,7 +523,7 @@ export function OnboardingWizard() {
                 </button>
               )}
               <div className={styles.counter}>
-                Étape {Math.max(idx, 1)} sur {total - 1}
+                Étape {actionIndex + 1} sur {actionSteps.length}
               </div>
             </div>
           )}
@@ -470,7 +540,7 @@ export function OnboardingWizard() {
                 </div>
 
                 <div className={styles.illustrationRow}>
-                  {[Bus, Ticket, BadgeCheck, Car, Store].map((Icon, i) => (
+                  {[Bus, Ticket, BadgeCheck].map((Icon, i) => (
                     <div key={i} className={styles.illustrationDot} style={{ animationDelay: `${i * 0.4}s` }}>
                       <div className={styles.illustrationCircle}>
                         <Icon size={22} />
@@ -481,7 +551,9 @@ export function OnboardingWizard() {
                 </div>
 
                 <h1 className={styles.h1}>Bienvenue sur Aule Pro</h1>
-                <p className={styles.welcomeSubtitle}>Configurez votre espace professionnel en quelques instants.</p>
+                <p className={styles.welcomeSubtitle}>
+                  L&apos;espace réservé aux conducteurs, contrôleurs et équipes de maîtrise et d&apos;exploitation.
+                </p>
 
                 <button
                   type="button"
@@ -490,7 +562,7 @@ export function OnboardingWizard() {
                 >
                   Commencer
                 </button>
-                <p className={styles.welcomeHint}>Moins de 30 secondes · Aucune carte requise</p>
+                <p className={styles.welcomeHint}>Munissez-vous de votre identifiant professionnel</p>
               </div>
             )}
 
@@ -514,10 +586,12 @@ export function OnboardingWizard() {
                                 const next = item.key as ProfileKey;
                                 if (next !== profile) {
                                   // Changer de profil repart d'un état propre : sinon les
-                                  // champs des autres branches (typeCommerce, fonction, mode…)
+                                  // champs des autres branches (habilitation, mode…)
                                   // restent renseignés et polluent le récap et le payload.
                                   setData(emptyData);
-                                  setEtab(emptyEtab);
+                                  setIdentity(emptyIdentity);
+                                  setCustomNetwork(emptyCustomNetwork);
+                                  setAddingNetwork(false);
                                 }
                                 setProfile(next);
                               } else {
@@ -549,6 +623,55 @@ export function OnboardingWizard() {
               (() => {
                 const cfg = LIST_CONFIG[step as ListStep];
                 const current = data[cfg.field];
+                if (step === "reseau" && addingNetwork) {
+                  return (
+                    <div>
+                      <h2 className={styles.stepTitle}>Ajouter votre réseau</h2>
+                      <p className={styles.stepSubtitle}>
+                        Renseignez son identité. Votre espace réseau privé sera créé et prêt à configurer dès la connexion.
+                      </p>
+                      <div className={styles.fieldsCol}>
+                        <label className={styles.field}>
+                          <span className={styles.fieldLabel}>Nom du réseau</span>
+                          <input
+                            type="text"
+                            value={customNetwork.name}
+                            onChange={(event) =>
+                              setCustomNetwork((value) => ({ ...value, name: event.target.value }))
+                            }
+                            placeholder="Ex. Réseau Astuce"
+                            className={styles.input}
+                            autoFocus
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.fieldLabel}>Exploitant ou opérateur</span>
+                          <input
+                            type="text"
+                            value={customNetwork.operator}
+                            onChange={(event) =>
+                              setCustomNetwork((value) => ({ ...value, operator: event.target.value }))
+                            }
+                            placeholder="Ex. Métropole Mobilités"
+                            className={styles.input}
+                          />
+                        </label>
+                        <label className={styles.field}>
+                          <span className={styles.fieldLabel}>Territoire desservi</span>
+                          <input
+                            type="text"
+                            value={customNetwork.territory}
+                            onChange={(event) =>
+                              setCustomNetwork((value) => ({ ...value, territory: event.target.value }))
+                            }
+                            placeholder="Ville, métropole ou département"
+                            className={styles.input}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                }
                 const q = search.trim().toLowerCase();
                 const filtered = cfg.items.filter(
                   (it) => !q || it.label.toLowerCase().includes(q) || (it.desc ?? "").toLowerCase().includes(q),
@@ -557,18 +680,20 @@ export function OnboardingWizard() {
                   <div>
                     <h2 className={styles.stepTitle}>{cfg.title}</h2>
                     <p className={styles.stepSubtitle}>{cfg.subtitle}</p>
-                    <div className={styles.searchWrap}>
-                      <span className={styles.searchIcon}>
-                        <Search size={18} />
-                      </span>
-                      <input
-                        type="text"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder={cfg.placeholder}
-                        className={styles.searchInput}
-                      />
-                    </div>
+                    {cfg.items.length > 5 && (
+                      <div className={styles.searchWrap}>
+                        <span className={styles.searchIcon}>
+                          <Search size={18} />
+                        </span>
+                        <input
+                          type="text"
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
+                          placeholder={cfg.placeholder}
+                          className={styles.searchInput}
+                        />
+                      </div>
+                    )}
                     <div className={styles.listRows}>
                       {filtered.map((item) => {
                         const selected = current === item.key;
@@ -596,98 +721,71 @@ export function OnboardingWizard() {
                         <div className={styles.listEmpty}>
                           Aucun résultat pour « {search} ».
                           <br />
-                          De nouveaux réseaux et villes sont ajoutés régulièrement.
+                          De nouveaux réseaux sont ajoutés régulièrement.
                         </div>
                       )}
                     </div>
+                    <button
+                      type="button"
+                      className={styles.networkAddButton}
+                      onClick={() => {
+                        setAddingNetwork(true);
+                        setData((value) => ({ ...value, reseau: "custom" }));
+                        setSearch("");
+                        setError(null);
+                      }}
+                    >
+                      <span className={styles.networkAddIcon} aria-hidden="true">
+                        <Plus size={18} />
+                      </span>
+                      <span>
+                        <span className={styles.networkAddTitle}>Ajouter un nouveau réseau</span>
+                        <span className={styles.networkAddDescription}>Mon réseau n&apos;apparaît pas dans la liste</span>
+                      </span>
+                    </button>
                   </div>
                 );
               })()}
 
-            {showForm && (
+            {showIdentity && (
               <div>
-                <h2 className={styles.stepTitle}>Votre établissement</h2>
-                <p className={styles.stepSubtitle}>Ces informations apparaîtront sur votre fiche Aule.</p>
+                <h2 className={styles.stepTitle}>Votre identité professionnelle</h2>
+                <p className={styles.stepSubtitle}>
+                  Ces informations permettent de rattacher votre compte aux équipes du réseau.
+                </p>
                 <div className={styles.fieldsCol}>
                   <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Nom de l&apos;établissement</span>
+                    <span className={styles.fieldLabel}>Nom complet</span>
                     <input
                       type="text"
-                      value={etab.nom}
-                      onChange={(e) => setEtab((s) => ({ ...s, nom: e.target.value }))}
-                      placeholder="Café Louna"
+                      value={identity.fullName}
+                      onChange={(e) => setIdentity((current) => ({ ...current, fullName: e.target.value }))}
+                      placeholder="Prénom Nom"
                       className={styles.input}
+                      autoComplete="name"
                     />
                   </label>
                   <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Adresse</span>
+                    <span className={styles.fieldLabel}>Identifiant professionnel ou matricule</span>
                     <input
                       type="text"
-                      value={etab.adresse}
-                      onChange={(e) => setEtab((s) => ({ ...s, adresse: e.target.value }))}
-                      placeholder="12 rue de la Fosse, 44000 Nantes"
+                      value={identity.employeeId}
+                      onChange={(e) => setIdentity((current) => ({ ...current, employeeId: e.target.value }))}
+                      placeholder="Ex. 48271"
                       className={styles.input}
+                      autoComplete="off"
                     />
                   </label>
-                  <div className={styles.fieldRow}>
-                    <label className={styles.field}>
-                      <span className={styles.fieldLabel}>Téléphone</span>
-                      <input
-                        type="tel"
-                        value={etab.tel}
-                        onChange={(e) => setEtab((s) => ({ ...s, tel: e.target.value }))}
-                        placeholder="02 40 00 00 00"
-                        className={styles.input}
-                      />
-                    </label>
-                    <label className={styles.field}>
-                      <span className={styles.fieldLabel}>
-                        Site web <span className={styles.fieldOptional}>(facultatif)</span>
-                      </span>
-                      <input
-                        type="text"
-                        value={etab.site}
-                        onChange={(e) => setEtab((s) => ({ ...s, site: e.target.value }))}
-                        placeholder="cafelouna.fr"
-                        className={styles.input}
-                      />
-                    </label>
-                  </div>
                 </div>
               </div>
             )}
 
             {showAccount && (
               <div>
-                <h2 className={styles.stepTitle}>Créons votre compte</h2>
-                <p className={styles.stepSubtitle}>Dernière étape avant d&apos;accéder à votre espace.</p>
-
-                <div className={styles.ssoRow}>
-                  <button type="button" disabled title="Bientôt disponible" className={styles.ssoButton}>
-                    <svg width="17" height="17" viewBox="0 0 24 24">
-                      <path
-                        fill="#fff"
-                        d="M21.35 11.1h-9.17v2.98h5.27c-.23 1.4-1.63 4.1-5.27 4.1-3.17 0-5.76-2.62-5.76-5.85s2.59-5.85 5.76-5.85c1.8 0 3.02.77 3.71 1.43l2.53-2.44C16.9 3.6 14.77 2.7 12.18 2.7 7.03 2.7 2.85 6.88 2.85 12.03s4.18 9.33 9.33 9.33c5.39 0 8.96-3.79 8.96-9.13 0-.61-.07-1.08-.16-1.55l-.63.42Z"
-                      />
-                    </svg>
-                    Google
-                  </button>
-                  <button type="button" disabled title="Bientôt disponible" className={styles.ssoButton}>
-                    <svg width="16" height="16" viewBox="0 0 24 24">
-                      <path
-                        fill="#fff"
-                        d="M16.36 12.9c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.65l.01-.34ZM14.13 5.9c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.77-.97 2.82 1.02.08 2.07-.52 2.71-1.28Z"
-                      />
-                    </svg>
-                    Apple
-                  </button>
-                </div>
-
-                <div className={styles.divider}>
-                  <div className={styles.dividerLine} />
-                  <span className={styles.dividerLabel}>ou par e-mail</span>
-                  <div className={styles.dividerLine} />
-                </div>
+                <h2 className={styles.stepTitle}>Créez vos accès Aule Pro</h2>
+                <p className={styles.stepSubtitle}>
+                  Utilisez de préférence l&apos;adresse e-mail fournie par votre employeur.
+                </p>
 
                 <div className={styles.fieldsCol} style={{ marginTop: 0 }}>
                   <label className={styles.field}>
@@ -753,16 +851,16 @@ export function OnboardingWizard() {
                     </span>
                     <span className={styles.termsLabel}>
                       J&apos;accepte les{" "}
-                      <a
-                        href="#"
+                      <Link
+                        href="/conditions"
+                        target="_blank"
                         style={{ color: ACCENT, textDecoration: "none" }}
                         onClick={(e) => {
-                          e.preventDefault();
                           e.stopPropagation();
                         }}
                       >
                         Conditions Générales d&apos;Utilisation
-                      </a>
+                      </Link>
                       .
                     </span>
                   </div>
@@ -784,8 +882,10 @@ export function OnboardingWizard() {
                     <Check size={40} strokeWidth={3} />
                   </span>
                 </div>
-                <h2 className={styles.doneTitle}>Votre profil est prêt !</h2>
-                <p className={styles.doneSubtitle}>Aule Pro est déjà configuré pour votre métier. Bienvenue à bord.</p>
+                <h2 className={styles.doneTitle}>Vérifiez votre boîte mail</h2>
+                <p className={styles.doneSubtitle}>
+                  Si cette adresse est nouvelle, confirmez-la pour activer votre compte. Les habilitations métier restent soumises à la validation de votre réseau.
+                </p>
 
                 <div className={styles.recapCard}>
                   {recap.map((item) => (
@@ -796,117 +896,84 @@ export function OnboardingWizard() {
                   ))}
                 </div>
 
-                {!isMobile ? (
-                  <div className={styles.qrCard}>
-                    <span className={styles.qrBox}>
-                      <QrCode size={34} />
-                    </span>
-                    <div>
-                      <div className={styles.qrTextTitle}>Continuez sur mobile</div>
-                      <div className={styles.qrTextDesc}>
-                        Scannez ce code pour ouvrir Aule Pro sur votre téléphone. Votre profil vous suit automatiquement.
+                {shouldOfferMobile && (
+                  <>
+                    {!isMobile ? (
+                      <div className={styles.qrCard}>
+                        <span className={styles.qrBox}>
+                          <QrCode size={34} />
+                        </span>
+                        <div>
+                          <div className={styles.qrTextTitle}>Application mobile bientôt disponible</div>
+                          <div className={styles.qrTextDesc}>
+                            Votre profil sera accessible sur mobile à l&apos;ouverture des stores.
+                          </div>
+                        </div>
                       </div>
+                    ) : (
+                      <p className={styles.mobileHint}>L&apos;application mobile sera bientôt disponible.</p>
+                    )}
+
+                    <div className={styles.storeBadges}>
+                      <span aria-disabled="true" className={styles.storeBadge}>
+                        <svg width="18" height="18" viewBox="0 0 24 24">
+                          <path
+                            fill="#fff"
+                            d="M16.36 12.9c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.65l.01-.34ZM14.13 5.9c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.77-.97 2.82 1.02.08 2.07-.52 2.71-1.28Z"
+                          />
+                        </svg>
+                        <span className={styles.storeBadgeText}>
+                          <span className={styles.storeBadgeSmall}>App Store</span>
+                          <span className={styles.storeBadgeBig}>Bientôt disponible</span>
+                        </span>
+                      </span>
+                      <span aria-disabled="true" className={styles.storeBadge}>
+                        <svg width="17" height="17" viewBox="0 0 24 24">
+                          <path fill="#33BFA3" d="M3.6 2.4 13 12 3.6 21.6c-.3-.2-.6-.6-.6-1.1V3.5c0-.5.3-.9.6-1.1Z" />
+                          <path fill="#fff" d="m15.3 9.7 2.9 1.6c.9.5.9 1.9 0 2.4l-2.9 1.6L13 12l2.3-2.3Z" />
+                          <path fill="#fff" opacity=".8" d="M4.4 2.1 15 8.6 12.7 11 4.4 2.1Z" />
+                          <path fill="#fff" opacity=".6" d="M4.4 21.9 12.7 13 15 15.4 4.4 21.9Z" />
+                        </svg>
+                        <span className={styles.storeBadgeText}>
+                          <span className={styles.storeBadgeSmall}>Google Play</span>
+                          <span className={styles.storeBadgeBig}>Bientôt disponible</span>
+                        </span>
+                      </span>
                     </div>
-                  </div>
-                ) : (
-                  <p className={styles.mobileHint}>Téléchargez l&apos;app pour retrouver votre profil partout.</p>
+                  </>
                 )}
 
-                <div className={styles.storeBadges}>
-                  <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
-                    <svg width="18" height="18" viewBox="0 0 24 24">
-                      <path
-                        fill="#fff"
-                        d="M16.36 12.9c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.65l.01-.34ZM14.13 5.9c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.77-.97 2.82 1.02.08 2.07-.52 2.71-1.28Z"
-                      />
-                    </svg>
-                    <span className={styles.storeBadgeText}>
-                      <span className={styles.storeBadgeSmall}>Télécharger sur</span>
-                      <span className={styles.storeBadgeBig}>App Store</span>
-                    </span>
-                  </a>
-                  <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
-                    <svg width="17" height="17" viewBox="0 0 24 24">
-                      <path fill="#33BFA3" d="M3.6 2.4 13 12 3.6 21.6c-.3-.2-.6-.6-.6-1.1V3.5c0-.5.3-.9.6-1.1Z" />
-                      <path fill="#fff" d="m15.3 9.7 2.9 1.6c.9.5.9 1.9 0 2.4l-2.9 1.6L13 12l2.3-2.3Z" />
-                      <path fill="#fff" opacity=".8" d="M4.4 2.1 15 8.6 12.7 11 4.4 2.1Z" />
-                      <path fill="#fff" opacity=".6" d="M4.4 21.9 12.7 13 15 15.4 4.4 21.9Z" />
-                    </svg>
-                    <span className={styles.storeBadgeText}>
-                      <span className={styles.storeBadgeSmall}>Disponible sur</span>
-                      <span className={styles.storeBadgeBig}>Google Play</span>
-                    </span>
-                  </a>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => void resendConfirmation()}
+                  disabled={resendingConfirmation}
+                  className={styles.resendButton}
+                >
+                  {resendingConfirmation ? (
+                    <>
+                      <Loader2 size={16} className={styles.spinner} />
+                      Envoi…
+                    </>
+                  ) : (
+                    "Renvoyer l’e-mail de confirmation"
+                  )}
+                </button>
+
+                {confirmationNotice && (
+                  <p className={styles.confirmationNotice} role="status">
+                    {confirmationNotice}
+                  </p>
+                )}
 
                 <button type="button" onClick={finishOnboarding} className={styles.primaryButton} style={{ marginTop: 20 }}>
-                  Accéder à Aule Pro
+                  Se connecter à Aule Pro
                 </button>
               </div>
             )}
 
-            {showDownload && (
-              <div className={styles.done}>
-                <div className={styles.doneIconWrap}>
-                  <span className={styles.doneRing} />
-                  <span className={styles.doneCircle}>
-                    <Smartphone size={40} strokeWidth={2.2} />
-                  </span>
-                </div>
-                <h2 className={styles.doneTitle}>Poursuivez sur mobile</h2>
-                <p className={styles.doneSubtitle}>
-                  L&apos;inscription pour les conducteurs, contrôleurs et chauffeurs VTC s&apos;effectue exclusivement sur l&apos;application mobile Aule Pro.
-                </p>
-
-                {!isMobile ? (
-                  <div className={styles.qrCard}>
-                    <span className={styles.qrBox}>
-                      <QrCode size={34} />
-                    </span>
-                    <div>
-                      <div className={styles.qrTextTitle}>Téléchargez l&apos;application</div>
-                      <div className={styles.qrTextDesc}>
-                        Scannez ce code pour ouvrir Aule Pro sur votre téléphone et poursuivre votre inscription.
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className={styles.mobileHint}>
-                    Téléchargez l&apos;application Aule Pro ci-dessous pour poursuivre votre inscription.
-                  </p>
-                )}
-
-                <div className={styles.storeBadges}>
-                  <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
-                    <svg width="18" height="18" viewBox="0 0 24 24">
-                      <path
-                        fill="#fff"
-                        d="M16.36 12.9c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.75 2.28-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.29 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.77.74 2.98.72 1.23-.02 2.01-1.12 2.76-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.65l.01-.34ZM14.13 5.9c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.77-.97 2.82 1.02.08 2.07-.52 2.71-1.28Z"
-                      />
-                    </svg>
-                    <span className={styles.storeBadgeText}>
-                      <span className={styles.storeBadgeSmall}>Télécharger sur</span>
-                      <span className={styles.storeBadgeBig}>App Store</span>
-                    </span>
-                  </a>
-                  <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
-                    <svg width="17" height="17" viewBox="0 0 24 24">
-                      <path fill="#33BFA3" d="M3.6 2.4 13 12 3.6 21.6c-.3-.2-.6-.6-.6-1.1V3.5c0-.5.3-.9.6-1.1Z" />
-                      <path fill="#fff" d="m15.3 9.7 2.9 1.6c.9.5.9 1.9 0 2.4l-2.9 1.6L13 12l2.3-2.3Z" />
-                      <path fill="#fff" opacity=".8" d="M4.4 2.1 15 8.6 12.7 11 4.4 2.1Z" />
-                      <path fill="#fff" opacity=".6" d="M4.4 21.9 12.7 13 15 15.4 4.4 21.9Z" />
-                    </svg>
-                    <span className={styles.storeBadgeText}>
-                      <span className={styles.storeBadgeSmall}>Disponible sur</span>
-                      <span className={styles.storeBadgeBig}>Google Play</span>
-                    </span>
-                  </a>
-                </div>
-              </div>
-            )}
           </div>
 
-          {!showWelcome && !showDone && !showDownload && (
+          {!showWelcome && !showDone && (
             <div className={styles.footer}>
               <button
                 type="button"

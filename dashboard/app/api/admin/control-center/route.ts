@@ -28,7 +28,12 @@ async function requireAdmin() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: NextResponse.json({ error: "Non authentifié" }, { status: 401 }) };
+    return {
+      error: NextResponse.json(
+        { error: "Votre session a expiré. Reconnectez-vous pour enregistrer les modifications.", loginRequired: true },
+        { status: 401 },
+      ),
+    };
   }
 
   const { data: profile } = await supabase
@@ -63,7 +68,7 @@ function rlsSetupRequired(message: string) {
     {
       error: message,
       setupRequired:
-        "Applique les migrations dashboard/supabase/migrations/20260708_admin_control_center.sql et 20260708_admin_rls_platform_admin.sql dans Supabase (ou renseigne SUPABASE_SERVICE_ROLE_KEY dans .env.local).",
+        "Applique les migrations supabase/migrations/20260708000001_admin_control_center.sql et 20260708000002_admin_rls_platform_admin.sql dans Supabase (ou renseigne SUPABASE_SERVICE_ROLE_KEY dans .env.local).",
     },
     { status: 500 },
   );
@@ -129,6 +134,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const requestOrigin = request.headers.get("origin");
+  if (requestOrigin && requestOrigin !== new URL(request.url).origin) {
+    return NextResponse.json({ error: "Requête non autorisée" }, { status: 403 });
+  }
+
   const auth = await requireAdmin();
   if ("error" in auth) return auth.error;
 

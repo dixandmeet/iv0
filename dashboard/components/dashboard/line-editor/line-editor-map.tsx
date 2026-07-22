@@ -40,6 +40,7 @@ import {
 
 export interface LineEditorMapHandle {
   flyToPoint: (pointId: string) => void;
+  toggle3D: () => void;
 }
 
 interface LineEditorMapProps {
@@ -56,13 +57,13 @@ interface LineEditorMapProps {
   canClearTrace?: boolean;
   tracePickerActive?: boolean;
   traceOriginId?: string | null;
+  showPassagePoints?: boolean;
   onTraceRoute?: () => void;
   onClearTrace?: () => void;
   onAddPoint: (coordinates: [number, number]) => void;
   onInsertPointAtSegment: (segmentIndex: number) => void;
   onSelectPoint: (pointId: string | null) => void;
   onPickTraceTarget?: (pointId: string) => void;
-  onMovePoint: (pointId: string, coordinates: [number, number]) => void;
   onCommitMove: (pointId: string, coordinates: [number, number]) => void;
 }
 
@@ -190,13 +191,13 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
       canClearTrace = false,
       tracePickerActive = false,
       traceOriginId = null,
+      showPassagePoints = true,
       onTraceRoute,
       onClearTrace,
       onAddPoint,
       onInsertPointAtSegment,
       onSelectPoint,
       onPickTraceTarget,
-      onMovePoint,
       onCommitMove,
     },
     ref,
@@ -217,7 +218,6 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
       onInsertPointAtSegment,
       onSelectPoint,
       onPickTraceTarget,
-      onMovePoint,
       onCommitMove,
     });
     callbacksRef.current = {
@@ -225,7 +225,6 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
       onInsertPointAtSegment,
       onSelectPoint,
       onPickTraceTarget,
-      onMovePoint,
       onCommitMove,
     };
 
@@ -258,8 +257,6 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
       [points],
     );
 
-    useImperativeHandle(ref, () => ({ flyToPoint }), [flyToPoint]);
-
     const toggleView = useCallback(() => {
       const next = !view3D;
       setView3D(next);
@@ -272,6 +269,12 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
       }
     }, [view3D]);
     viewActionRef.current = toggleView;
+
+    useImperativeHandle(
+      ref,
+      () => ({ flyToPoint, toggle3D: toggleView }),
+      [flyToPoint, toggleView],
+    );
 
     const rotateMap = useCallback((degrees: number) => {
       const map = mapRef.current;
@@ -347,6 +350,7 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
           isSelected,
           traceRole,
         );
+        el.hidden = point.type === "passage" && !showPassagePoints;
 
         el.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -370,20 +374,16 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
           marker.on("dragstart", () => {
             draggingRef.current = point.id;
           });
-          marker.on("drag", () => {
-            const lngLat = marker.getLngLat();
-            callbacksRef.current.onMovePoint(point.id, [lngLat.lng, lngLat.lat]);
-          });
           marker.on("dragend", () => {
             const lngLat = marker.getLngLat();
-            callbacksRef.current.onCommitMove(point.id, [lngLat.lng, lngLat.lat]);
             draggingRef.current = null;
+            callbacksRef.current.onCommitMove(point.id, [lngLat.lng, lngLat.lat]);
           });
         }
 
         markersRef.current.set(point.id, marker);
       },
-      [getTraceRole, selectedPointId, tracePickerActive],
+      [getTraceRole, selectedPointId, showPassagePoints, tracePickerActive],
     );
 
     const syncMarkers = useCallback(() => {
@@ -412,16 +412,22 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
         const passageIndex = point.type === "passage" ? passageOrder++ : null;
         const existing = markersRef.current.get(point.id);
         const isSelected = point.id === selectedPointId;
-        const isPassage = stopIndex == null;
+          const isPassage = stopIndex == null;
         const traceRole = getTraceRole(point.id, routeIndex);
 
         if (existing) {
-          existing.setLngLat(point.coordinates);
+          // MapLibre est l'unique source de vérité pendant un drag. Réappliquer
+          // setLngLat ici redéclenche l'événement drag et provoque une boucle
+          // React « Maximum update depth exceeded ».
+          if (draggingRef.current !== point.id) {
+            existing.setLngLat(point.coordinates);
+          }
           const el = existing.getElement() as HTMLButtonElement;
           const color = POINT_TYPE_COLORS[point.type];
           el.style.setProperty("--marker-color", color);
           el.classList.toggle("line-editor-marker--selected", isSelected);
           el.classList.toggle("line-editor-marker--passage", isPassage);
+          el.hidden = isPassage && !showPassagePoints;
           el.classList.toggle(
             "line-editor-marker--trace-origin",
             traceRole === "origin",
@@ -458,7 +464,14 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
           attachMarker(map, point, routeIndex, stopIndex, passageIndex);
         }
       });
-    }, [points, selectedPointId, attachMarker, getTraceRole, tracePickerActive]);
+    }, [
+      points,
+      selectedPointId,
+      attachMarker,
+      getTraceRole,
+      showPassagePoints,
+      tracePickerActive,
+    ]);
 
     const segmentPoints = editingPoints ?? points;
 
@@ -466,7 +479,7 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
       const map = mapRef.current;
       if (!map) return;
 
-      if (tracePickerActive) {
+      if (tracePickerActive || !showPassagePoints) {
         insertMarkersRef.current.forEach((marker) => marker.remove());
         insertMarkersRef.current.clear();
         return;
@@ -519,7 +532,7 @@ export const LineEditorMap = forwardRef<LineEditorMapHandle, LineEditorMapProps>
 
         insertMarkersRef.current.set(id, marker);
       }
-    }, [segmentPoints, tracePickerActive]);
+    }, [segmentPoints, showPassagePoints, tracePickerActive]);
 
     useEffect(() => {
       if (!containerRef.current || mapRef.current) return;

@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { appStoreUrl, playStoreUrl } from "./landing-data";
 import { fadeInUp, viewTransition } from "./landing-motion";
 
 function QrCode() {
@@ -28,7 +26,7 @@ function QrCode() {
     <div
       className="rounded-2xl border border-border bg-white p-5 shadow-glass dark:bg-card"
       role="img"
-      aria-label="QR code de téléchargement Aule"
+      aria-label="QR code Aule bientôt disponible"
     >
       <svg viewBox="0 0 130 130" className="h-32 w-32">
         {cells.map((row, y) =>
@@ -48,7 +46,7 @@ function QrCode() {
         )}
       </svg>
       <p className="mt-3 text-center text-xs text-muted-foreground">
-        Scanner pour télécharger
+        Bientôt disponible
       </p>
     </div>
   );
@@ -56,22 +54,13 @@ function QrCode() {
 
 function StoreBadge({
   store,
-  href,
 }: {
   store: "apple" | "google";
-  href: string;
 }) {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex w-full items-center gap-4 rounded-2xl border border-border bg-card px-6 py-4 transition-all hover:border-primary/30 hover:shadow-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-auto sm:min-w-[220px]"
-      aria-label={
-        store === "apple"
-          ? "Télécharger sur l'App Store"
-          : "Télécharger sur Google Play"
-      }
+    <div
+      className="inline-flex w-full cursor-default items-center gap-4 rounded-2xl border border-border bg-card px-6 py-4 opacity-80 sm:w-auto sm:min-w-[220px]"
+      aria-label={`${store === "apple" ? "App Store" : "Google Play"} : bientôt disponible`}
     >
       {store === "apple" ? (
         <svg viewBox="0 0 24 24" className="h-9 w-9 shrink-0" aria-hidden>
@@ -89,14 +78,12 @@ function StoreBadge({
         </svg>
       )}
       <div className="text-left">
-        <p className="text-[11px] text-muted-foreground">
-          {store === "apple" ? "Télécharger sur l'" : "Disponible sur"}
-        </p>
+        <p className="text-[11px] text-muted-foreground">{store === "apple" ? "App Store" : "Google Play"}</p>
         <p className="text-base font-semibold">
-          {store === "apple" ? "App Store" : "Google Play"}
+          Bientôt disponible
         </p>
       </div>
-    </a>
+    </div>
   );
 }
 
@@ -126,12 +113,12 @@ export function LandingDownload() {
                 Simplifiez vos trajets dès aujourd&apos;hui
               </h2>
               <p className="mt-4 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg lg:mx-0">
-                Téléchargez Aule gratuitement sur iOS et Android. Favoris,
-                trajets récurrents et suivi temps réel — disponible sur Naolib.
+                Aule sera bientôt disponible sur iOS et Android. Les liens
+                officiels seront activés dès l&apos;ouverture des stores.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center lg:justify-start">
-                <StoreBadge store="apple" href={appStoreUrl} />
-                <StoreBadge store="google" href={playStoreUrl} />
+                <StoreBadge store="apple" />
+                <StoreBadge store="google" />
               </div>
               <p className="mt-6 text-sm text-muted-foreground">
                 Vous gérez un réseau de transport ?{" "}
@@ -146,7 +133,7 @@ export function LandingDownload() {
             </div>
 
             <div className="flex justify-center lg:justify-end">
-              <QrCode />
+              <div className="opacity-60" aria-hidden="true"><QrCode /></div>
             </div>
           </div>
         </motion.div>

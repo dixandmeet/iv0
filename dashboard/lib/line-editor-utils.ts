@@ -160,6 +160,13 @@ export function createRoutePoint(
   };
   if (type !== "passage") {
     point.stop = defaultStopDetails(order);
+  } else {
+    point.gps = {
+      name: "",
+      radiusMeters: 15,
+      estimatedMinutes: 1,
+      notes: "",
+    };
   }
   return point;
 }
@@ -409,6 +416,23 @@ function offsetCoords(
   return [coords[0] + dLng, coords[1] + dLat];
 }
 
+/**
+ * Place un nouvel arrêt sur le segment suivant, sans l'envoyer au milieu d'un
+ * long tracé. On avance au maximum de 120 m, ou jusqu'au milieu du segment si
+ * le prochain point de passage est très proche.
+ */
+function nearbyCoordinateOnRoute(
+  from: [number, number],
+  to: [number, number],
+): [number, number] {
+  const distanceKm = haversineKm(from, to);
+  if (distanceKm < 0.001) {
+    return offsetCoords(from, 0.00015, -0.0001);
+  }
+  const fraction = Math.min(0.5, 0.12 / distanceKm);
+  return interpolateCoords(from, to, fraction);
+}
+
 export function coordinatesForNewStop(
   points: RoutePoint[],
   stopInsertIndex: number,
@@ -423,39 +447,31 @@ export function coordinatesForNewStop(
     const first = stops[0];
     const firstRouteIdx = points.findIndex((p) => p.id === first.id);
     if (firstRouteIdx > 0) {
-      return interpolateCoords(
+      return nearbyCoordinateOnRoute(
         points[firstRouteIdx - 1].coordinates,
         first.coordinates,
-        0.5,
       );
     }
-    return offsetCoords(first.coordinates, -0.004, 0.002);
+    return offsetCoords(first.coordinates, -0.0012, 0.0006);
   }
 
   if (stopInsertIndex >= stops.length) {
     const last = stops[stops.length - 1];
     const lastRouteIdx = points.findIndex((p) => p.id === last.id);
     if (lastRouteIdx < points.length - 1) {
-      return interpolateCoords(
+      return nearbyCoordinateOnRoute(
         last.coordinates,
         points[lastRouteIdx + 1].coordinates,
-        0.5,
       );
     }
-    return offsetCoords(last.coordinates, 0.004, -0.002);
+    return offsetCoords(last.coordinates, 0.0012, -0.0006);
   }
 
   const prevStop = stops[stopInsertIndex - 1];
-  const nextStop = stops[stopInsertIndex];
   const prevRouteIdx = points.findIndex((p) => p.id === prevStop.id);
-  const nextRouteIdx = points.findIndex((p) => p.id === nextStop.id);
+  const nextRoutePoint = points[prevRouteIdx + 1] ?? stops[stopInsertIndex];
 
-  if (nextRouteIdx > prevRouteIdx + 1) {
-    const midRouteIdx = Math.floor((prevRouteIdx + nextRouteIdx) / 2);
-    return [...points[midRouteIdx].coordinates];
-  }
-
-  return interpolateCoords(prevStop.coordinates, nextStop.coordinates, 0.5);
+  return nearbyCoordinateOnRoute(prevStop.coordinates, nextRoutePoint.coordinates);
 }
 
 export function insertStopInPoints(
@@ -483,10 +499,13 @@ export function insertStopInPoints(
     return reorderStopsInPoints(next);
   }
 
-  const nextStop = stops[stopInsertIndex];
-  const nextIdx = points.findIndex((p) => p.id === nextStop.id);
+  // L'arrêt prend immédiatement place après l'arrêt précédent dans le tableau
+  // du tracé. Il reste donc avant le premier point de passage du segment (par
+  // exemple avant le point 85), au lieu d'être ajouté juste avant le terminus.
+  const previousStop = stops[stopInsertIndex - 1];
+  const previousIdx = points.findIndex((p) => p.id === previousStop.id);
   const next = [...points];
-  next.splice(nextIdx, 0, newStop);
+  next.splice(previousIdx + 1, 0, newStop);
   return reorderStopsInPoints(next);
 }
 

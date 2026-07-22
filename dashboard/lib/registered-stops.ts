@@ -120,7 +120,9 @@ export function hasExactRegisteredStopName(
   return catalog.some((stop) => stop.name.trim().toLowerCase() === normalized);
 }
 
-export async function fetchRegisteredStopsFromDatabase(): Promise<RegisteredStop[]> {
+export async function fetchRegisteredStopsFromDatabase(
+  networkId = "00000000-0000-4000-8000-000000000001",
+): Promise<RegisteredStop[]> {
   const supabase = createClient();
   const pageSize = 1000;
   let from = 0;
@@ -132,6 +134,7 @@ export async function fetchRegisteredStopsFromDatabase(): Promise<RegisteredStop
       .select(
         "id, code, name, latitude, longitude, is_accessible, address, stations(name)",
       )
+      .eq("network_id", networkId)
       .eq("status", "active")
       .order("name")
       .range(from, from + pageSize - 1);

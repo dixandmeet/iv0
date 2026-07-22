@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label, Select } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useNetwork } from "@/components/network/network-provider";
 
 interface StopIncidentsTabProps {
   stopId: string;
@@ -31,6 +32,7 @@ export function StopIncidentsTab({
   coordinates,
   onRefresh,
 }: StopIncidentsTabProps) {
+  const { network } = useNetwork();
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -47,6 +49,7 @@ export function StopIncidentsTab({
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     await supabase.from("network_incidents").insert({
+      network_id: network.id,
       incident_type: form.incident_type,
       severity: form.severity,
       title: form.title.trim(),

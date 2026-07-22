@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Bus, ShieldCheck, Store, ArrowRight, Smartphone, QrCode } from "lucide-react";
+import { Bus, ShieldCheck, Ticket, ArrowRight, Smartphone, QrCode } from "lucide-react";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { AuthNetworkPanel } from "@/components/auth/auth-network-panel";
 import styles from "@/components/auth/auth-form.module.css";
@@ -29,7 +29,7 @@ export function SignupForm({ initialMode = "voyageur" }: { initialMode?: "voyage
         <AuthNetworkPanel
           heading="Rejoignez le réseau qui s'améliore à chaque trajet."
           tagline="Créez votre compte pour suivre vos transports en temps réel et contribuer à une cartographie collaborative."
-          footnote="Déjà utilisé par des voyageurs, des commerçants et des équipes réseau"
+          footnote="Déjà utilisé par les conducteurs, contrôleurs et équipes d'exploitation"
           mainPath="M-20 200 L140 220 L240 340 L340 380 L440 500 L540 560 L640 640"
           secondaryPath="M-20 120 L180 140 L360 260 L640 300"
           accentDot={{ cx: 340, cy: 380 }}
@@ -83,7 +83,7 @@ export function SignupForm({ initialMode = "voyageur" }: { initialMode?: "voyage
           </p>
         ) : (
           <p className={styles.legendText}>
-            Pour les professionnels : accédez aux outils d&apos;exploitation réseau (poste de contrôle, mode conducteur, régulation).
+            Pour les conducteurs, contrôleurs et équipes de maîtrise ou d&apos;exploitation du réseau.
           </p>
         )}
       </div>
@@ -110,20 +110,20 @@ export function SignupForm({ initialMode = "voyageur" }: { initialMode?: "voyage
                 <QrCode size={34} />
               </span>
               <div>
-                <div className={styles.qrTextTitle}>Téléchargez l&apos;application</div>
+                <div className={styles.qrTextTitle}>Application bientôt disponible</div>
                 <div className={styles.qrTextDesc}>
-                  Scannez ce code pour ouvrir Aule sur votre téléphone et commencer à suivre vos trajets.
+                  Les liens officiels seront activés à l&apos;ouverture des stores.
                 </div>
               </div>
             </div>
           ) : (
             <p className={styles.mobileHint}>
-              Téléchargez l&apos;application Aule ci-dessous pour commencer à l&apos;utiliser.
+              L&apos;application Aule sera bientôt disponible sur les stores.
             </p>
           )}
 
           <div className={styles.storeBadges}>
-            <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
+            <span aria-disabled="true" className={styles.storeBadge}>
               <svg width="18" height="18" viewBox="0 0 24 24">
                 <path
                   fill="#fff"
@@ -131,11 +131,11 @@ export function SignupForm({ initialMode = "voyageur" }: { initialMode?: "voyage
                 />
               </svg>
               <span className={styles.storeBadgeText}>
-                <span className={styles.storeBadgeSmall}>Télécharger sur</span>
-                <span className={styles.storeBadgeBig}>App Store</span>
+                <span className={styles.storeBadgeSmall}>App Store</span>
+                <span className={styles.storeBadgeBig}>Bientôt disponible</span>
               </span>
-            </a>
-            <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
+            </span>
+            <span aria-disabled="true" className={styles.storeBadge}>
               <svg width="17" height="17" viewBox="0 0 24 24">
                 <path fill="#33BFA3" d="M3.6 2.4 13 12 3.6 21.6c-.3-.2-.6-.6-.6-1.1V3.5c0-.5.3-.9.6-1.1Z" />
                 <path fill="#fff" d="m15.3 9.7 2.9 1.6c.9.5.9 1.9 0 2.4l-2.9 1.6L13 12l2.3-2.3Z" />
@@ -143,10 +143,10 @@ export function SignupForm({ initialMode = "voyageur" }: { initialMode?: "voyage
                 <path fill="#fff" opacity=".6" d="M4.4 21.9 12.7 13 15 15.4 4.4 21.9Z" />
               </svg>
               <span className={styles.storeBadgeText}>
-                <span className={styles.storeBadgeSmall}>Disponible sur</span>
-                <span className={styles.storeBadgeBig}>Google Play</span>
+                <span className={styles.storeBadgeSmall}>Google Play</span>
+                <span className={styles.storeBadgeBig}>Bientôt disponible</span>
               </span>
-            </a>
+            </span>
           </div>
         </div>
       ) : (
@@ -157,8 +157,17 @@ export function SignupForm({ initialMode = "voyageur" }: { initialMode?: "voyage
                 <Bus size={18} />
               </div>
               <div>
-                <h4 className={styles.proFeatureTitle}>Conducteurs & Chauffeurs</h4>
+                <h4 className={styles.proFeatureTitle}>Conducteurs</h4>
                 <p className={styles.proFeatureDesc}>Profitez de la prise de service automatique et de la détection de ligne en temps réel.</p>
+              </div>
+            </div>
+            <div className={styles.proFeatureItem}>
+              <div className={styles.proFeatureIcon}>
+                <Ticket size={18} />
+              </div>
+              <div>
+                <h4 className={styles.proFeatureTitle}>Contrôleurs</h4>
+                <p className={styles.proFeatureDesc}>Accédez aux missions de contrôle, aux habilitations et aux informations du réseau.</p>
               </div>
             </div>
             <div className={styles.proFeatureItem}>
@@ -166,17 +175,8 @@ export function SignupForm({ initialMode = "voyageur" }: { initialMode?: "voyage
                 <ShieldCheck size={18} />
               </div>
               <div>
-                <h4 className={styles.proFeatureTitle}>Régulateurs & Exploitation</h4>
-                <p className={styles.proFeatureDesc}>Supervisez les flottes, gérez les incidents de parcours et configurez les alertes voyageurs.</p>
-              </div>
-            </div>
-            <div className={styles.proFeatureItem}>
-              <div className={styles.proFeatureIcon}>
-                <Store size={18} />
-              </div>
-              <div>
-                <h4 className={styles.proFeatureTitle}>Commerces partenaires</h4>
-                <p className={styles.proFeatureDesc}>Devenez point de vente ou relais partenaire pour améliorer la vie des usagers du réseau.</p>
+                <h4 className={styles.proFeatureTitle}>Maîtrise & exploitation</h4>
+                <p className={styles.proFeatureDesc}>Supervisez les flottes, gérez les incidents et coordonnez les équipes terrain.</p>
               </div>
             </div>
           </div>

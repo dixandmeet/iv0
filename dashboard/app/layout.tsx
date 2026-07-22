@@ -10,14 +10,23 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.aule.fr"),
   title: {
-    default: "Aule — GPS intelligent pour les transports en commun",
+    default: "Aule — SAEIV pour voyageurs et professionnels",
     template: "%s | Aule",
   },
   description:
-    "Trouvez le meilleur itinéraire, suivez votre bus ou tram en temps réel, gérez vos favoris et trajets récurrents. Application mobile gratuite pour les voyageurs.",
+    "Aule est un SAEIV qui centralise l'information voyageurs en temps réel et fournit aux professionnels et partenaires les outils pour piloter le réseau.",
   keywords: [
+    "SAEIV",
+    "système d'aide à l'exploitation et à l'information voyageurs",
+    "information voyageurs",
+    "aide à l'exploitation",
+    "supervision réseau",
+    "Aule Pro",
+    "partenaires de mobilité",
     "transport en commun",
+    "transport public",
     "bus",
     "tramway",
     "métro",
@@ -25,25 +34,33 @@ export const metadata: Metadata = {
     "itinéraire",
     "Nantes",
     "Naolib",
-    "GPS",
-    "favoris",
-    "plan du réseau",
-    "accessibilité PMR",
   ],
   authors: [{ name: "Aule" }],
+  creator: "Aule",
+  publisher: "Aule",
   openGraph: {
     type: "website",
     locale: "fr_FR",
     siteName: "Aule",
-    title: "Aule — GPS intelligent pour les transports en commun",
+    url: "/",
+    title: "Aule — SAEIV pour voyageurs et professionnels",
     description:
-      "Itinéraires multimodaux, suivi temps réel, favoris et trajets récurrents. Gratuit pour les voyageurs.",
+      "Information voyageurs en temps réel et outils d'exploitation pour les professionnels du transport et leurs partenaires.",
+    images: [
+      {
+        url: "/uploads/logo-1783189856190.png",
+        width: 1024,
+        height: 1024,
+        alt: "Logo Aule",
+      },
+    ],
   },
   twitter: {
-    card: "summary_large_image",
-    title: "Aule — GPS intelligent pour les transports en commun",
+    card: "summary",
+    title: "Aule — SAEIV pour voyageurs et professionnels",
     description:
-      "Trouvez le meilleur itinéraire, suivez votre bus ou tram en temps réel.",
+      "Information voyageurs en temps réel et outils d'exploitation pour les professionnels et partenaires.",
+    images: ["/uploads/logo-1783189856190.png"],
   },
   robots: {
     index: true,

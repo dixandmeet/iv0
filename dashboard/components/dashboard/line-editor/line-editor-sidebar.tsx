@@ -9,6 +9,7 @@ import {
   MapPin,
   Route,
   Signpost,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import {
@@ -17,6 +18,7 @@ import {
   type LineBranch,
   type LineOriginLeg,
   type PointType,
+  type PassageDetails,
   type RoutePoint,
   type StopDirection,
 } from "@/lib/line-editor-types";
@@ -30,11 +32,9 @@ import type { RegisteredStop } from "@/lib/registered-stops";
 import { useRegisteredStopsCatalog } from "@/hooks/use-registered-stops-catalog";
 import { PointCoordinatesField } from "./point-coordinates-field";
 import { StopNameAutocomplete } from "./stop-name-autocomplete";
-import { LinePassageList } from "./line-passage-list";
 
 interface LineEditorSidebarProps {
   selectedPoint: RoutePoint | null;
-  passagePoints: RoutePoint[];
   allPoints: RoutePoint[];
   trunkStops: RoutePoint[];
   branches: LineBranch[];
@@ -43,11 +43,10 @@ interface LineEditorSidebarProps {
   activeOriginLegId: string | null;
   stopPosition: number | null;
   totalStops: number;
-  onSelectPoint: (pointId: string) => void;
   onUpdateType: (type: PointType) => void;
   onUpdateStop: (patch: Partial<NonNullable<RoutePoint["stop"]>>) => void;
+  onUpdatePassage: (patch: Partial<PassageDetails>) => void;
   onDelete: () => void;
-  onDeletePoint: (pointId: string) => void;
   onTransformToStop: () => void;
   onSetTerminus: (which: "start" | "end") => void;
   onAddBranch: (hubPointId: string) => void;
@@ -78,7 +77,6 @@ const POINT_TYPES: PointType[] = [
 
 export function LineEditorSidebar({
   selectedPoint,
-  passagePoints,
   allPoints,
   trunkStops,
   branches,
@@ -87,11 +85,10 @@ export function LineEditorSidebar({
   activeOriginLegId,
   stopPosition,
   totalStops,
-  onSelectPoint,
   onUpdateType,
   onUpdateStop,
+  onUpdatePassage,
   onDelete,
-  onDeletePoint,
   onTransformToStop,
   onSetTerminus,
   onAddBranch,
@@ -139,21 +136,18 @@ export function LineEditorSidebar({
 
   return (
     <aside className="line-editor-sidebar">
-      <LinePassageList
-        passages={passagePoints}
-        allPoints={allPoints}
-        selectedPointId={selectedPoint?.id ?? null}
-        onSelect={onSelectPoint}
-        onDelete={onDeletePoint}
-      />
+      <div className="line-editor-inspector-kicker">
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        Inspecteur
+      </div>
 
       {!selectedPoint ? (
-        <div className="line-editor-sidebar-prompt">
-          <MapPin className="h-4 w-4 shrink-0 text-[#64748B]" />
-          <p>
-            Sélectionnez un point sur la carte ou dans la liste pour le
-            configurer.
-          </p>
+        <div className="line-editor-sidebar-empty">
+          <div className="line-editor-sidebar-empty-icon">
+            <MapPin className="h-5 w-5" />
+          </div>
+          <h3>Aucune sélection</h3>
+          <p>Sélectionnez un élément sur la carte ou dans le parcours.</p>
         </div>
       ) : (
         <>
@@ -168,6 +162,56 @@ export function LineEditorSidebar({
               </h3>
             </div>
           </div>
+
+          {isPassage && (
+            <div className="line-editor-card">
+              <h4 className="line-editor-card-title">
+                <MapPin className="h-4 w-4" />
+                Propriétés GPS
+              </h4>
+              <div className="line-editor-form-grid">
+                <Field label="Nom" className="col-span-2">
+                  <input
+                    className="line-editor-input"
+                    value={selectedPoint.gps?.name ?? ""}
+                    onChange={(e) => onUpdatePassage({ name: e.target.value })}
+                    placeholder="Ex. Virage quai de la Fosse"
+                  />
+                </Field>
+                <Field label="Rayon GPS (m)">
+                  <input
+                    className="line-editor-input"
+                    type="number"
+                    min={1}
+                    value={selectedPoint.gps?.radiusMeters ?? 15}
+                    onChange={(e) =>
+                      onUpdatePassage({ radiusMeters: Number(e.target.value) || 1 })
+                    }
+                  />
+                </Field>
+                <Field label="Temps estimé (min)">
+                  <input
+                    className="line-editor-input"
+                    type="number"
+                    min={0}
+                    value={selectedPoint.gps?.estimatedMinutes ?? 1}
+                    onChange={(e) =>
+                      onUpdatePassage({ estimatedMinutes: Number(e.target.value) || 0 })
+                    }
+                  />
+                </Field>
+                <Field label="Commentaires" className="col-span-2">
+                  <textarea
+                    className="line-editor-textarea"
+                    rows={3}
+                    value={selectedPoint.gps?.notes ?? ""}
+                    onChange={(e) => onUpdatePassage({ notes: e.target.value })}
+                    placeholder="Précisions d’exploitation…"
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
 
           <div className="line-editor-card">
             <label className="line-editor-field-label">Type de point</label>

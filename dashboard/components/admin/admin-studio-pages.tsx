@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   CircleDashed,
   Database,
-  Eye,
   Filter,
   Flag,
   Map,
@@ -23,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { loadAdminStudioUser, loadAdminStudioUsers } from "@/lib/admin-studio-users";
 import { AdminUserDetailEditor } from "./admin-user-detail-editor";
+import { AdminUsersDirectory } from "./admin-users-directory";
 import { StudioMapWorkspace, StudioMobilityMap } from "./admin-studio-map";
 import {
   marketplaceRows,
@@ -265,57 +265,7 @@ export async function AdminUsersStudioPage() {
         />
       </section>
 
-      <FilterBar
-        fields={["Recherche nom, réseau, profil", "Réseau", "Type de profil", "Dépôt", "Habilitation", "Statut"]}
-      />
-      <StudioPanel title="Liste des utilisateurs" description="Les profils Pro ne sont pas des administrateurs plateforme.">
-        <div className="admin-table-scroll">
-          <table className="admin-table admin-users-table">
-            <thead>
-              <tr>
-                <th>Nom</th>
-                <th>Email</th>
-                <th>Type de profil</th>
-                <th>Réseau</th>
-                <th>Dépôt</th>
-                <th>Habilitations</th>
-                <th>Statut</th>
-                <th>Dernière connexion</th>
-                <th>Inscription</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id}>
-                  <td className="font-semibold text-white">
-                    <span className="block max-w-[210px] truncate">{user.name}</span>
-                  </td>
-                  <td>
-                    <span className="block max-w-[230px] truncate text-slate-200">{user.email}</span>
-                  </td>
-                  <td>
-                    <span className="block text-slate-200">{user.profile}</span>
-                    <span className="text-xs text-slate-500">{user.userKind}</span>
-                  </td>
-                  <td>{user.network}</td>
-                  <td>{user.depot}</td>
-                  <td>{user.authorizations}</td>
-                  <td><StatusPill label={user.status} /></td>
-                  <td>{user.lastLogin}</td>
-                  <td>{user.createdAt}</td>
-                  <td>
-                    <Link className="admin-secondary-btn h-8 px-3" href={`/admin/users/${user.id}`} aria-label={`Ouvrir ${user.name}`}>
-                      <Eye className="h-3.5 w-3.5" />
-                      Ouvrir
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </StudioPanel>
+      <AdminUsersDirectory users={users} />
     </main>
   );
 }
@@ -353,8 +303,12 @@ export async function AdminUserDetailPage({ userId }: { userId: string }) {
         <StatusPill label={source === "supabase" ? "Source Supabase" : "Source démo"} status={source === "supabase" ? "done" : "attention"} />
         {warning ? <span className="text-xs text-amber-200">{warning}</span> : null}
       </div>
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <AdminUserDetailEditor user={user} />
+      <section className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <AdminUserDetailEditor
+          user={user}
+          source={source}
+          loginHref={`/login?mode=pro&next=${encodeURIComponent(`/admin/users/${userId}`)}`}
+        />
       </section>
     </main>
   );

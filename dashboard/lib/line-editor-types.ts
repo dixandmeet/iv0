@@ -10,8 +10,8 @@ export type StopDirection = "aller" | "retour" | "both";
 export type LineVoice = "aller" | "retour";
 
 export const LINE_VOICE_LABELS: Record<LineVoice, string> = {
-  aller: "Voix 1 · Aller",
-  retour: "Voix 2 · Retour",
+  aller: "Aller",
+  retour: "Retour",
 };
 
 export type EditorTransportMode = "bus" | "tram" | "boat" | "shuttle";
@@ -30,11 +30,19 @@ export interface StopDetails {
   notes: string;
 }
 
+export interface PassageDetails {
+  name: string;
+  radiusMeters: number;
+  estimatedMinutes: number;
+  notes: string;
+}
+
 export interface RoutePoint {
   id: string;
   coordinates: [number, number];
   type: PointType;
   stop?: StopDetails;
+  gps?: PassageDetails;
 }
 
 /** Branche rattachée à un pôle de correspondance sur le tronc principal. */

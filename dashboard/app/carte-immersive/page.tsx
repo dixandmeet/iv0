@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ImmersiveMap } from "@/components/carte-immersive/immersive-map";
 import {
+  loadAleopLineTraces,
   loadDashboardLineCatalog,
   loadPublishedLineTraces,
   loadRealLineTraces,
@@ -12,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 export const metadata: Metadata = {
   title: "Carte immersive",
   description:
-    "Explorez la carte 3D immersive d'Aule : itinéraires en temps réel, VTC, taxis et commerçants à proximité.",
+    "Calculez vos itinéraires en bus, tram, navibus ou voiture et profitez du guidage en temps réel avec Aule.",
   robots: { index: false, follow: false },
 };
 
@@ -24,7 +25,10 @@ export default async function CarteImmersivePage() {
     loadPublishedLineTraces(supabase),
     loadDashboardLineCatalog(supabase),
   ]);
-  const realLineTraces = mergeLineTraces(publishedLineTraces, loadRealLineTraces());
+  const realLineTraces = [
+    ...mergeLineTraces(publishedLineTraces, loadRealLineTraces()),
+    ...loadAleopLineTraces(), // lignes interurbaines Aléop (tracés entiers)
+  ];
   const user = authResult.data.user;
   let viewer: { displayName: string; avatarUrl: string | null } | null = null;
 

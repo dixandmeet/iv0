@@ -14,18 +14,31 @@ import { buildDepotRegulationLines } from "@/lib/regulation-depot";
 import { computePunctualityRate, sumActiveUsers } from "@/lib/alerts";
 import type { RegulationLine } from "@/lib/regulation-mock-data";
 import { gtfsRouteIdFromLineId } from "@/lib/depot-lines";
+import { useNetwork } from "@/components/network/network-provider";
+import type { LineEditorState } from "@/lib/line-editor-types";
 
 export function useRegulationDashboard(
   selectedLineId: string | null,
   selectedVariantByLine: Record<string, string> = {},
+  editorState: LineEditorState | null = null,
 ) {
+  const { isPilotNetwork } = useNetwork();
   const { fleet, incidents, loading, error, lastUpdated, refresh } =
     useOperationsData();
-  const { drivers } = useDriversData();
+  const {
+    drivers,
+    loading: driversLoading,
+    error: driversError,
+    refresh: refreshDrivers,
+  } = useDriversData();
   const { routes, loading: gtfsLoading } = useGtfsData();
 
   const lines = useMemo(() => {
-    const schemaLines = buildDepotRegulationLines(fleet, incidents);
+    // Le catalogue des dépôts est une source de démonstration Naolib. Il ne
+    // doit jamais initialiser un réseau créé par un nouvel utilisateur.
+    const schemaLines = isPilotNetwork
+      ? buildDepotRegulationLines(fleet, incidents)
+      : [];
 
     if (routes.length === 0) {
       return schemaLines;
@@ -43,14 +56,23 @@ export function useRegulationDashboard(
       if (a.depotCode !== b.depotCode) return a.depotCode.localeCompare(b.depotCode);
       return a.shortName.localeCompare(b.shortName, "fr", { numeric: true });
     });
-  }, [routes, fleet, incidents]);
+  }, [routes, fleet, incidents, isPilotNetwork]);
 
   const effectiveLineId = useMemo(
-    () =>
-      selectedLineId ??
-      lines.find((line) => line.vehicleCount > 0)?.id ??
-      lines[0]?.id ??
-      null,
+    () => {
+      const requestedRouteId = selectedLineId?.startsWith("network:")
+        ? selectedLineId.slice(selectedLineId.lastIndexOf(":") + 1)
+        : selectedLineId;
+      const requestedLine = selectedLineId
+        ? lines.find((line) => line.id === selectedLineId) ??
+          lines.find((line) => line.routeId === requestedRouteId)
+        : null;
+
+      return requestedLine?.id ??
+        lines.find((line) => line.vehicleCount > 0)?.id ??
+        lines[0]?.id ??
+        null;
+    },
     [selectedLineId, lines],
   );
 
@@ -61,7 +83,9 @@ export function useRegulationDashboard(
   }, [fleet, effectiveLineId]);
 
   const selectedVariantId = effectiveLineId
-    ? selectedVariantByLine[effectiveLineId] ?? null
+    ? selectedVariantByLine[effectiveLineId] ??
+      (selectedLineId ? selectedVariantByLine[selectedLineId] : null) ??
+      null
     : null;
 
   const { topology, timelineStops, loading: timelineLoading, error: timelineError } =
@@ -69,6 +93,7 @@ export function useRegulationDashboard(
       routeId: effectiveLineId,
       preferredTripId,
       selectedVariantId,
+      editorState,
     });
 
   const alerts = useMemo(
@@ -117,12 +142,15 @@ export function useRegulationDashboard(
     topology,
     timelineStops,
     incidents,
+    drivers,
     alerts,
     loading: loading || gtfsLoading,
+    driversLoading,
     timelineLoading,
-    error: error ?? timelineError,
+    error: error ?? driversError ?? timelineError,
     lastUpdated,
     refresh,
+    refreshDrivers,
     kpis: {
       vehicleCount: fleet.length,
       connectedDrivers,

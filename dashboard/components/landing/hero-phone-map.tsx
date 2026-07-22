@@ -3,23 +3,50 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LandingMapView } from "./landing-map-view";
 import type { Vehicle3DLayer } from "@/components/carte-immersive/vehicle-3d-layer";
-import { pathLen, pointAt, type LatLng } from "@/lib/carte-immersive/geo";
+import { distanceMeters, type LatLng } from "@/lib/carte-immersive/geo";
 import type { MapVehicle } from "@/lib/carte-immersive/vehicles";
 import {
-  BABINIERE_STOP,
   boundsFromCoordinates,
   NANTES_BUS_ROUTE,
   NANTES_CENTER,
-  NANTES_LIGNE00_ROUTE,
   NANTES_TRAM_ROUTE,
   NANTES_WALK_ROUTE,
   sliceLineRoute,
   type MapBounds,
 } from "@/lib/landing-map-style";
 import styles from "./scrolly-landing.module.css";
+import type { HeroWeather } from "./use-hero-weather";
 
 function routeToPath(route: GeoJSON.Feature<GeoJSON.LineString>): LatLng[] {
   return route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+}
+
+function metricPathLength(path: LatLng[]) {
+  let total = 0;
+  for (let index = 1; index < path.length; index += 1) {
+    total += distanceMeters(path[index - 1], path[index]);
+  }
+  return total;
+}
+
+function pointAlongMetricPath(path: LatLng[], distance: number) {
+  let remaining = distance;
+  for (let index = 1; index < path.length; index += 1) {
+    const from = path[index - 1];
+    const to = path[index];
+    const segmentLength = distanceMeters(from, to);
+    if (remaining <= segmentLength || index === path.length - 1) {
+      const progress = segmentLength === 0 ? 0 : Math.min(1, remaining / segmentLength);
+      return {
+        lat: from[0] + (to[0] - from[0]) * progress,
+        lng: from[1] + (to[1] - from[1]) * progress,
+      };
+    }
+    remaining -= segmentLength;
+  }
+
+  const [lat, lng] = path[path.length - 1];
+  return { lat, lng };
 }
 
 function animatePreviewAlongPath(
@@ -27,26 +54,40 @@ function animatePreviewAlongPath(
   id: string,
   path: LatLng[],
   now: number,
-  speed: number,
-  phase: number,
+  speedMetersPerSecond: number,
+  phaseSeconds: number,
+  direction: 1 | -1,
+  stopFraction: number,
+  dwellSeconds: number,
   angles: Map<string, number>,
 ) {
-  const total = pathLen(path);
+  const total = metricPathLength(path);
   if (total === 0) return;
 
-  const cycle = 2 * total;
-  let distance = (((now * speed + phase) % cycle) + cycle) % cycle;
-  let reverse = false;
-  if (distance > total) {
-    distance = cycle - distance;
-    reverse = true;
-  }
+  const travelSeconds = total / speedMetersPerSecond;
+  const journeyStopFraction = direction === 1 ? stopFraction : 1 - stopFraction;
+  const stopAt = travelSeconds * journeyStopFraction;
+  const cycleSeconds = travelSeconds + dwellSeconds;
+  const cycleTime = (((now + phaseSeconds) % cycleSeconds) + cycleSeconds) % cycleSeconds;
+  const journeyTime =
+    cycleTime <= stopAt
+      ? cycleTime
+      : cycleTime <= stopAt + dwellSeconds
+        ? stopAt
+        : cycleTime - dwellSeconds;
+  const journeyDistance = Math.min(total, journeyTime * speedMetersPerSecond);
+  const distance = direction === 1 ? journeyDistance : total - journeyDistance;
 
-  const point = pointAt(path, distance);
-  const direction = reverse ? -1 : 1;
-  const epsilon = Math.max(0.00035, total * 0.03);
-  const ahead = pointAt(path, Math.max(0, Math.min(total, distance + direction * epsilon)));
-  const behind = pointAt(path, Math.max(0, Math.min(total, distance - direction * epsilon)));
+  const point = pointAlongMetricPath(path, distance);
+  const epsilon = Math.max(5, total * 0.012);
+  const ahead = pointAlongMetricPath(
+    path,
+    Math.max(0, Math.min(total, distance + direction * epsilon)),
+  );
+  const behind = pointAlongMetricPath(
+    path,
+    Math.max(0, Math.min(total, distance - direction * epsilon)),
+  );
   const east = (ahead.lng - behind.lng) * Math.cos((point.lat * Math.PI) / 180);
   const north = ahead.lat - behind.lat;
   let heading = (Math.atan2(east, north) * 180) / Math.PI;
@@ -123,20 +164,191 @@ export function HeroPhoneMap({ className }: { className?: string }) {
 }
 
 export function EnvironmentSectionMap({ className }: { className?: string }) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const vehicleLayerRef = useRef<Vehicle3DLayer | null>(null);
   const previewAnglesRef = useRef(new Map<string, number>());
+  const animationEpochRef = useRef<number | null>(null);
   const rafRef = useRef(0);
   const [vehicleLayerReady, setVehicleLayerReady] = useState(false);
+  const [animationActive, setAnimationActive] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState("--:--:--");
 
-  const linePath = useMemo(() => routeToPath(NANTES_LIGNE00_ROUTE), []);
+  const commerceLine1 = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(
+    () => ({
+      type: "Feature",
+      properties: { name: "Tram 1 · Commerce" },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-1.54755, 47.21618],
+          [-1.54804, 47.21592],
+          [-1.54853, 47.21567],
+          [-1.5489, 47.21553],
+          [-1.54927, 47.21539],
+          [-1.5499, 47.21521],
+          [-1.55052, 47.21504],
+          [-1.55114, 47.21486],
+          [-1.5518, 47.21471],
+          [-1.55247, 47.21457],
+          [-1.55313, 47.21443],
+          [-1.55379, 47.21428],
+          [-1.55445, 47.21414],
+          [-1.55499, 47.21397],
+          [-1.55553, 47.2138],
+          [-1.55605, 47.21359],
+          [-1.55657, 47.21337],
+          [-1.55709, 47.21316],
+          [-1.55761, 47.21294],
+          [-1.558, 47.21267],
+          [-1.55839, 47.2124],
+          [-1.55878, 47.21212],
+          [-1.55922, 47.21188],
+          [-1.55965, 47.21164],
+          [-1.5602, 47.21143],
+          [-1.56074, 47.21121],
+          [-1.56129, 47.21099],
+          [-1.56184, 47.21078],
+          [-1.56238, 47.21056],
+        ],
+      },
+    }),
+    [],
+  );
+
+  const commerceLines23 = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(
+    () => ({
+      type: "Feature",
+      properties: { name: "Trams 2 et 3 · Commerce" },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-1.55591, 47.21991],
+          [-1.55633, 47.21958],
+          [-1.55676, 47.21926],
+          [-1.55718, 47.21894],
+          [-1.55737, 47.21859],
+          [-1.55741, 47.21829],
+          [-1.55745, 47.218],
+          [-1.55735, 47.21754],
+          [-1.55716, 47.2171],
+          [-1.55698, 47.21667],
+          [-1.55679, 47.21623],
+          [-1.5566, 47.21579],
+          [-1.55642, 47.21535],
+          [-1.55623, 47.21491],
+          [-1.55589, 47.21452],
+          [-1.55555, 47.21413],
+          [-1.5552, 47.21374],
+          [-1.55486, 47.21335],
+          [-1.55452, 47.21296],
+          [-1.55417, 47.21257],
+          [-1.55375, 47.2122],
+          [-1.55333, 47.21183],
+          [-1.55291, 47.21146],
+          [-1.55249, 47.21108],
+          [-1.55208, 47.21071],
+          [-1.55166, 47.21034],
+          [-1.55124, 47.20996],
+          [-1.55082, 47.20959],
+          [-1.5504, 47.20922],
+        ],
+      },
+    }),
+    [],
+  );
+
+  const commerceLine3 = useMemo<GeoJSON.Feature<GeoJSON.LineString>>(
+    () => ({
+      type: "Feature",
+      properties: { name: "Tram 3 · Commerce" },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [-1.56097, 47.21896],
+          [-1.56051, 47.21864],
+          [-1.56004, 47.21832],
+          [-1.55958, 47.218],
+          [-1.55911, 47.21768],
+          [-1.55865, 47.21736],
+          [-1.55818, 47.21704],
+          [-1.55771, 47.21672],
+          [-1.55725, 47.2164],
+          [-1.55678, 47.21608],
+          [-1.5566, 47.21569],
+          [-1.55642, 47.2153],
+          [-1.55623, 47.21491],
+          [-1.55591, 47.21454],
+          [-1.55558, 47.21417],
+          [-1.55526, 47.2138],
+          [-1.55493, 47.21343],
+          [-1.55461, 47.21306],
+          [-1.55428, 47.21269],
+          [-1.55385, 47.2123],
+          [-1.55343, 47.21192],
+          [-1.553, 47.21154],
+          [-1.55257, 47.21116],
+          [-1.55214, 47.21077],
+          [-1.55171, 47.21039],
+          [-1.55128, 47.21001],
+          [-1.55085, 47.20963],
+          [-1.55042, 47.20924],
+          [-1.55, 47.20886],
+        ],
+      },
+    }),
+    [],
+  );
+
+  const line1Path = useMemo(() => routeToPath(commerceLine1), [commerceLine1]);
+  const lines23Path = useMemo(() => routeToPath(commerceLines23), [commerceLines23]);
+  const line3Path = useMemo(() => routeToPath(commerceLine3), [commerceLine3]);
 
   const routes = useMemo(
     () => [
       {
-        id: "section-ligne00-route",
-        data: NANTES_LIGNE00_ROUTE,
-        color: "#33BFA3",
-        width: 6,
+        id: "section-commerce-line-1",
+        data: commerceLine1,
+        color: "#36D6B5",
+        width: 4.5,
+      },
+      {
+        id: "section-commerce-line-2",
+        data: commerceLines23,
+        color: "#FF6B7D",
+        width: 4,
+      },
+      {
+        id: "section-commerce-line-3",
+        data: commerceLine3,
+        color: "#6C9CFF",
+        width: 4,
+      },
+    ],
+    [commerceLine1, commerceLine3, commerceLines23],
+  );
+
+  const zones = useMemo(
+    () => [
+      {
+        id: "section-commerce-zone",
+        color: "#8DEEDD",
+        fillOpacity: 0.12,
+        data: {
+          type: "Feature" as const,
+          properties: { name: "Pôle d'échanges Commerce" },
+          geometry: {
+            type: "Polygon" as const,
+            coordinates: [[
+              [-1.5588, 47.2158],
+              [-1.5568, 47.2165],
+              [-1.5538, 47.2152],
+              [-1.5536, 47.2125],
+              [-1.5562, 47.2118],
+              [-1.559, 47.2131],
+              [-1.5588, 47.2158],
+            ]],
+          },
+        },
       },
     ],
     [],
@@ -145,28 +357,52 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
   const modelVehicles = useMemo<MapVehicle[]>(
     () => [
       {
-        id: "section-bus",
-        type: "bus",
-        mode: "preview",
-        lng: BABINIERE_STOP[0],
-        lat: BABINIERE_STOP[1],
-        heading: 90,
-        speedMps: 6,
-        recordedAt: new Date().toISOString(),
-        routeId: "00",
-        destination: "Ranzay",
-      },
-      {
-        id: "section-tram",
+        id: "section-tram-1-east",
         type: "tram",
         mode: "preview",
-        lng: BABINIERE_STOP[0],
-        lat: BABINIERE_STOP[1],
+        lng: -1.55605,
+        lat: 47.21359,
         heading: 90,
         speedMps: 8,
         recordedAt: new Date().toISOString(),
-        routeId: "00",
-        destination: "Babinière",
+        routeId: "1",
+        destination: "Beaujoire",
+      },
+      {
+        id: "section-tram-1-west",
+        type: "tram",
+        mode: "preview",
+        lng: -1.55313,
+        lat: 47.21443,
+        heading: 270,
+        speedMps: 8,
+        recordedAt: new Date().toISOString(),
+        routeId: "1",
+        destination: "François Mitterrand",
+      },
+      {
+        id: "section-tram-2-south",
+        type: "tram",
+        mode: "preview",
+        lng: -1.55716,
+        lat: 47.2171,
+        heading: 165,
+        speedMps: 8,
+        recordedAt: new Date().toISOString(),
+        routeId: "2",
+        destination: "Gare de Pont-Rousseau",
+      },
+      {
+        id: "section-tram-3-north",
+        type: "tram",
+        mode: "preview",
+        lng: -1.55257,
+        lat: 47.21116,
+        heading: 345,
+        speedMps: 8,
+        recordedAt: new Date().toISOString(),
+        routeId: "3",
+        destination: "Marcel Paul",
       },
     ],
     [],
@@ -175,34 +411,26 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
   const markers = useMemo(
     () => [
       {
-        id: "relais-babiniere",
-        lng: -1.5462,
-        lat: 47.2596,
-        label: "Relais P+R Babinière",
+        id: "commerce-line-1-stop",
+        lng: -1.5553,
+        lat: 47.21385,
+        label: "Commerce · Ligne 1",
         status: "pilot" as const,
-        badge: "Café",
+        badge: "L1",
+        accent: "#36D6B5",
+        offset: [62, 22] as [number, number],
+        variant: "stop" as const,
       },
       {
-        id: "cafe-erdre",
-        lng: -1.5388,
-        lat: 47.2566,
-        label: "Café de l'Erdre",
+        id: "commerce-lines-2-3-stop",
+        lng: -1.55615,
+        lat: 47.21455,
+        label: "Commerce · Lignes 2 & 3",
         status: "pilot" as const,
-      },
-      {
-        id: "superette-ranzay",
-        lng: -1.5303,
-        lat: 47.254,
-        label: "Supérette Ranzay",
-        status: "pilot" as const,
-        badge: "Ouvert",
-      },
-      {
-        id: "boulangerie-haluchere",
-        lng: -1.5229,
-        lat: 47.2493,
-        label: "Boulangerie Haluchère",
-        status: "coming" as const,
+        badge: "L2 · L3",
+        accent: "#FF7184",
+        offset: [-68, -28] as [number, number],
+        variant: "stop" as const,
       },
     ],
     [],
@@ -214,27 +442,85 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
   }, []);
 
   useEffect(() => {
-    if (!vehicleLayerReady || !vehicleLayerRef.current) return;
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setAnimationActive(entry.isIntersecting),
+      { threshold: 0.12 },
+    );
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!animationActive) return;
+    const formatter = new Intl.DateTimeFormat("fr-FR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    const refreshClock = () => setUpdatedAt(formatter.format(new Date()));
+    refreshClock();
+    const timer = window.setInterval(refreshClock, 1_000);
+    return () => window.clearInterval(timer);
+  }, [animationActive]);
+
+  useEffect(() => {
+    if (!vehicleLayerReady || !vehicleLayerRef.current || !animationActive) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const layer = vehicleLayerRef.current;
     const tick = () => {
-      const now = performance.now() / 1000;
+      const frameTime = performance.now() / 1000;
+      animationEpochRef.current ??= frameTime;
+      const now = frameTime - animationEpochRef.current;
       animatePreviewAlongPath(
         layer,
-        "section-bus",
-        linePath,
+        "section-tram-1-east",
+        line1Path,
         now,
-        0.00064,
-        0,
+        7.5,
+        20,
+        -1,
+        0.52,
+        7,
         previewAnglesRef.current,
       );
       animatePreviewAlongPath(
         layer,
-        "section-tram",
-        linePath,
+        "section-tram-1-west",
+        line1Path,
         now,
-        0.00058,
-        0.0445,
+        7.2,
+        110,
+        1,
+        0.52,
+        7,
+        previewAnglesRef.current,
+      );
+      animatePreviewAlongPath(
+        layer,
+        "section-tram-2-south",
+        lines23Path,
+        now,
+        6.8,
+        40,
+        1,
+        0.54,
+        8,
+        previewAnglesRef.current,
+      );
+      animatePreviewAlongPath(
+        layer,
+        "section-tram-3-north",
+        line3Path,
+        now,
+        7,
+        100,
+        -1,
+        0.5,
+        8,
         previewAnglesRef.current,
       );
       rafRef.current = requestAnimationFrame(tick);
@@ -242,40 +528,56 @@ export function EnvironmentSectionMap({ className }: { className?: string }) {
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [vehicleLayerReady, linePath]);
+  }, [animationActive, vehicleLayerReady, line1Path, line3Path, lines23Path]);
 
   return (
-    <div data-par="1.3" className={styles.environmentMapPanel}>
+    <div ref={panelRef} data-par="1.3" className={styles.environmentMapPanel}>
       <LandingMapView
-        center={[-1.5338, 47.2582]}
-        zoom={14.6}
-        bearing={-24}
-        pitch={60}
+        center={[-1.55591, 47.21427]}
+        zoom={15.9}
+        bearing={-14}
+        pitch={48}
         interactive={false}
         eager
         threeD
         scrollZoom={false}
         routes={routes}
+        zones={zones}
         modelVehicles={modelVehicles}
         markers={markers}
         onVehicleLayerReady={handleVehicleLayerReady}
         className={className ?? styles.environmentMapCanvas}
-        ariaLabel="Carte 3D de la ligne 00 Babinière ↔ Ranzay, avec véhicules en circulation et commerces à proximité"
+        ariaLabel="Carte 3D en direct du pôle d'échanges Commerce à Nantes, avec quatre tramways animés sur les lignes 1, 2 et 3"
       />
       <div className={styles.environmentMapVeil} aria-hidden="true" />
-      <div className={styles.environmentMapDeparture}>Ligne 00 · Babinière → Ranzay</div>
+      <div className={styles.environmentMapDeparture}>
+        <span className={styles.environmentMapDepartureIcon} aria-hidden="true">
+          <i />
+        </span>
+        <span className={styles.environmentMapDepartureCopy}>
+          <small>Pôle d&apos;échanges</small>
+          <strong>Commerce · Nantes Centre</strong>
+        </span>
+      </div>
+      <div className={styles.environmentMapRealtime} aria-hidden="true">
+        <span className={styles.environmentMapRealtimeDot} />
+        <span><strong>4 véhicules</strong><small>{updatedAt}</small></span>
+      </div>
+      <div className={styles.environmentMapArrivals} aria-hidden="true">
+        <span><i className={styles.environmentMapLine1}>1</i><small>Beaujoire</small><strong>1 min</strong></span>
+        <span><i className={styles.environmentMapLine2}>2</i><small>Pont-Rousseau</small><strong>2 min</strong></span>
+        <span><i className={styles.environmentMapLine3}>3</i><small>Marcel Paul</small><strong>4 min</strong></span>
+      </div>
       <div className={styles.environmentMapLegend}>
+        <span className={styles.environmentMapLegendLabel}>Temps réel</span>
         <span className={styles.environmentMapLegendItem}>
-          <i className={styles.environmentMapLegendDotTram} aria-hidden="true" />
-          Ligne 00
+          <i className={styles.environmentMapLine1} aria-hidden="true">1</i>
+          Est ↔ Ouest
         </span>
         <span className={styles.environmentMapLegendItem}>
-          <i className={styles.environmentMapLegendDotBus} aria-hidden="true" />
-          Véhicules
-        </span>
-        <span className={styles.environmentMapLegendItem}>
-          <i className={styles.environmentMapLegendDotShop} aria-hidden="true" />
-          Commerces
+          <i className={styles.environmentMapLine2} aria-hidden="true">2</i>
+          <i className={styles.environmentMapLine3} aria-hidden="true">3</i>
+          Nord ↔ Sud
         </span>
       </div>
     </div>
@@ -286,10 +588,12 @@ export function HeroInteractiveMap({
   className,
   focusLocation,
   userLocation,
+  weather,
 }: {
   className?: string;
   focusLocation?: UserLocation;
   userLocation?: UserLocation;
+  weather?: HeroWeather;
 }) {
   const routes = useMemo(
     () => [
@@ -343,17 +647,6 @@ export function HeroInteractiveMap({
         routeId: "C4",
         destination: "Gare Nord",
       },
-      {
-        id: "hero-taxi-live",
-        type: "taxi",
-        mode: "preview",
-        lng: -1.5581,
-        lat: 47.2159,
-        heading: 52,
-        speedMps: 7,
-        recordedAt: new Date().toISOString(),
-        destination: "Commerce",
-      },
     ],
     [],
   );
@@ -397,6 +690,8 @@ export function HeroInteractiveMap({
       interactive
       eager
       threeD
+      ambientSimulation
+      ambientDensity={0.48}
       scrollZoom={false}
       showControls
       routes={routes}
@@ -405,6 +700,7 @@ export function HeroInteractiveMap({
       showUserLocation={userLocation}
       className={className}
       ariaLabel="Carte 3D interactive de Nantes avec véhicules, itinéraires et services Aule"
+      atmosphere={weather ? { period: weather.period, condition: weather.condition } : undefined}
     />
   );
 }

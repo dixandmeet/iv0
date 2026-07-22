@@ -31,6 +31,87 @@ export function applyDarkReskin(map: maplibregl.Map) {
   }
 }
 
+export type MapAtmosphere = {
+  period: "dawn" | "day" | "dusk" | "night";
+  condition: "clear" | "cloudy" | "fog" | "rain" | "snow" | "storm";
+};
+
+/** Recolore la ville 3D selon la lumière ambiante et la météo du hero. */
+export function applyAtmosphereReskin(map: maplibregl.Map, atmosphere: MapAtmosphere) {
+  const daylight = atmosphere.period === "day" || atmosphere.period === "dawn";
+  const wet = atmosphere.condition === "rain" || atmosphere.condition === "storm";
+  const muted = atmosphere.condition === "cloudy" || atmosphere.condition === "fog" || wet;
+  const snowy = atmosphere.condition === "snow";
+
+  const palette = atmosphere.period === "night"
+    ? { ground: "#0b151b", road: "#263740", water: "#102b39", park: "#142923", building: "#263a42", text: "#9fb2b9", halo: "#091116" }
+    : atmosphere.period === "dusk"
+      ? { ground: "#3f4549", road: "#676661", water: "#375c69", park: "#465b4b", building: "#7a6d61", text: "#e8ded0", halo: "#343a3c" }
+      : muted
+        ? { ground: "#778188", road: "#9aa0a2", water: "#668895", park: "#748b7b", building: "#a5aaab", text: "#eef2f2", halo: "#657077" }
+        : { ground: "#b9b6a6", road: "#ddd6bd", water: "#72aabd", park: "#8fa77e", building: "#d4c7ac", text: "#263b40", halo: "#e8dfc8" };
+
+  if (snowy) {
+    palette.ground = daylight ? "#cbd1d2" : "#28343b";
+    palette.park = daylight ? "#b8c5c0" : "#243630";
+    palette.building = daylight ? "#d9dddc" : "#3b4850";
+  }
+
+  const set = (id: string, prop: string, value: unknown) => {
+    try {
+      map.setPaintProperty(id, prop, value as never);
+    } catch {
+      // Le style Liberty peut renommer ou omettre certains calques.
+    }
+  };
+
+  for (const layer of map.getStyle().layers) {
+    const id = layer.id;
+    if (layer.type === "background") set(id, "background-color", palette.ground);
+    else if (layer.type === "fill-extrusion") {
+      set(id, "fill-extrusion-color", palette.building);
+      set(id, "fill-extrusion-opacity", wet ? 0.82 : 0.9);
+    } else if (/^(immersive-map|hero-|section-|screen-|guide-|tracking-)/.test(id)) {
+      // Les couches fonctionnelles conservent leurs couleurs métier.
+      continue;
+    } else if (layer.type === "fill") {
+      if (/building/i.test(id)) set(id, "fill-color", palette.building);
+      else if (/water/i.test(id)) set(id, "fill-color", palette.water);
+      else if (/(wood|forest|park|grass|garden|scrub|golf|pitch|cemetery)/i.test(id)) set(id, "fill-color", palette.park);
+      else set(id, "fill-color", palette.ground);
+    } else if (layer.type === "line") {
+      set(id, "line-color", /water|river|stream|canal/i.test(id) ? palette.water : palette.road);
+    } else if (layer.type === "symbol") {
+      set(id, "text-color", palette.text);
+      set(id, "text-halo-color", palette.halo);
+    }
+  }
+}
+
+export function applyAtmosphereSky(map: maplibregl.Map, atmosphere: MapAtmosphere) {
+  const { period, condition } = atmosphere;
+  const overcast = condition === "rain" || condition === "storm" || condition === "fog";
+  const colors = period === "night"
+    ? { sky: "#07121d", horizon: "#17313e", fog: "#0b1720" }
+    : period === "dawn"
+      ? { sky: overcast ? "#82909b" : "#6f9fbd", horizon: overcast ? "#aa9b91" : "#f0a878", fog: "#a48f82" }
+      : period === "dusk"
+        ? { sky: overcast ? "#5d6874" : "#6a6988", horizon: overcast ? "#927d78" : "#e18966", fog: "#74656a" }
+        : { sky: overcast ? "#84939d" : "#70b8dc", horizon: overcast ? "#b6bdc0" : "#d8edf3", fog: overcast ? "#9aa5aa" : "#c8e1e6" };
+  try {
+    map.setSky({
+      "sky-color": colors.sky,
+      "horizon-color": colors.horizon,
+      "fog-color": colors.fog,
+      "sky-horizon-blend": 0.45,
+      "horizon-fog-blend": overcast ? 0.9 : 0.55,
+      "fog-ground-blend": overcast ? 0.82 : 0.48,
+    });
+  } catch {
+    // Le ciel custom dépend de la version MapLibre utilisée par le navigateur.
+  }
+}
+
 /** Ajoute les bâtiments 3D extrudés à partir de la source vectorielle OpenMapTiles du style. */
 export function addExtrudedBuildings(map: maplibregl.Map) {
   try {
@@ -177,7 +258,11 @@ export function ensureRouteLayer(map: maplibregl.Map) {
       source: "immersive-map-route",
       type: "line",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#33bfa3", "line-width": 5, "line-opacity": 0.95 },
+      paint: {
+        "line-color": ["coalesce", ["get", "color"], "#33bfa3"],
+        "line-width": 5,
+        "line-opacity": 0.95,
+      },
     });
   }
 }

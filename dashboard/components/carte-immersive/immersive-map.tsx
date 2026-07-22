@@ -4,30 +4,35 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import maplibregl from "maplibre-gl";
 import { attachMapLibreErrorHandler } from "@/lib/maplibre-errors";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CITY_CENTER } from "@/lib/carte-immersive/data";
 import {
-  CATEGORIES,
-  CITY_CENTER,
-  ROUTE_DELTAS,
-  SHOP_DEFS,
-  SHOP_DELTAS,
-  VEHICLE_DEFS,
-  buildMenu,
-  fmt,
-  type ShopDef,
-  type VehicleDef,
-} from "@/lib/carte-immersive/data";
-import { pathLen, pointAt, type LatLng } from "@/lib/carte-immersive/geo";
-import type { MapVehicle } from "@/lib/carte-immersive/vehicles";
+  distanceMeters,
+  pathLen,
+  pointAt,
+  type LatLng,
+} from "@/lib/carte-immersive/geo";
+import { transitRouteRefreshDelay } from "@/lib/carte-immersive/transit-quality";
+import {
+  vehicleScheduleMotionAt,
+  type VehicleScheduleControlPoint,
+} from "@/lib/carte-immersive/vehicle-schedule-motion";
+import {
+  selectLiveVehicleForSchedule,
+  type MapVehicle,
+} from "@/lib/carte-immersive/vehicles";
 import { useImmersiveFleet } from "@/hooks/use-immersive-fleet";
 import {
   addExtrudedBuildings,
-  applyDarkReskin,
+  applyAtmosphereReskin,
+  applyAtmosphereSky,
   ensureRouteLayer,
   ensureTransitTracesLayer,
   hideGenericPois,
   registerMissingImageFallback,
   setTransitTracesFilter,
 } from "./map-style";
+import { useHeroWeather } from "@/components/landing/use-hero-weather";
+import { MapWeatherScene } from "./map-weather-scene";
 import type {
   DashboardLineSearchItem,
   RealLineTrace,
@@ -36,7 +41,12 @@ import { loadCustomRegulationLines } from "@/lib/regulation-custom-line";
 import { loadLineEditorDraft } from "@/lib/line-editor-persistence";
 import { getVoicePoints, isStopType } from "@/lib/line-editor-utils";
 import { travelerCommentsForVehicle } from "@/lib/traveler-comments";
-import { createDestElement, createShopElement, createUserElement } from "./map-markers";
+import {
+  fetchRegisteredStopsFromDatabase,
+  type RegisteredStop,
+} from "@/lib/registered-stops";
+import { createDestElement, createUserElement } from "./map-markers";
+import { createOrbitControl, createViewControl } from "./map-controls";
 import {
   TopBar,
   type GlobalSearchSuggestion,
@@ -46,19 +56,30 @@ import { QuickActionsPanel } from "./quick-actions-panel";
 import { FiltersPanel, type FilterKey } from "./filters-panel";
 import { BottomNav } from "./bottom-nav";
 import { GeoPrompt } from "./geo-prompt";
-import { RoutePanel, type RouteMode, type RouteStep } from "./route-panel";
-import { FocusPanel, type RideItem, type ShopResultItem, type SortMode } from "./focus-panel";
+import {
+  RoutePanel,
+  type RouteAlternativeOption,
+  type RouteDepartureOption,
+  type RouteMode,
+  type RoutePreferences,
+  type RouteStep,
+  type RouteVehicleTracking,
+} from "./route-panel";
 import { DetailPanel, type SelectedDetail } from "./detail-panel";
-import { MerchantSheet, type MenuChip, type CartLine } from "./merchant-sheet";
+import {
+  StopSchedulePanel,
+  type ScheduledPassageSelection,
+  type SelectedMapStop,
+} from "./stop-schedule-panel";
 import { Vehicle3DLayer } from "./vehicle-3d-layer";
+import { AmbientSimulationLayer } from "./ambient-simulation-layer";
 import {
   TrackingPanel,
   type TrackingPanelData,
   type TrackingStopPlanItem,
 } from "./tracking-panel";
 
-type SelectedKind = "vehicle" | "shop" | null;
-type FocusMode = "ride" | "shop" | null;
+type SelectedKind = "vehicle" | null;
 type GeocodeResult = { name: string; label: string; latLng: LatLng };
 type InitialRoutePoint = {
   label: string;
@@ -70,11 +91,28 @@ type SearchLineSelection = {
   subtitle: string;
   coords: LatLng[];
   stopCount?: number;
+  vehicleCount?: number;
+};
+
+type LoadedLineSchedule = {
+    generatedAt: string;
+    departureId: string;
+    profileId?: string;
+    directionId?: number | null;
+    destination: string | null;
+    source: "gtfs";
+    stops: Array<{
+      stopId: string;
+      fraction: number;
+      passageInSeconds: number;
+    }>;
 };
 
 type LoadedLineMapData = {
   trace: LatLng[];
   stops: LineStop[];
+  schedule?: LoadedLineSchedule | null;
+  schedules?: LoadedLineSchedule[];
 };
 
 type LineStop = { id: string; name: string; lat: number; lng: number };
@@ -85,6 +123,9 @@ type LineVehicleAnimation = {
   length: number;
   startedAt: number;
   travelDuration: number;
+  speedMps: number;
+  routeDistanceM: number;
+  scheduleStops: Array<VehicleScheduleControlPoint & { stopId: string }>;
 };
 
 type VehiclePose = {
@@ -105,12 +146,15 @@ type VehicleTracking = {
   stops: LineStop[];
   nextStopPosition: LatLng | null;
   hasRealtime: boolean;
+  scheduledPassages: ReadonlyMap<string, number>;
 };
 
 type TrackingMetrics = {
   distanceToStopM: number | null;
   etaMinutes: number | null;
   distanceToUserM: number | null;
+  distanceTraveledM: number | null;
+  routeDistanceM: number | null;
 };
 
 type RouteProjection = {
@@ -121,7 +165,197 @@ type RouteProjection = {
   totalDistance: number;
 };
 
+type RouteCandidateState = {
+  id: string;
+  coordinates: [number, number][];
+  segments?: RouteSegmentState[];
+  distanceM: number;
+  durationMin: number;
+  departureAt?: string;
+  arrivalAt?: string;
+  steps: RouteStep[];
+  summary: string;
+  accessible: boolean;
+  alertCount: number;
+};
+
+type RouteSegmentState = {
+  coordinates: [number, number][];
+  color: string;
+  routeId?: string;
+  type: "walk" | "transit";
+};
+
+type RouteInfoState = {
+  distanceM: number;
+  durationMin: number;
+  departureAt?: string;
+  arrivalAt?: string;
+  steps: RouteStep[];
+  alternatives: RouteCandidateState[];
+  departures: RouteCandidateState[];
+  selectedAlternativeId: string;
+  engine: "timetable" | "heuristic";
+};
+
+type RouteSkeletonState = {
+  id: string;
+  routeIds: string[];
+  summary: string;
+};
+
+type RouteApiData = {
+  coordinates?: [number, number][];
+  segments?: RouteSegmentState[];
+  distance?: number;
+  duration?: number;
+  departureAt?: string;
+  arrivalAt?: string;
+  steps?: RouteStep[];
+  alternatives?: Array<{
+    id: string;
+    coordinates: [number, number][];
+    segments?: RouteSegmentState[];
+    distance: number;
+    duration: number;
+    departureAt?: string;
+    arrivalAt?: string;
+    steps: RouteStep[];
+    summary: string;
+    accessible: boolean;
+    alerts?: unknown[];
+  }>;
+  departures?: Array<{
+    id: string;
+    coordinates: [number, number][];
+    segments?: RouteSegmentState[];
+    distance: number;
+    duration: number;
+    departureAt?: string;
+    arrivalAt?: string;
+    steps: RouteStep[];
+    summary: string;
+    accessible: boolean;
+    alerts?: unknown[];
+  }>;
+  engine?: "timetable" | "heuristic";
+  error?: string;
+};
+
+type RouteSkeletonApiData = {
+  suggestions?: Array<{
+    id: string;
+    route_ids: string[];
+    summary: string;
+  }>;
+  engine?: "skeleton";
+  error?: string;
+};
+
+class RouteResponseFormatError extends Error {
+  constructor(status: number) {
+    super(
+      status >= 400
+        ? `Le service d’itinéraire a renvoyé une réponse invalide (HTTP ${status}).`
+        : "Le service d’itinéraire a renvoyé une réponse illisible.",
+    );
+    this.name = "RouteResponseFormatError";
+  }
+}
+
+async function readRouteResponse<T>(response: Response): Promise<T> {
+  const body = await response.text();
+  if (!body.trim()) throw new RouteResponseFormatError(response.status);
+
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    throw new RouteResponseFormatError(response.status);
+  }
+}
+
+const ROUTE_ALGORITHM_VERSION = "26";
+
+type RouteApiCandidate = NonNullable<RouteApiData["alternatives"]>[number];
+
+function toRouteCandidate(alternative: RouteApiCandidate): RouteCandidateState {
+  return {
+    id: alternative.id,
+    coordinates: alternative.coordinates,
+    segments: alternative.segments,
+    distanceM: Math.round(alternative.distance),
+    durationMin: Math.max(1, Math.round(alternative.duration / 60)),
+    departureAt: alternative.departureAt,
+    arrivalAt: alternative.arrivalAt,
+    steps: alternative.steps,
+    summary: alternative.summary,
+    accessible: alternative.accessible,
+    alertCount: alternative.alerts?.length ?? 0,
+  };
+}
+
+// Fenêtres interrogées en arrière-plan une fois le premier itinéraire affiché :
+// elles alimentent « Prochains départs » sans allonger le calcul initial.
+const DEFERRED_DEPARTURE_WINDOWS_MIN = [20, 40];
+const MAX_DEPARTURE_OPTIONS = 3;
+
+function mergeDepartureOptions(
+  current: RouteCandidateState[],
+  incoming: RouteCandidateState[],
+): RouteCandidateState[] {
+  const best = current[0];
+  if (!best?.departureAt) return current;
+  const bestAt = new Date(best.departureAt).getTime();
+  const later = [...current.slice(1), ...incoming]
+    .filter((candidate) => {
+      const at = candidate.departureAt
+        ? new Date(candidate.departureAt).getTime()
+        : Number.NaN;
+      return Number.isFinite(at) && at > bestAt + 30_000;
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.departureAt ?? 0).getTime() -
+        new Date(b.departureAt ?? 0).getTime(),
+    );
+  return [best, ...later]
+    .filter(
+      (candidate, index, values) =>
+        values.findIndex(
+          (value) =>
+            Math.abs(
+              new Date(value.departureAt ?? 0).getTime() -
+                new Date(candidate.departureAt ?? 0).getTime(),
+            ) < 60_000,
+        ) === index,
+    )
+    .slice(0, MAX_DEPARTURE_OPTIONS);
+}
+
 const GEOLOCATION_CONSENT_KEY = "aule:geolocation-consent";
+type GeolocationIssue =
+  | "denied"
+  | "insecure"
+  | "timeout"
+  | "unavailable"
+  | "unsupported";
+
+function geolocationIssueMessage(issue: GeolocationIssue): string {
+  switch (issue) {
+    case "denied":
+      return "Position bloquée par le navigateur — autorisez-la depuis l’icône de localisation de la barre d’adresse.";
+    case "insecure":
+      return "La géolocalisation nécessite une connexion HTTPS (localhost reste autorisé en développement).";
+    case "timeout":
+      return "La localisation prend trop de temps — vérifiez la localisation de l’appareil puis réessayez avec le bouton cible.";
+    case "unavailable":
+      return "Position introuvable — vérifiez que la localisation de l’appareil est activée puis réessayez.";
+    case "unsupported":
+      return "La géolocalisation n’est pas disponible dans ce navigateur.";
+  }
+}
+
+const NEARBY_SEARCH_STOP_LIMIT = 10;
 const TRACKING_ROUTE_FRONT_OFFSET_METERS = 30;
 const TRACKING_CAMERA_UPDATE_INTERVAL_SECONDS = 0.08;
 const TRACKING_ROUTE_MASK_SOURCE_ID = "immersive-map-tracking-route-mask-source";
@@ -165,10 +399,53 @@ function labelName(label: string) {
   return label.split(",")[0]?.trim() || label;
 }
 
+function formatNearbyDistance(distance: number): string {
+  if (distance < 1_000) return `${Math.max(10, Math.round(distance / 10) * 10)} m`;
+  return `${(distance / 1_000).toFixed(1).replace(".", ",")} km`;
+}
+
+function normalizePublicLineName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+const routeClockFormatter = new Intl.DateTimeFormat("fr-FR", {
+  timeZone: "Europe/Paris",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+const routeDayClockFormatter = new Intl.DateTimeFormat("fr-FR", {
+  timeZone: "Europe/Paris",
+  weekday: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+const routeDayKeyFormatter = new Intl.DateTimeFormat("fr-CA", {
+  timeZone: "Europe/Paris",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function routeDate(value: string | undefined, fallback: Date): Date {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
+}
+
+function formatRouteDate(value: Date, reference = new Date()): string {
+  return routeDayKeyFormatter.format(value) === routeDayKeyFormatter.format(reference)
+    ? routeClockFormatter.format(value)
+    : routeDayClockFormatter.format(value).replace(",", "");
+}
+
 function parseInitialRouteMode(value: string | null): RouteMode {
-  return value === "foot" || value === "car" || value === "transit"
-    ? value
-    : "transit";
+  return value === "car" ? "car" : "transit";
 }
 
 function parseInitialRoutePoint(
@@ -178,8 +455,10 @@ function parseInitialRoutePoint(
   lngKey: string,
 ): InitialRoutePoint | null {
   const label = params.get(labelKey)?.trim() ?? "";
-  const lat = Number(params.get(latKey));
-  const lng = Number(params.get(lngKey));
+  const rawLat = params.get(latKey);
+  const rawLng = params.get(lngKey);
+  const lat = rawLat == null ? Number.NaN : Number(rawLat);
+  const lng = rawLng == null ? Number.NaN : Number(rawLng);
 
   if (Number.isFinite(lat) && Number.isFinite(lng)) {
     return {
@@ -196,6 +475,7 @@ function createLineStopElement(
   index: number,
   total: number,
   color: string,
+  onClick?: () => void,
 ): HTMLButtonElement {
   const terminal = index === 0 || index === total - 1;
   const element = document.createElement("button");
@@ -210,6 +490,7 @@ function createLineStopElement(
   element.style.background = "#ffffff";
   element.style.boxShadow = "0 3px 10px rgba(0,0,0,.42)";
   element.style.cursor = "pointer";
+  if (onClick) element.addEventListener("click", onClick);
   return element;
 }
 
@@ -559,6 +840,7 @@ function buildTrackingStopPlan(
   stops: LineStop[],
   projection: RouteProjection | null,
   nextStopName: string,
+  scheduledPassages: ReadonlyMap<string, number>,
 ): TrackingStopPlanItem[] {
   if (stops.length === 0) return [];
 
@@ -569,7 +851,9 @@ function buildTrackingStopPlan(
     );
     return stops.map((stop, index) => ({
       id: stop.id,
+      occurrenceKey: `${index}:${stop.id}`,
       name: stop.name,
+      passageAt: scheduledPassages.get(stop.id) ?? null,
       state:
         index < nextIndex
           ? "passed"
@@ -611,7 +895,9 @@ function buildTrackingStopPlan(
         : item.distance > projection.distance + tolerance;
     return {
       id: item.stop.id,
+      occurrenceKey: `${item.order}:${item.stop.id}`,
       name: item.stop.name,
+      passageAt: scheduledPassages.get(item.stop.id) ?? null,
       state:
         item.stop.id === nextStopId
           ? "next"
@@ -635,6 +921,56 @@ function updateRouteSource(map: maplibregl.Map, route: LatLng[]) {
       coordinates: route.map(([lat, lng]) => [lng, lat]),
     },
   });
+}
+
+function plannedRouteGeoJson(
+  coordinates: [number, number][],
+  segments: RouteSegmentState[] | undefined,
+) {
+  const visibleSegments = (segments ?? []).filter(
+    (segment) => segment.coordinates.length >= 2,
+  );
+  return {
+    type: "FeatureCollection" as const,
+    features: (visibleSegments.length
+      ? visibleSegments
+      : [{ coordinates, color: "#33bfa3", type: "transit" as const }]
+    ).map((segment) => ({
+      type: "Feature" as const,
+      properties: {
+        color: segment.color,
+        routeId: "routeId" in segment ? (segment.routeId ?? null) : null,
+        segmentType: segment.type,
+      },
+      geometry: {
+        type: "LineString" as const,
+        coordinates: segment.coordinates,
+      },
+    })),
+  };
+}
+
+function showPlannedRoute(
+  map: maplibregl.Map,
+  coordinates: [number, number][],
+  segments: RouteSegmentState[] | undefined,
+) {
+  const source = map.getSource("immersive-map-route") as maplibregl.GeoJSONSource | undefined;
+  source?.setData(plannedRouteGeoJson(coordinates, segments));
+  if (!map.getLayer("immersive-map-route-line")) return;
+  try {
+    map.setLayoutProperty("immersive-map-route-line", "line-cap", "round");
+    map.setPaintProperty("immersive-map-route-line", "line-color", [
+      "coalesce",
+      ["get", "color"],
+      "#33bfa3",
+    ]);
+    map.setPaintProperty("immersive-map-route-line", "line-width", 5);
+  } catch (error) {
+    // Le style initial de la couche contient déjà ces valeurs. Certains
+    // WebKit/Safari lèvent néanmoins une DOMException pendant leur réapplication.
+    console.warn("Impossible de réinitialiser le style du trajet", error);
+  }
 }
 
 function updateTrackingRouteMask(map: maplibregl.Map, position: LatLng | null) {
@@ -726,12 +1062,6 @@ function createLocateControl(onLocate: () => void): maplibregl.IControl {
   };
 }
 
-/** Utilise le tracé GTFS réel du véhicule s'il est disponible, sinon le trajet fictif de démo. */
-function pathCoords(v: VehicleDef, realPaths: Record<string, LatLng[]>): LatLng[] {
-  const real = realPaths[v.id];
-  if (real && real.length >= 2) return real;
-  return ROUTE_DELTAS[v.path].map((d) => [CITY_CENTER[0] + d[0], CITY_CENTER[1] + d[1]]);
-}
 
 type ImmersiveMapProps = {
   realPaths?: Record<string, LatLng[]>;
@@ -751,14 +1081,17 @@ export function ImmersiveMap({
   const readyRef = useRef(false);
   const rafRef = useRef(0);
   const vehicleLayerRef = useRef<Vehicle3DLayer | null>(null);
-  const shopMarkersRef = useRef<Record<string, maplibregl.Marker>>({});
+  const ambientLayerRef = useRef<AmbientSimulationLayer | null>(null);
   const userMarkerRef = useRef<maplibregl.Marker | null>(null);
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const selectedStopMarkerRef = useRef<maplibregl.Marker | null>(null);
   const lineStopMarkersRef = useRef<maplibregl.Marker[]>([]);
   const showLineStopsRef = useRef<(stops: LineStop[], color?: string) => void>(
     () => {},
   );
-  const lineVehicleAnimationRef = useRef<LineVehicleAnimation | null>(null);
+  const lineVehicleAnimationsRef = useRef<Map<string, LineVehicleAnimation>>(
+    new Map(),
+  );
   const activeLineMapDataRef = useRef<LoadedLineMapData | null>(null);
   const previewAnglesRef = useRef<Map<string, number>>(new Map());
   const vehiclePoseRef = useRef<Map<string, VehiclePose>>(new Map());
@@ -769,39 +1102,51 @@ export function ImmersiveMap({
   const trackingAlertedRef = useRef(false);
   const trackingNotificationRef = useRef(false);
   const trackingStopsVisibleRef = useRef(false);
-  const shopSearchCenterRef = useRef<maplibregl.LngLat | null>(null);
-  const orderTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const trackingAlertTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
-  const orbitingRef = useRef(false);
   const userPositionRef = useRef<LatLng | null>(null);
   const geoWatchIdRef = useRef<number | null>(null);
   const locateActionRef = useRef<() => void>(() => {});
+  const viewActionRef = useRef<() => void>(() => {});
+  const rotateActionRef = useRef<(degrees: number) => void>(() => {});
+  const viewControlButtonRef = useRef<HTMLButtonElement | null>(null);
   const realPathsRef = useRef(realPaths);
   const { vehicles: liveVehicles, mode: fleetMode, stale: fleetStale } = useImmersiveFleet();
+  const [weatherLocation, setWeatherLocation] = useState({
+    lat: CITY_CENTER[0],
+    lng: CITY_CENTER[1],
+  });
+  const mapWeather = useHeroWeather(weatherLocation);
+  const mapWeatherRef = useRef(mapWeather);
+  mapWeatherRef.current = mapWeather;
 
   const [filters, setFilters] = useState<Record<FilterKey, boolean>>({
     bus: true,
     tram: true,
-    vtc: true,
-    taxi: true,
-    shop: true,
   });
+  const [ambientEnabled, setAmbientEnabled] = useState(true);
   const [selectedKind, setSelectedKind] = useState<SelectedKind>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const [geoPosition, setGeoPosition] = useState<LatLng | null>(null);
+  const [stopCatalog, setStopCatalog] = useState<RegisteredStop[]>([]);
+  const [stopLinesById, setStopLinesById] = useState<Record<string, string[]>>({});
+  const requestedStopLinesRef = useRef(new Set<string>());
+  const [selectedStop, setSelectedStop] = useState<SelectedMapStop | null>(null);
   const [searchLineSelection, setSearchLineSelection] =
     useState<SearchLineSelection | null>(null);
   const [publishedCustomLines, setPublishedCustomLines] = useState<
     DashboardLineSearchItem[]
   >([]);
-  const [lineVehicle, setLineVehicle] = useState<MapVehicle | null>(null);
+  const [lineVehicles, setLineVehicles] = useState<MapVehicle[]>([]);
   const [tracking, setTracking] = useState<VehicleTracking | null>(null);
   const [trackingMetrics, setTrackingMetrics] = useState<TrackingMetrics>({
     distanceToStopM: null,
     etaMinutes: null,
     distanceToUserM: null,
+    distanceTraveledM: null,
+    routeDistanceM: null,
   });
   const [trackingStopPlan, setTrackingStopPlan] = useState<
     TrackingStopPlanItem[]
@@ -813,16 +1158,31 @@ export function ImmersiveMap({
   const [routeActive, setRouteActive] = useState(false);
   const [geoGranted, setGeoGranted] = useState(false);
   const [geoPromptVisible, setGeoPromptVisible] = useState(false);
-  const [geoDeniedNoticeVisible, setGeoDeniedNoticeVisible] = useState(false);
+  const [geoNotice, setGeoNotice] = useState<string | null>(null);
   const [destName, setDestName] = useState("");
-  const [routeMode, setRouteMode] = useState<RouteMode>("foot");
+  const [routeMode, setRouteMode] = useState<RouteMode>("transit");
+  const [routePreferences, setRoutePreferences] = useState<RoutePreferences>({
+    accessible: false,
+    avoidDisruptions: true,
+    maxTransfers: 2,
+  });
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeError, setRouteError] = useState<string | null>(null);
-  const [routeInfo, setRouteInfo] = useState<{ distanceM: number; durationMin: number; steps: RouteStep[] } | null>(
-    null,
-  );
+  const [routeInfo, setRouteInfo] = useState<RouteInfoState | null>(null);
+  const [routeSkeletons, setRouteSkeletons] = useState<RouteSkeletonState[]>([]);
   const activeRouteRef = useRef<{ origin: LatLng; dest: LatLng; destName: string } | null>(null);
+  const routeRequestRef = useRef<AbortController | null>(null);
+  const routePrefetchRef = useRef<AbortController | null>(null);
+  const routeDeparturesRef = useRef<AbortController | null>(null);
+  const refreshedDepartureRef = useRef<string | null>(null);
   const [originAddress, setOriginAddress] = useState("Votre position actuelle");
+  const [originIsCurrent, setOriginIsCurrent] = useState(true);
+  const [selectedOrigin, setSelectedOrigin] = useState<GeocodeResult | null>(null);
+  const [originSuggestions, setOriginSuggestions] = useState<GeocodeResult[]>([]);
+  const [originSuggestionsLoading, setOriginSuggestionsLoading] = useState(false);
+  const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
+  const originSearchRequestRef = useRef(0);
+  const originIsCurrentRef = useRef(true);
   const [originAddressLoading, setOriginAddressLoading] = useState(false);
   const [destinationLoading, setDestinationLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -832,22 +1192,31 @@ export function ImmersiveMap({
   const [selectedDestination, setSelectedDestination] = useState<GeocodeResult | null>(null);
   const addressSearchRequestRef = useRef(0);
   const [quickCollapsed, setQuickCollapsed] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [showRouteInputs, setShowRouteInputs] = useState(false);
-  const [focusMode, setFocusMode] = useState<FocusMode>(null);
-  const [shopQuery, setShopQuery] = useState("");
-  const [activeCats, setActiveCats] = useState<Record<string, boolean>>({});
-  const [sortMode, setSortMode] = useState<SortMode>("distance");
-  const [showSearchArea, setShowSearchArea] = useState(false);
   const [view3D, setView3D] = useState(true);
-  const [orbiting, setOrbiting] = useState(false);
-  const [merchantId, setMerchantId] = useState<string | null>(null);
-  const [menuCat, setMenuCat] = useState("all");
-  const [cart, setCart] = useState<Record<string, number>>({});
-  const [cartOpen, setCartOpen] = useState(false);
-  const [orderPlaced, setOrderPlaced] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+
+  useEffect(() => {
+    if (selectedStop) return;
+    selectedStopMarkerRef.current?.remove();
+    selectedStopMarkerRef.current = null;
+    mapRef.current?.setPadding({ top: 0, right: 0, bottom: 0, left: 0 });
+  }, [selectedStop]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchRegisteredStopsFromDatabase()
+      .then((stops) => {
+        if (!cancelled) setStopCatalog(stops);
+      })
+      .catch(() => {
+        if (!cancelled) setStopCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const initialRouteStartedRef = useRef(false);
 
   useEffect(() => {
@@ -871,29 +1240,8 @@ export function ImmersiveMap({
   }, []);
 
   const displayVehicles = useMemo<MapVehicle[]>(() => {
-    const previewVehicles = VEHICLE_DEFS.map((vehicle) => {
-      const start = pointAt(pathCoords(vehicle, realPaths), 0);
-      return {
-        id: vehicle.id,
-        type: vehicle.type,
-        mode: "preview" as const,
-        lat: start.lat,
-        lng: start.lng,
-        heading: 0,
-        speedMps: null,
-        recordedAt: null,
-        routeId: vehicle.line,
-        destination: vehicle.dest,
-        preview: vehicle,
-      };
-    });
-    const ridePreviews = previewVehicles.filter(
-      (vehicle) => vehicle.type === "vtc" || vehicle.type === "taxi",
-    );
-    const vehicles =
-      liveVehicles.length > 0 ? [...liveVehicles, ...ridePreviews] : previewVehicles;
-    return lineVehicle ? [...vehicles, lineVehicle] : vehicles;
-  }, [lineVehicle, liveVehicles, realPaths]);
+    return lineVehicles.length > 0 ? [...liveVehicles, ...lineVehicles] : liveVehicles;
+  }, [lineVehicles, liveVehicles]);
 
   const displayVehiclesRef = useRef(displayVehicles);
   const previewIdsRef = useRef(new Set<string>());
@@ -902,66 +1250,32 @@ export function ImmersiveMap({
     displayVehicles.filter((vehicle) => vehicle.mode === "preview").map((vehicle) => vehicle.id),
   );
 
-  // ===== Sélection & focus =====
-  const select = useCallback((kind: "vehicle" | "shop", id: string) => {
+  // ===== Sélection =====
+  const select = useCallback((kind: "vehicle", id: string) => {
     setSelectedKind(kind);
     setSelectedId(id);
     setSearchLineSelection(null);
     setRouteActive(false);
   }, []);
 
-  const hoverShop = useCallback((id: string) => {
-    const marker = shopMarkersRef.current[id];
-    const inner = marker?.getElement().firstElementChild as HTMLElement | undefined;
-    if (inner) {
-      inner.style.transition = "transform .2s ease, box-shadow .2s ease";
-      inner.style.transform = "scale(1.35)";
-      inner.style.boxShadow = "0 0 0 8px rgba(51,191,163,0.35), 0 6px 14px rgba(0,0,0,0.35)";
-    }
-  }, []);
-
-  const unhoverShop = useCallback((id: string) => {
-    const marker = shopMarkersRef.current[id];
-    const inner = marker?.getElement().firstElementChild as HTMLElement | undefined;
-    if (inner) {
-      inner.style.transform = "scale(1)";
-      inner.style.boxShadow = "0 6px 14px rgba(0,0,0,0.35)";
-    }
-  }, []);
-
-  const openMerchant = useCallback((id: string) => {
-    setMerchantId(id);
-    setMenuCat("all");
-    setCart({});
-    setCartOpen(false);
-    setOrderPlaced(false);
-    setSelectedKind(null);
-    setSelectedId(null);
-  }, []);
-
-  // Toujours à jour : les marqueurs (créés une seule fois) appellent ces callbacks
+  // Toujours à jour : les marqueurs (créés une seule fois) appellent ce callback
   // via cette ref pour éviter les fermetures obsolètes (stale closures).
-  const apiRef = useRef({ select, hoverShop, unhoverShop });
+  const apiRef = useRef({ select });
   useEffect(() => {
-    apiRef.current = { select, hoverShop, unhoverShop };
-  }, [select, hoverShop, unhoverShop]);
+    apiRef.current = { select };
+  }, [select]);
 
   // ===== Construction des marqueurs (appelée une fois, après le chargement du style) =====
   const buildMarkers = useCallback(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    for (const s of SHOP_DEFS) {
-      const delta = SHOP_DELTAS[s.id];
-      const el = createShopElement(s.emoji, () => apiRef.current.select("shop", s.id));
-      const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
-        .setLngLat([CITY_CENTER[1] + delta[1], CITY_CENTER[0] + delta[0]])
-        .addTo(map);
-      shopMarkersRef.current[s.id] = marker;
-    }
+    // Ne jamais afficher Nantes comme une fausse position utilisateur pendant
+    // que le navigateur attend encore une mesure GPS.
+    const initialUserPosition = userPositionRef.current;
+    if (!initialUserPosition) return;
 
     const userEl = createUserElement();
-    const initialUserPosition = userPositionRef.current ?? CITY_CENTER;
     userMarkerRef.current = new maplibregl.Marker({ element: userEl, anchor: "center" })
       .setLngLat([initialUserPosition[1], initialUserPosition[0]])
       .addTo(map);
@@ -1007,12 +1321,12 @@ export function ImmersiveMap({
 
       if (
         now - trackingCameraUpdatedAtRef.current >=
-        TRACKING_CAMERA_UPDATE_INTERVAL_SECONDS
+          TRACKING_CAMERA_UPDATE_INTERVAL_SECONDS &&
+        !map.isZooming()
       ) {
         trackingCameraUpdatedAtRef.current = now;
         map.easeTo({
           center: [pose.lng, pose.lat],
-          zoom: 17.6,
           pitch: 67,
           bearing: pose.heading,
           duration: 140,
@@ -1072,6 +1386,7 @@ export function ImmersiveMap({
             activeTracking.stops,
             routeProjection,
             nextStopOnRoute?.stop.name ?? activeTracking.nextStop,
+            activeTracking.scheduledPassages,
           ),
         );
         const distanceToUserM = userPositionRef.current
@@ -1081,11 +1396,22 @@ export function ImmersiveMap({
           4,
           pose.speedMps ?? (activeTracking.type === "tram" ? 11 : 9),
         );
+        const routeDistanceM = routeDistanceMeters(activeTracking.route);
+        const distanceRemainingM = routeProjection
+          ? routeDistanceMeters(
+              buildRemainingRoute(activeTracking.route, routeProjection),
+            )
+          : null;
         setTrackingMetrics({
           distanceToStopM,
           etaMinutes:
             distanceToStopM == null ? null : distanceToStopM / speedMps / 60,
           distanceToUserM,
+          distanceTraveledM:
+            distanceRemainingM == null
+              ? null
+              : Math.max(0, routeDistanceM - distanceRemainingM),
+          routeDistanceM,
         });
 
         if (
@@ -1132,65 +1458,47 @@ export function ImmersiveMap({
       }
     };
 
-    for (const v of VEHICLE_DEFS) {
-      if (!previewIdsRef.current.has(v.id)) continue;
-
-      const pts = pathCoords(v, realPathsRef.current);
-      const total = pathLen(pts);
-      const cycle = 2 * total;
-      let d = (((now * v.speed * 0.02 + v.phase) % cycle) + cycle) % cycle;
-      let reverse = false;
-      if (d > total) {
-        d = cycle - d;
-        reverse = true;
-      }
-      const p = pointAt(pts, d);
-      const dir = reverse ? -1 : 1;
-      const eps = Math.max(0.00035, total * 0.03);
-      const ahead = pointAt(pts, Math.max(0, Math.min(total, d + dir * eps)));
-      const behind = pointAt(pts, Math.max(0, Math.min(total, d - dir * eps)));
-      const east = (ahead.lng - behind.lng) * Math.cos((p.lat * Math.PI) / 180);
-      const north = ahead.lat - behind.lat;
-      let heading = (Math.atan2(east, north) * 180) / Math.PI;
-      const previous = previewAnglesRef.current.get(v.id);
-      if (previous != null) {
-        const delta = ((heading - previous + 540) % 360) - 180;
-        heading = previous + delta * 0.25;
-      }
-      previewAnglesRef.current.set(v.id, heading);
-      vehicleLayerRef.current?.setPreviewPose(v.id, p.lat, p.lng, heading);
-      syncTrackedVehicle(v.id, {
-        lat: p.lat,
-        lng: p.lng,
-        heading,
-        speedMps: null,
-      });
-    }
-
-    const lineAnimation = lineVehicleAnimationRef.current;
-    if (lineAnimation && previewIdsRef.current.has(lineAnimation.id)) {
-      const terminalPause = 3;
-      const elapsed = Math.max(0, now - lineAnimation.startedAt);
-      const legDuration = lineAnimation.travelDuration;
-      const cycleDuration = 2 * (legDuration + terminalPause);
-      const phase = elapsed % cycleDuration;
+    for (const lineAnimation of lineVehicleAnimationsRef.current.values()) {
+      if (!previewIdsRef.current.has(lineAnimation.id)) continue;
       let distance = 0;
       let reverse = false;
+      let currentSpeedMps = lineAnimation.speedMps;
+      const scheduledMotion = vehicleScheduleMotionAt(
+        lineAnimation.scheduleStops,
+        Date.now(),
+      );
 
-      if (phase < terminalPause) {
-        distance = 0;
-      } else if (phase < terminalPause + legDuration) {
-        distance =
-          ((phase - terminalPause) / legDuration) * lineAnimation.length;
-      } else if (phase < terminalPause * 2 + legDuration) {
-        distance = lineAnimation.length;
-        reverse = true;
+      if (scheduledMotion) {
+        distance = scheduledMotion.fraction * lineAnimation.length;
+        reverse = scheduledMotion.fractionPerSecond < 0;
+        currentSpeedMps = scheduledMotion.stopped
+          ? 0
+          : Math.abs(scheduledMotion.fractionPerSecond) *
+            lineAnimation.routeDistanceM;
       } else {
-        distance =
-          (1 -
-            (phase - terminalPause * 2 - legDuration) / legDuration) *
-          lineAnimation.length;
-        reverse = true;
+        const terminalPause = 20;
+        const elapsed = Math.max(0, now - lineAnimation.startedAt);
+        const legDuration = lineAnimation.travelDuration;
+        const cycleDuration = 2 * (legDuration + terminalPause);
+        const phase = elapsed % cycleDuration;
+
+        if (phase < terminalPause) {
+          distance = 0;
+          currentSpeedMps = 0;
+        } else if (phase < terminalPause + legDuration) {
+          distance =
+            ((phase - terminalPause) / legDuration) * lineAnimation.length;
+        } else if (phase < terminalPause * 2 + legDuration) {
+          distance = lineAnimation.length;
+          reverse = true;
+          currentSpeedMps = 0;
+        } else {
+          distance =
+            (1 -
+              (phase - terminalPause * 2 - legDuration) / legDuration) *
+            lineAnimation.length;
+          reverse = true;
+        }
       }
 
       const p = pointAt(lineAnimation.coords, distance);
@@ -1236,7 +1544,7 @@ export function ImmersiveMap({
         lat: p.lat,
         lng: p.lng,
         heading,
-        speedMps: null,
+        speedMps: currentSpeedMps,
       });
     }
 
@@ -1279,7 +1587,24 @@ export function ImmersiveMap({
     registerMissingImageFallback(map);
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
     map.addControl(createLocateControl(() => locateActionRef.current()), "bottom-right");
+    map.addControl(
+      createViewControl(
+        () => viewActionRef.current(),
+        (button) => {
+          viewControlButtonRef.current = button;
+        },
+      ),
+      "bottom-right",
+    );
+    map.addControl(
+      createOrbitControl(
+        () => rotateActionRef.current(-30),
+        () => rotateActionRef.current(30),
+      ),
+      "bottom-right",
+    );
     map.dragRotate.enable();
+    map.touchZoomRotate.enableRotation();
     requestAnimationFrame(() => map.resize());
     const resizeTimer = setTimeout(() => map.resize(), 300);
 
@@ -1290,21 +1615,9 @@ export function ImmersiveMap({
     window.visualViewport?.addEventListener("resize", handleViewportResize);
 
     map.on("load", () => {
-      try {
-        map.setSky({
-          "sky-color": "#0a1614",
-          "horizon-color": "#12241f",
-          "fog-color": "#0a1210",
-          "sky-horizon-blend": 0.5,
-          "horizon-fog-blend": 0.6,
-          "fog-ground-blend": 0.6,
-        });
-      } catch {
-        // certains navigateurs/versions du style ne supportent pas le ciel custom
-      }
-
-      applyDarkReskin(map);
       addExtrudedBuildings(map);
+      applyAtmosphereSky(map, mapWeatherRef.current);
+      applyAtmosphereReskin(map, mapWeatherRef.current);
       hideGenericPois(map);
       ensureRouteLayer(map);
       ensureTransitTracesLayer(
@@ -1316,24 +1629,27 @@ export function ImmersiveMap({
           coords: t.coords.map(([lat, lng]) => [lng, lat] as [number, number]),
         })),
       );
+      const ambientLayer = new AmbientSimulationLayer();
+      ambientLayerRef.current = ambientLayer;
+      ambientLayer.setEnabled(ambientEnabled);
+      ambientLayer.setTransitStops(
+        stopCatalog.flatMap((stop) =>
+          stop.coordinates ? [{ lng: stop.coordinates[0], lat: stop.coordinates[1] }] : [],
+        ),
+      );
+      map.addLayer(ambientLayer);
       const vehicleLayer = new Vehicle3DLayer({
         onSelect: (id) => apiRef.current.select("vehicle", id),
       });
+      vehicleLayer.setAtmosphere(mapWeatherRef.current);
       vehicleLayerRef.current = vehicleLayer;
       vehicleLayer.setVehicles(displayVehiclesRef.current);
       map.addLayer(vehicleLayer);
+      ambientLayer.moveBelowTransit();
       vehicleLayer.moveToTop();
       buildMarkers();
       readyRef.current = true;
       setMapReady(true);
-
-      map.on("moveend", () => {
-        if (focusModeRef.current !== "shop" || !shopSearchCenterRef.current) return;
-        const c1 = shopSearchCenterRef.current;
-        const c2 = map.getCenter();
-        const d = Math.hypot(c1.lat - c2.lat, c1.lng - c2.lng);
-        if (d > 0.003 && !showSearchAreaRef.current) setShowSearchArea(true);
-      });
 
       const hasInitialRoute = new URLSearchParams(window.location.search).get("route") === "1";
       if (!hasInitialRoute) {
@@ -1360,6 +1676,7 @@ export function ImmersiveMap({
       map.remove();
       mapRef.current = null;
       vehicleLayerRef.current = null;
+      ambientLayerRef.current = null;
       readyRef.current = false;
       setMapReady(false);
     };
@@ -1367,17 +1684,30 @@ export function ImmersiveMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refs "toujours à jour" pour les callbacks de la carte (moveend) qui ne doivent pas être recréés.
-  const focusModeRef = useRef<FocusMode>(null);
-  const showSearchAreaRef = useRef(false);
   useEffect(() => {
-    focusModeRef.current = focusMode;
-    showSearchAreaRef.current = showSearchArea;
-  }, [focusMode, showSearchArea]);
+    const map = mapRef.current;
+    if (!map || !readyRef.current || !map.isStyleLoaded()) return;
+    applyAtmosphereSky(map, mapWeather);
+    applyAtmosphereReskin(map, mapWeather);
+    vehicleLayerRef.current?.setAtmosphere(mapWeather);
+    vehicleLayerRef.current?.moveToTop();
+  }, [mapWeather]);
 
   useEffect(() => {
     vehicleLayerRef.current?.setVehicles(displayVehicles);
   }, [displayVehicles]);
+
+  useEffect(() => {
+    ambientLayerRef.current?.setTransitStops(
+      stopCatalog.flatMap((stop) =>
+        stop.coordinates ? [{ lng: stop.coordinates[0], lat: stop.coordinates[1] }] : [],
+      ),
+    );
+  }, [stopCatalog, mapReady]);
+
+  useEffect(() => {
+    ambientLayerRef.current?.setEnabled(ambientEnabled);
+  }, [ambientEnabled, mapReady]);
 
   useEffect(() => {
     vehicleLayerRef.current?.setSelected(
@@ -1387,22 +1717,15 @@ export function ImmersiveMap({
   }, [selectedKind, selectedId, tracking?.vehicleId]);
 
   useEffect(() => {
-    vehicleLayerRef.current?.setFocus(focusMode);
-  }, [focusMode]);
-
-  useEffect(() => {
     const layer = vehicleLayerRef.current;
     if (!layer) return;
     layer.setView3D(view3D);
     layer.setFilter("bus", filters.bus);
     layer.setFilter("tram", filters.tram);
-    layer.setFilter("vtc", filters.vtc);
-    layer.setFilter("taxi", filters.taxi);
   }, [view3D, filters]);
 
   useEffect(
     () => () => {
-      clearTimeout(orderTimeoutRef.current);
       clearTimeout(trackingAlertTimeoutRef.current);
     },
     [],
@@ -1428,40 +1751,37 @@ export function ImmersiveMap({
       map.easeTo({ pitch: 0, bearing: 0, duration: 900 });
     }
   };
+  viewActionRef.current = toggleView;
 
-  // ===== Vue 360° =====
-  const toggleOrbit = () => {
+  const rotateMap = (degrees: number) => {
     const map = mapRef.current;
-    if (orbitingRef.current) {
-      orbitingRef.current = false;
-      setOrbiting(false);
-      return;
-    }
     if (!map) return;
-    orbitingRef.current = true;
-    setOrbiting(true);
-    if (view3D && map.getPitch() < 30) map.easeTo({ pitch: 58, duration: 500 });
-    const start = map.getBearing();
-    const t0 = performance.now();
-    const dur = 7000;
-    const step = (t: number) => {
-      if (!orbitingRef.current || !mapRef.current) return;
-      const k = Math.min(1, (t - t0) / dur);
-      const eased = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-      mapRef.current.setBearing(start + 360 * eased);
-      if (k < 1) requestAnimationFrame(step);
-      else {
-        orbitingRef.current = false;
-        setOrbiting(false);
-      }
-    };
-    requestAnimationFrame(step);
+    map.stop();
+    map.easeTo({
+      bearing: map.getBearing() + degrees,
+      duration: 320,
+      easing: (value) => 1 - Math.pow(1 - value, 3),
+    });
   };
+  rotateActionRef.current = rotateMap;
+
+  useEffect(() => {
+    const button = viewControlButtonRef.current;
+    if (!button) return;
+    button.classList.toggle("immersive-map-view-control--active", view3D);
+    button.setAttribute("aria-pressed", String(view3D));
+    button.title = view3D ? "Passer en vue 2D" : "Passer en vue 3D";
+    button.setAttribute("aria-label", button.title);
+
+    const icon = button.querySelector<HTMLElement>(".immersive-map-view-control-icon");
+    if (icon) icon.textContent = view3D ? "3D" : "2D";
+  }, [view3D]);
 
   // ===== Géolocalisation (réelle, via l'API navigateur) =====
   const flyToPosition = (center: LatLng, pitchOverride?: number, bearingOverride?: number, duration = 1800) => {
     const map = mapRef.current;
     if (!map) return;
+    map.stop();
     map.flyTo({
       center: [center[1], center[0]],
       zoom: 17.3,
@@ -1471,9 +1791,32 @@ export function ImmersiveMap({
     });
   };
 
-  const placeUserMarker = (position: LatLng) => {
+  const placeUserMarker = (position: LatLng, isGpsPosition = true) => {
     userPositionRef.current = position;
-    userMarkerRef.current?.setLngLat([position[1], position[0]]);
+    if (isGpsPosition) {
+      setGeoPosition((current) =>
+        current && distanceMeters(current, position) < 10 ? current : position,
+      );
+    }
+    const roundedLocation = {
+      lat: Number(position[0].toFixed(2)),
+      lng: Number(position[1].toFixed(2)),
+    };
+    setWeatherLocation((current) =>
+      current.lat === roundedLocation.lat && current.lng === roundedLocation.lng
+        ? current
+        : roundedLocation,
+    );
+    if (!userMarkerRef.current && mapRef.current) {
+      userMarkerRef.current = new maplibregl.Marker({
+        element: createUserElement(),
+        anchor: "center",
+      })
+        .setLngLat([position[1], position[0]])
+        .addTo(mapRef.current);
+    } else {
+      userMarkerRef.current?.setLngLat([position[1], position[0]]);
+    }
   };
 
   const resolveOriginAddress = useCallback(async (position: LatLng) => {
@@ -1488,23 +1831,36 @@ export function ImmersiveMap({
 
       const data = (await response.json()) as { result?: { label?: string } };
       const label = data.result?.label?.trim();
-      setOriginAddress(label || "Votre position actuelle");
+      if (originIsCurrentRef.current) setOriginAddress(label || "Votre position actuelle");
     } catch {
-      setOriginAddress("Votre position actuelle");
+      if (originIsCurrentRef.current) setOriginAddress("Votre position actuelle");
     } finally {
       setOriginAddressLoading(false);
     }
   }, []);
 
-  const locateUser = useCallback((onFound: (position: LatLng) => void, onError: () => void) => {
+  const locateUser = useCallback((
+    onFound: (position: LatLng) => void,
+    onError: (issue: GeolocationIssue) => void,
+  ) => {
+    if (!window.isSecureContext) {
+      onError("insecure");
+      return;
+    }
     if (!("geolocation" in navigator)) {
-      onError();
+      onError("unsupported");
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => onFound([pos.coords.latitude, pos.coords.longitude]),
-      () => onError(),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) onError("denied");
+        else if (error.code === error.TIMEOUT) onError("timeout");
+        else onError("unavailable");
+      },
+      // Une position réseau/Wi-Fi arrive beaucoup plus régulièrement sur les
+      // navigateurs desktop. Le watch haute précision l'affinera ensuite.
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
     );
   }, []);
 
@@ -1512,8 +1868,14 @@ export function ImmersiveMap({
     if (!("geolocation" in navigator) || geoWatchIdRef.current != null) return;
     geoWatchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => placeUserMarker([pos.coords.latitude, pos.coords.longitude]),
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 10000 },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          localStorage.removeItem(GEOLOCATION_CONSENT_KEY);
+          setGeoGranted(false);
+          setGeoNotice(geolocationIssueMessage("denied"));
+        }
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 },
     );
   }, []);
 
@@ -1523,26 +1885,32 @@ export function ImmersiveMap({
       (position) => {
         localStorage.setItem(GEOLOCATION_CONSENT_KEY, "granted");
         setGeoGranted(true);
-        setGeoDeniedNoticeVisible(false);
+        setGeoNotice(null);
         placeUserMarker(position);
         void resolveOriginAddress(position);
         flyToPosition(position);
         startWatchingPosition();
       },
-      () => {
+      (issue) => {
         localStorage.removeItem(GEOLOCATION_CONSENT_KEY);
         setGeoGranted(false);
-        setGeoDeniedNoticeVisible(true);
+        setGeoNotice(geolocationIssueMessage(issue));
       },
     );
   };
   const onGeoDeny = () => {
     setGeoGranted(false);
     setGeoPromptVisible(false);
-    setGeoDeniedNoticeVisible(true);
+    setGeoNotice("Carte centrée sur Nantes — activez votre position pour un suivi personnalisé.");
   };
   const onLocateClick = () => {
-    setGeoDeniedNoticeVisible(false);
+    setGeoNotice(null);
+
+    // Le dernier point GPS connu permet un recentrage immédiat, même si une
+    // nouvelle mesure haute précision met plusieurs secondes à arriver.
+    const knownPosition = userPositionRef.current;
+    if (knownPosition) flyToPosition(knownPosition);
+
     locateUser(
       (position) => {
         localStorage.setItem(GEOLOCATION_CONSENT_KEY, "granted");
@@ -1552,10 +1920,10 @@ export function ImmersiveMap({
         flyToPosition(position);
         startWatchingPosition();
       },
-      () => {
+      (issue) => {
         localStorage.removeItem(GEOLOCATION_CONSENT_KEY);
         setGeoGranted(false);
-        setGeoDeniedNoticeVisible(true);
+        setGeoNotice(geolocationIssueMessage(issue));
       },
     );
   };
@@ -1581,7 +1949,7 @@ export function ImmersiveMap({
 
       if (permissionState === "denied") {
         localStorage.removeItem(GEOLOCATION_CONSENT_KEY);
-        setGeoDeniedNoticeVisible(true);
+        setGeoNotice(geolocationIssueMessage("denied"));
         return;
       }
 
@@ -1601,17 +1969,17 @@ export function ImmersiveMap({
           if (cancelled) return;
           localStorage.setItem(GEOLOCATION_CONSENT_KEY, "granted");
           setGeoGranted(true);
-          setGeoDeniedNoticeVisible(false);
+          setGeoNotice(null);
           placeUserMarker(position);
           void resolveOriginAddress(position);
           flyToPosition(position, undefined, undefined, 0);
           startWatchingPosition();
         },
-        () => {
+        (issue) => {
           if (cancelled) return;
           localStorage.removeItem(GEOLOCATION_CONSENT_KEY);
           setGeoGranted(false);
-          setGeoDeniedNoticeVisible(true);
+          setGeoNotice(geolocationIssueMessage(issue));
         },
       );
     };
@@ -1667,77 +2035,396 @@ export function ImmersiveMap({
     return () => clearTimeout(handle);
   }, [searchQuery, selectedDestination]);
 
-  const computeRoute = async (mode: RouteMode, origin: LatLng, dest: LatLng, name: string) => {
+  useEffect(() => {
+    const query = originAddress.trim();
+    const requestId = ++originSearchRequestRef.current;
+
+    if (
+      originIsCurrent ||
+      query.length < 3 ||
+      selectedOrigin?.label === query
+    ) {
+      setOriginSuggestions([]);
+      setOriginSuggestionsLoading(false);
+      return;
+    }
+
+    const handle = setTimeout(() => {
+      setOriginSuggestionsLoading(true);
+      void geocodeQuery(query).then((results) => {
+        if (originSearchRequestRef.current !== requestId) return;
+        setOriginSuggestions(results);
+        setOriginSuggestionsLoading(false);
+      });
+    }, 320);
+
+    return () => clearTimeout(handle);
+  }, [originAddress, originIsCurrent, selectedOrigin]);
+
+  const routeApiUrl = (
+    mode: RouteMode,
+    origin: LatLng,
+    dest: LatLng,
+    preferences: RoutePreferences,
+    preview = false,
+    departureAt?: Date,
+  ) => {
+    const params = new URLSearchParams({
+      v: ROUTE_ALGORITHM_VERSION,
+      mode: mode === "transit" ? "transit" : mode,
+      from: `${origin[1]},${origin[0]}`,
+      to: `${dest[1]},${dest[0]}`,
+    });
+    if (mode === "transit") {
+      params.set("accessible", preferences.accessible ? "1" : "0");
+      params.set("avoidDisruptions", preferences.avoidDisruptions ? "1" : "0");
+      params.set("maxTransfers", String(preferences.maxTransfers));
+      if (preview) params.set("preview", "1");
+      if (departureAt) params.set("departureAt", departureAt.toISOString());
+    }
+    return `/api/route?${params.toString()}`;
+  };
+
+  // Recharge les vrais départs suivants (+20 et +40 min) une fois le premier
+  // itinéraire affiché : le serveur ne calcule plus qu'une fenêtre horaire sur
+  // le chemin critique, ces requêtes complètent le panneau en arrière-plan.
+  const loadDeferredDepartures = (
+    origin: LatLng,
+    dest: LatLng,
+    preferences: RoutePreferences,
+  ) => {
+    routeDeparturesRef.current?.abort();
+    const controller = new AbortController();
+    routeDeparturesRef.current = controller;
+    void (async () => {
+      const windows = await Promise.all(
+        DEFERRED_DEPARTURE_WINDOWS_MIN.map(async (minutes) => {
+          try {
+            const url = routeApiUrl(
+              "transit",
+              origin,
+              dest,
+              preferences,
+              false,
+              new Date(Date.now() + minutes * 60_000),
+            );
+            const res = await fetch(url, { signal: controller.signal });
+            const data = (await res.json()) as RouteApiData;
+            return res.ok && data.engine === "timetable" ? data : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (controller.signal.aborted) return;
+      if (routeDeparturesRef.current === controller)
+        routeDeparturesRef.current = null;
+      const incoming = windows
+        .flatMap((data) => data?.departures ?? data?.alternatives ?? [])
+        .map(toRouteCandidate);
+      if (!incoming.length) return;
+      setRouteInfo((current) =>
+        current?.engine === "timetable"
+          ? {
+              ...current,
+              departures: mergeDepartureOptions(current.departures, incoming),
+            }
+          : current,
+      );
+    })();
+  };
+
+  const computeRoute = async (
+    mode: RouteMode,
+    origin: LatLng,
+    dest: LatLng,
+    name: string,
+    preferences = routePreferences,
+    departureAt?: Date,
+    preserveCurrentRoute = false,
+  ) => {
     const map = mapRef.current;
     if (!map) return;
+
+    routeRequestRef.current?.abort();
+    routeDeparturesRef.current?.abort();
+    routeDeparturesRef.current = null;
+    const controller = new AbortController();
+    routeRequestRef.current = controller;
 
     activeRouteRef.current = { origin, dest, destName: name };
     setRouteActive(true);
     setRouteLoading(true);
     setRouteError(null);
-    setRouteInfo(null);
+    if (!preserveCurrentRoute) setRouteInfo(null);
+    setRouteSkeletons([]);
 
-    try {
-      const apiMode = mode === "transit" ? "transit" : mode;
-      const url = `/api/route?mode=${apiMode}&from=${origin[1]},${origin[0]}&to=${dest[1]},${dest[0]}`;
-      const res = await fetch(url, { cache: "no-store" });
-      const data = (await res.json()) as {
-        coordinates?: [number, number][];
-        distance?: number;
-        duration?: number;
-        steps?: RouteStep[];
-        error?: string;
-      };
+    let routeRendered = false;
+    let resultApplied = false;
+    let finalResultApplied = false;
+    let appliedEngine: "timetable" | "heuristic" | null = null;
+    let lastError: Error | null = null;
+
+    const fetchRouteResponse = async <T,>(
+      url: string,
+    ): Promise<{ res: Response; data: T }> => {
+      const request = () =>
+        fetch(url, {
+          signal: controller.signal,
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+      let res = await request();
+      try {
+        return { res, data: await readRouteResponse<T>(res) };
+      } catch (error) {
+        if (!(error instanceof RouteResponseFormatError) || controller.signal.aborted) {
+          throw error;
+        }
+        // Une réponse HTML transitoire du serveur de développement produit ce
+        // message dans Safari. Un unique réessai évite de figer le panneau.
+        res = await request();
+        return { res, data: await readRouteResponse<T>(res) };
+      }
+    };
+
+    const fetchRouteData = async (url: string) => {
+      const { res, data } = await fetchRouteResponse<RouteApiData>(url);
       if (!res.ok || !data.coordinates) {
         throw new Error(data.error ?? "Itinéraire indisponible");
       }
+      return data;
+    };
 
-      const src = map.getSource("immersive-map-route") as maplibregl.GeoJSONSource | undefined;
-      src?.setData({
-        type: "Feature",
-        properties: {},
-        geometry: { type: "LineString", coordinates: data.coordinates },
-      });
-      if (map.getLayer("immersive-map-route-line")) {
-        map.setLayoutProperty("immersive-map-route-line", "line-cap", "round");
-        map.setPaintProperty("immersive-map-route-line", "line-color", "#33bfa3");
-        map.setPaintProperty("immersive-map-route-line", "line-width", 5);
-      }
+    const fetchRouteSkeletons = async (url: string) => {
+      const { res, data } = await fetchRouteResponse<RouteSkeletonApiData>(url);
+      if (!res.ok) throw new Error(data.error ?? "Aperçu indisponible");
+      return (data.suggestions ?? []).map((suggestion) => ({
+        id: suggestion.id,
+        routeIds: suggestion.route_ids,
+        summary: suggestion.summary,
+      }));
+    };
 
-      destMarkerRef.current?.remove();
-      destMarkerRef.current = new maplibregl.Marker({ element: createDestElement(), anchor: "bottom" })
-        .setLngLat([dest[1], dest[0]])
-        .addTo(map);
+    const applyRouteData = (data: RouteApiData) => {
+      if (routeRequestRef.current !== controller || !data.coordinates) return;
 
-      const bounds = new maplibregl.LngLatBounds([origin[1], origin[0]], [origin[1], origin[0]]);
-      bounds.extend([dest[1], dest[0]]);
-      map.fitBounds(bounds, {
-        padding: { top: 140, bottom: 120, left: 380, right: 120 },
-        pitch: view3D ? 50 : 0,
-        duration: 1600,
-        maxZoom: 16.5,
-      });
-
-      const durationMin = Math.max(1, Math.round((data.duration ?? 0) / 60));
-      const distanceM = Math.round(data.distance ?? 0);
-      const distanceLabel = distanceM >= 1000 ? `${(distanceM / 1000).toFixed(1)} km` : `${distanceM} m`;
-      const steps =
+      const primaryDurationMin = Math.max(1, Math.round((data.duration ?? 0) / 60));
+      const primaryDistanceM = Math.round(data.distance ?? 0);
+      const primaryDistanceLabel =
+        primaryDistanceM >= 1000
+          ? `${(primaryDistanceM / 1000).toFixed(1)} km`
+          : `${primaryDistanceM} m`;
+      const primarySteps =
         data.steps ??
         ([
           {
             icon: mode === "car" ? "🚗" : "🚶",
             label: mode === "car" ? `En voiture jusqu'à ${name}` : `Marche à pied jusqu'à ${name}`,
-            detail: distanceLabel,
-            duration: `${durationMin} min`,
+            detail: primaryDistanceLabel,
+            duration: `${primaryDurationMin} min`,
           },
         ] as RouteStep[]);
+      const alternatives: RouteCandidateState[] = data.alternatives?.length
+        ? data.alternatives.map(toRouteCandidate)
+        : [
+            {
+              id: "primary",
+              coordinates: data.coordinates,
+              segments: data.segments,
+              distanceM: primaryDistanceM,
+              durationMin: primaryDurationMin,
+              departureAt: data.departureAt,
+              arrivalAt: data.arrivalAt,
+              steps: primarySteps,
+              summary: mode === "car" ? "Voiture" : "Meilleur itinéraire",
+              accessible: false,
+              alertCount: 0,
+            },
+          ];
+      const departures = data.departures?.length
+        ? data.departures.map(toRouteCandidate)
+        : alternatives;
+      const selected = alternatives[0];
 
-      setRouteInfo({ distanceM, durationMin, steps });
+      setRouteInfo({
+        distanceM: selected.distanceM,
+        durationMin: selected.durationMin,
+        departureAt: selected.departureAt,
+        arrivalAt: selected.arrivalAt,
+        steps: selected.steps,
+        alternatives,
+        departures,
+        selectedAlternativeId: selected.id,
+        engine: data.engine ?? "heuristic",
+      });
+      setRouteSkeletons([]);
+      resultApplied = true;
+      appliedEngine = data.engine ?? "heuristic";
+
+      try {
+        showPlannedRoute(map, selected.coordinates, selected.segments);
+      } catch (error) {
+        // Le détail du trajet reste utilisable même si WebKit refuse une mise
+        // à jour de la couche GeoJSON.
+        console.warn("Impossible d’afficher le tracé de l’itinéraire", error);
+      }
+
+      if (!routeRendered) {
+        routeRendered = true;
+        try {
+          destMarkerRef.current?.remove();
+          destMarkerRef.current = new maplibregl.Marker({
+            element: createDestElement(),
+            anchor: "bottom",
+          })
+            .setLngLat([dest[1], dest[0]])
+            .addTo(map);
+        } catch (error) {
+          console.warn("Impossible d’afficher le repère de destination", error);
+        }
+
+        try {
+          const bounds = new maplibregl.LngLatBounds(
+            [origin[1], origin[0]],
+            [origin[1], origin[0]],
+          );
+          bounds.extend([dest[1], dest[0]]);
+          map.fitBounds(bounds, {
+            padding: { top: 140, bottom: 120, left: 380, right: 120 },
+            pitch: view3D ? 50 : 0,
+            duration: 1600,
+            maxZoom: 16.5,
+          });
+        } catch (error) {
+          console.warn("Impossible de cadrer l’itinéraire", error);
+        }
+      }
+    };
+
+    try {
+      const completeUrl = routeApiUrl(
+        mode,
+        origin,
+        dest,
+        preferences,
+        false,
+        departureAt,
+      );
+      if (mode !== "transit") {
+        applyRouteData(await fetchRouteData(completeUrl));
+        finalResultApplied = true;
+      } else {
+        const previewUrl = routeApiUrl(
+          mode,
+          origin,
+          dest,
+          preferences,
+          true,
+          departureAt,
+        );
+        let skeletonsApplied = false;
+        const previewRequest = fetchRouteSkeletons(previewUrl)
+          .then((suggestions) => {
+            if (!finalResultApplied && suggestions.length) {
+              setRouteSkeletons(suggestions);
+              skeletonsApplied = true;
+            }
+          })
+          .catch((error: unknown) => {
+            if (!controller.signal.aborted) {
+              lastError = error instanceof Error ? error : new Error("Aperçu indisponible");
+            }
+          });
+        const completeRequest = fetchRouteData(completeUrl)
+          .then((data) => {
+            finalResultApplied = true;
+            applyRouteData(data);
+          })
+          .catch((error: unknown) => {
+            if (!controller.signal.aborted) {
+              lastError = error instanceof Error ? error : new Error("Itinéraire indisponible");
+            }
+          });
+
+        await Promise.all([previewRequest, completeRequest]);
+        if (!resultApplied && skeletonsApplied) return;
+        if (
+          resultApplied &&
+          appliedEngine === "timetable" &&
+          routeRequestRef.current === controller
+        ) {
+          loadDeferredDepartures(origin, dest, preferences);
+        }
+      }
+
+      if (!resultApplied && lastError) throw lastError;
     } catch (err) {
+      if (controller.signal.aborted) return;
       setRouteError(err instanceof Error ? err.message : "Itinéraire indisponible");
     } finally {
-      setRouteLoading(false);
+      if (routeRequestRef.current === controller) {
+        routeRequestRef.current = null;
+        setRouteLoading(false);
+      }
     }
+  };
+
+  useEffect(() => {
+    const departureAt = routeInfo?.departureAt;
+    if (
+      !routeActive ||
+      routeMode !== "transit" ||
+      routeLoading ||
+      routeInfo?.engine !== "timetable" ||
+      !departureAt ||
+      refreshedDepartureRef.current === departureAt
+    ) {
+      return;
+    }
+
+    const delay = transitRouteRefreshDelay(departureAt);
+    if (delay == null) return;
+
+    const timer = window.setTimeout(() => {
+      const active = activeRouteRef.current;
+      if (!active || routeRequestRef.current) return;
+      refreshedDepartureRef.current = departureAt;
+      void computeRoute(
+        "transit",
+        active.origin,
+        active.dest,
+        active.destName,
+        routePreferences,
+        new Date(),
+        true,
+      );
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+    // Le recalcul doit uniquement être reprogrammé quand l'état temporel de
+    // l'itinéraire change, pas à chaque nouvelle identité de computeRoute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    routeActive,
+    routeInfo?.departureAt,
+    routeInfo?.engine,
+    routeLoading,
+    routeMode,
+    routePreferences,
+  ]);
+
+  const prefetchTransitRoute = (origin: LatLng | null | undefined, dest: LatLng) => {
+    if (!origin || routeMode !== "transit") return;
+    routePrefetchRef.current?.abort();
+    const controller = new AbortController();
+    routePrefetchRef.current = controller;
+    const url = routeApiUrl("transit", origin, dest, routePreferences);
+    void fetch(url, { signal: controller.signal })
+      .catch(() => undefined)
+      .finally(() => {
+        if (routePrefetchRef.current === controller) routePrefetchRef.current = null;
+      });
   };
 
   const onSearchSubmit = async () => {
@@ -1747,16 +2434,28 @@ export function ImmersiveMap({
       return;
     }
 
-    const origin = userPositionRef.current;
-    if (!origin) {
-      setSearchError("Votre position GPS est nécessaire pour définir le point de départ.");
-      setGeoPromptVisible(true);
-      return;
-    }
-
     setDestinationLoading(true);
     setSearchError(null);
     try {
+      const rawOrigin = originAddress.trim();
+      const originResult = originIsCurrent
+        ? null
+        : selectedOrigin?.label === rawOrigin
+          ? selectedOrigin
+          : rawOrigin.length >= 3
+            ? (await geocodeQuery(rawOrigin))[0]
+            : null;
+      const origin = originIsCurrent ? userPositionRef.current : originResult?.latLng;
+      if (!origin) {
+        setSearchError(
+          originIsCurrent
+            ? "Votre position GPS est indisponible. Saisissez une adresse ou un arrêt de départ."
+            : "Point de départ introuvable. Saisissez une adresse ou choisissez un arrêt proposé.",
+        );
+        if (originIsCurrent) setGeoPromptVisible(true);
+        return;
+      }
+
       const destination =
         selectedDestination?.label === rawQuery
           ? selectedDestination
@@ -1782,12 +2481,96 @@ export function ImmersiveMap({
     setAddressSuggestions([]);
     setShowAddressSuggestions(false);
     setSearchError(null);
+    prefetchTransitRoute(
+      originIsCurrent ? userPositionRef.current : selectedOrigin?.latLng,
+      destination.latLng,
+    );
+  };
+
+  const updateOriginQuery = (value: string) => {
+    originIsCurrentRef.current = false;
+    setOriginIsCurrent(false);
+    setOriginAddress(value);
+    setSelectedOrigin(null);
+    setOriginSuggestions([]);
+    setShowOriginSuggestions(value.trim().length >= 2);
+    setSearchError(null);
+  };
+
+  const pickOriginSuggestion = (origin: GeocodeResult) => {
+    originIsCurrentRef.current = false;
+    setOriginIsCurrent(false);
+    setOriginAddress(origin.label);
+    setSelectedOrigin(origin);
+    setOriginSuggestions([]);
+    setShowOriginSuggestions(false);
+    setSearchError(null);
+    if (selectedDestination) prefetchTransitRoute(origin.latLng, selectedDestination.latLng);
+  };
+
+  const clearOrigin = () => {
+    originIsCurrentRef.current = false;
+    setOriginIsCurrent(false);
+    setOriginAddress("");
+    setSelectedOrigin(null);
+    setOriginSuggestions([]);
+    setShowOriginSuggestions(false);
+    setSearchError(null);
+  };
+
+  const useCurrentPositionAsOrigin = () => {
+    originIsCurrentRef.current = true;
+    setOriginIsCurrent(true);
+    setSelectedOrigin(null);
+    setOriginSuggestions([]);
+    setShowOriginSuggestions(false);
+    setSearchError(null);
+    const position = userPositionRef.current;
+    if (position) {
+      void resolveOriginAddress(position);
+    } else {
+      setOriginAddress("Votre position actuelle");
+      setGeoPromptVisible(true);
+    }
   };
 
   const changeRouteMode = (mode: RouteMode) => {
     setRouteMode(mode);
     const active = activeRouteRef.current;
     if (active) void computeRoute(mode, active.origin, active.dest, active.destName);
+  };
+
+  const changeRoutePreferences = (preferences: RoutePreferences) => {
+    setRoutePreferences(preferences);
+    const active = activeRouteRef.current;
+    if (active && routeMode === "transit") {
+      void computeRoute("transit", active.origin, active.dest, active.destName, preferences);
+    }
+  };
+
+  const selectRouteAlternative = (id: string) => {
+    const alternative = [...(routeInfo?.alternatives ?? []), ...(routeInfo?.departures ?? [])]
+      .find((candidate) => candidate.id === id);
+    const map = mapRef.current;
+    if (!alternative || !map) return;
+    try {
+      showPlannedRoute(map, alternative.coordinates, alternative.segments);
+    } catch (error) {
+      console.warn("Impossible d’afficher l’itinéraire alternatif", error);
+    }
+    setRouteInfo((current) =>
+      current
+        ? {
+            ...current,
+            distanceM: alternative.distanceM,
+            durationMin: alternative.durationMin,
+            departureAt: alternative.departureAt,
+            arrivalAt: alternative.arrivalAt,
+            steps: alternative.steps,
+            selectedAlternativeId: alternative.id,
+          }
+        : current,
+    );
   };
 
   useEffect(() => {
@@ -1828,10 +2611,8 @@ export function ImmersiveMap({
       setSearchError(null);
       setSelectedKind(null);
       setSelectedId(null);
-      setFocusMode(null);
       setShowRouteInputs(true);
       setQuickCollapsed(true);
-      applyFocus(null);
       setDestinationLoading(true);
 
       try {
@@ -1854,8 +2635,11 @@ export function ImmersiveMap({
         }
 
         if (originResult) {
+          originIsCurrentRef.current = false;
+          setOriginIsCurrent(false);
           setOriginAddress(originResult.label);
-          placeUserMarker(originResult.latLng);
+          setSelectedOrigin(originResult);
+          placeUserMarker(originResult.latLng, false);
         }
 
         setSelectedDestination(destinationResult);
@@ -1878,6 +2662,13 @@ export function ImmersiveMap({
   }, [mapReady]);
 
   const closeRoute = () => {
+    routeRequestRef.current?.abort();
+    routeRequestRef.current = null;
+    routePrefetchRef.current?.abort();
+    routePrefetchRef.current = null;
+    routeDeparturesRef.current?.abort();
+    routeDeparturesRef.current = null;
+    setRouteLoading(false);
     setRouteActive(false);
     setRouteError(null);
     setSearchError(null);
@@ -1885,8 +2676,10 @@ export function ImmersiveMap({
     setShowAddressSuggestions(false);
     setSelectedDestination(null);
     setRouteInfo(null);
+    setRouteSkeletons([]);
     setShowRouteInputs(false);
     activeRouteRef.current = null;
+    refreshedDepartureRef.current = null;
     const map = mapRef.current;
     const src = map?.getSource("immersive-map-route") as maplibregl.GeoJSONSource | undefined;
     src?.setData({ type: "FeatureCollection", features: [] });
@@ -1896,27 +2689,15 @@ export function ImmersiveMap({
 
   // ===== Filtres & actions rapides =====
   const setVehicleTypeDisplay = (type: FilterKey, show: boolean) => {
-    if (type === "shop") {
-      for (const id in shopMarkersRef.current) shopMarkersRef.current[id].getElement().style.display = show ? "" : "none";
-      return;
-    }
     vehicleLayerRef.current?.setFilter(type, show);
-    if (type === "bus" || type === "tram") {
-      const nextFilters = { ...filters, [type]: show };
-      const map = mapRef.current;
-      if (map) {
-        setTransitTracesFilter(
-          map,
-          (["bus", "tram"] as const).filter((t) => nextFilters[t]),
-        );
-      }
+    const nextFilters = { ...filters, [type]: show };
+    const map = mapRef.current;
+    if (map) {
+      setTransitTracesFilter(
+        map,
+        (["bus", "tram"] as const).filter((t) => nextFilters[t]),
+      );
     }
-  };
-
-  const toggleFilter = (key: FilterKey) => {
-    const next = !filters[key];
-    setFilters((f) => ({ ...f, [key]: next }));
-    setVehicleTypeDisplay(key, next);
   };
 
   const ensureVisible = (keys: FilterKey[]) => {
@@ -1928,124 +2709,12 @@ export function ImmersiveMap({
     for (const k of keys) setVehicleTypeDisplay(k, true);
   };
 
-  const applyFocus = (mode: FocusMode) => {
-    vehicleLayerRef.current?.setFocus(mode);
-    const setOp = (marker: maplibregl.Marker | undefined, on: boolean) => {
-      if (!marker) return;
-      const el = marker.getElement();
-      el.style.transition = "opacity .45s ease";
-      el.style.opacity = on ? "1" : "0.22";
-    };
-    for (const id in shopMarkersRef.current) {
-      let on = true;
-      if (mode === "ride") on = false;
-      setOp(shopMarkersRef.current[id], on);
-    }
-  };
-
-  const flyGentle = () => {
-    const map = mapRef.current;
-    if (!map) return;
-    map.flyTo({
-      center: map.getCenter(),
-      zoom: Math.max(map.getZoom(), 16.6),
-      pitch: view3D ? 58 : 0,
-      duration: 1100,
-    });
-  };
-
-  const clearFocus = () => {
-    setFocusMode(null);
-    setShowRouteInputs(false);
-    applyFocus(null);
-  };
-
   const qaRoute = () => {
-    setFocusMode(null);
     setSearchQuery("");
     setSearchError(null);
     setShowRouteInputs(true);
     setSelectedKind(null);
     setSelectedId(null);
-    applyFocus(null);
-  };
-  const qaRide = () => {
-    ensureVisible(["vtc", "taxi"]);
-    setFocusMode("ride");
-    setSelectedKind(null);
-    setSelectedId(null);
-    setRouteActive(false);
-    setSearchError(null);
-    setShowRouteInputs(true);
-    setQuickCollapsed(true);
-    applyFocus("ride");
-    flyGentle();
-  };
-  const qaShop = () => {
-    ensureVisible(["shop"]);
-    setFocusMode("shop");
-    setSelectedKind(null);
-    setSelectedId(null);
-    setRouteActive(false);
-    setShowRouteInputs(false);
-    setShowSearchArea(false);
-    setQuickCollapsed(true);
-    applyFocus("shop");
-    flyGentle();
-    if (mapRef.current) shopSearchCenterRef.current = mapRef.current.getCenter();
-  };
-
-  const searchThisArea = () => {
-    setShowSearchArea(false);
-    if (mapRef.current) shopSearchCenterRef.current = mapRef.current.getCenter();
-  };
-
-  // ===== Commerçants : recherche / tri =====
-  const computeShopResults = (): ShopDef[] => {
-    const q = shopQuery.trim().toLowerCase();
-    const cats = Object.keys(activeCats).filter((k) => activeCats[k]);
-    let list = SHOP_DEFS.filter((s) => {
-      if (cats.length && !cats.includes(s.catKey)) return false;
-      if (q && !(s.name + " " + s.cat).toLowerCase().includes(q)) return false;
-      return true;
-    });
-    list = [...list].sort((a, b) => {
-      if (sortMode === "rating") return Number(b.rating) - Number(a.rating);
-      if (sortMode === "delivery") return (parseInt(a.delivery) || 999) - (parseInt(b.delivery) || 999);
-      if (sortMode === "price") return a.price.length - b.price.length;
-      if (sortMode === "popularity") return b.popularity - a.popularity;
-      if (sortMode === "open") return (b.open ? 1 : 0) - (a.open ? 1 : 0);
-      return a.distM - b.distM;
-    });
-    return list;
-  };
-
-  // ===== Panier / commerçant =====
-  const addItem = (id: string) => setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
-  const decItem = (id: string) =>
-    setCart((c) => {
-      const q = (c[id] || 0) - 1;
-      const next = { ...c };
-      if (q <= 0) delete next[id];
-      else next[id] = q;
-      return next;
-    });
-  const toggleCart = () => setCartOpen((o) => !o);
-  const closeMerchant = () => {
-    clearTimeout(orderTimeoutRef.current);
-    setMerchantId(null);
-    setOrderPlaced(false);
-  };
-  const placeOrder = () => {
-    if (!Object.keys(cart).length) return;
-    setOrderPlaced(true);
-    clearTimeout(orderTimeoutRef.current);
-    orderTimeoutRef.current = setTimeout(() => {
-      setOrderPlaced(false);
-      setMerchantId(null);
-      setCart({});
-      setCartOpen(false);
-    }, 2600);
   };
 
   const closeSelection = () => {
@@ -2056,60 +2725,161 @@ export function ImmersiveMap({
   };
 
   // ===== Dérivés pour le rendu =====
+  const nearbyStops = useMemo(() => {
+    if (!geoPosition) return [];
+    return stopCatalog
+      .flatMap((stop) =>
+        stop.coordinates
+          ? [
+              {
+                stop,
+                distanceMeters: distanceMeters(geoPosition, [
+                  stop.coordinates[1],
+                  stop.coordinates[0],
+                ]),
+              },
+            ]
+          : [],
+      )
+      .sort((a, b) => a.distanceMeters - b.distanceMeters)
+      .slice(0, NEARBY_SEARCH_STOP_LIMIT);
+  }, [geoPosition, stopCatalog]);
+  const nearbyStopIds = nearbyStops.map(({ stop }) => stop.id);
+  const nearbyStopIdsKey = nearbyStopIds.join(",");
+
   const globalSearchSuggestions = useMemo<GlobalSearchSuggestion[]>(() => {
+    const stopGroups = new Map<
+      string,
+      {
+        stop: RegisteredStop;
+        names: Set<string>;
+        codes: Set<string>;
+        count: number;
+        distanceMeters: number | null;
+      }
+    >();
+    for (const stop of stopCatalog) {
+      const publicName = stop.stationName || stop.name;
+      const key = publicName
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+      const stopDistance =
+        geoPosition && stop.coordinates
+          ? distanceMeters(geoPosition, [stop.coordinates[1], stop.coordinates[0]])
+          : null;
+      const existing = stopGroups.get(key);
+      if (existing) {
+        existing.names.add(stop.name);
+        if (stop.code) existing.codes.add(stop.code);
+        existing.count += 1;
+        if (
+          stopDistance != null &&
+          (existing.distanceMeters == null || stopDistance < existing.distanceMeters)
+        ) {
+          existing.stop = stop;
+          existing.distanceMeters = stopDistance;
+        }
+      } else {
+        stopGroups.set(key, {
+          stop,
+          names: new Set([stop.name]),
+          codes: new Set(stop.code ? [stop.code] : []),
+          count: 1,
+          distanceMeters: stopDistance,
+        });
+      }
+    }
+    const stopSuggestions = [...stopGroups.values()]
+      .sort((a, b) => {
+        if (geoPosition) {
+          const distanceDelta =
+            (a.distanceMeters ?? Number.POSITIVE_INFINITY) -
+            (b.distanceMeters ?? Number.POSITIVE_INFINITY);
+          if (distanceDelta !== 0) return distanceDelta;
+        }
+        return (a.stop.stationName || a.stop.name).localeCompare(
+          b.stop.stationName || b.stop.name,
+          "fr",
+          { sensitivity: "base" },
+        );
+      })
+      .map(({ stop, names, codes, count, distanceMeters: stopDistance }) => ({
+        id: `stop:${stop.id}`,
+        category: "stop" as const,
+        mode: "stop" as const,
+        title: stop.stationName || stop.name,
+        subtitle: `${
+          stopDistance == null ? "" : `À ${formatNearbyDistance(stopDistance)} · `
+        }${count > 1 ? "Station Naolib" : "Arrêt Naolib"}`,
+        keywords: `${[...names].join(" ")} ${[...codes].join(" ")} arrêt station horaires passages`,
+        distanceMeters: stopDistance ?? undefined,
+      }));
+
+    const nearbyLines = new Map<
+      string,
+      { distanceMeters: number; stopName: string }
+    >();
+    nearbyStops.forEach(({ stop, distanceMeters: stopDistance }) => {
+      for (const shortName of stopLinesById[stop.id] ?? []) {
+        const key = normalizePublicLineName(shortName);
+        const existing = nearbyLines.get(key);
+        if (!existing || stopDistance < existing.distanceMeters) {
+          nearbyLines.set(key, {
+            distanceMeters: stopDistance,
+            stopName: stop.stationName || stop.name,
+          });
+        }
+      }
+    });
     const uniqueDashboardLines = new Map(
       [...dashboardLines, ...publishedCustomLines].map((line) => [line.id, line]),
     );
-    const lineSuggestions = [...uniqueDashboardLines.values()].map((line) => {
-      const transport = line.transportType.toLowerCase();
-      const mode = transport.includes("tram")
-        ? ("tram" as const)
-        : transport.includes("navibus") || transport.includes("bateau")
-          ? ("navibus" as const)
-          : ("bus" as const);
-      const modeLabel = mode === "tram" ? "Tram" : mode === "navibus" ? "Navibus" : "Bus";
-      return {
-        id: `line:dashboard:${line.id}`,
-        category: "line" as const,
-        mode,
-        title: `${modeLabel} ${line.shortName}`,
-        subtitle: `${line.origin} ↔ ${line.destination} · ${line.depotCode}`,
-        keywords: `${line.shortName} ${line.routeId} ${line.origin} ${line.destination} ${line.depotCode} ligne transport`,
-      };
-    });
+    const lineSuggestions = [...uniqueDashboardLines.values()]
+      .map((line) => {
+        const transport = line.transportType.toLowerCase();
+        const isManualLine = line.id.startsWith("network:") || line.id.startsWith("custom:");
+        const mode = transport.includes("tram")
+          ? ("tram" as const)
+          : transport.includes("navibus") || transport.includes("bateau")
+            ? ("navibus" as const)
+            : ("bus" as const);
+        const modeLabel = mode === "tram" ? "Tram" : mode === "navibus" ? "Navibus" : "Bus";
+        const nearby = nearbyLines.get(normalizePublicLineName(line.shortName));
+        return {
+          suggestion: {
+            id: `line:dashboard:${line.id}`,
+            category: "line" as const,
+            mode,
+            title: `${modeLabel} ${line.shortName}`,
+            subtitle: nearby
+              ? `${nearby.stopName} à ${formatNearbyDistance(nearby.distanceMeters)} · ${line.origin} ↔ ${line.destination}`
+              : `${line.origin} ↔ ${line.destination} · ${isManualLine ? "Manuelle" : "GTFS"} · ${line.depotCode}`,
+            keywords: `${line.shortName} ${line.routeId} ${line.origin} ${line.destination} ${line.depotCode} ${isManualLine ? "manuelle créée" : "gtfs importée"} ligne transport`,
+            color: line.color,
+            distanceMeters: nearby?.distanceMeters,
+          },
+          nearbyDistance: nearby?.distanceMeters ?? Number.POSITIVE_INFINITY,
+        };
+      })
+      .sort(
+        (a, b) =>
+          a.nearbyDistance - b.nearbyDistance ||
+          a.suggestion.title.localeCompare(b.suggestion.title, "fr", { numeric: true }),
+      )
+      .map(({ suggestion }) => suggestion);
 
-    const driverSuggestions = VEHICLE_DEFS.filter(
-      (vehicle) => vehicle.type === "vtc" || vehicle.type === "taxi",
-    ).map((vehicle) => ({
-      id: `driver:${vehicle.id}`,
-      category: "driver" as const,
-      mode: vehicle.type,
-      title:
-        vehicle.type === "vtc"
-          ? vehicle.driver ?? "Chauffeur VTC"
-          : `Taxi · ${vehicle.station ?? "Disponible"}`,
-      subtitle:
-        vehicle.type === "vtc"
-          ? `VTC · ★ ${vehicle.rating} · Arrivée ${vehicle.eta}`
-          : `Taxi disponible · Arrivée ${vehicle.eta}`,
-      keywords: `${vehicle.station ?? ""} chauffeur voiture ${vehicle.dist ?? ""}`,
-    }));
-
-    const merchantSuggestions = SHOP_DEFS.map((shop) => ({
-      id: `merchant:${shop.id}`,
-      category: "merchant" as const,
-      mode: "shop" as const,
-      title: shop.name,
-      subtitle: `${shop.cat} · ${shop.dist} · ${shop.open ? "Ouvert" : "Fermé"}`,
-      keywords: `${shop.catKey} ${shop.cat} commerce boutique ${shop.rating}`,
-    }));
-
-    return [
-      ...lineSuggestions,
-      ...driverSuggestions,
-      ...merchantSuggestions,
-    ];
-  }, [dashboardLines, publishedCustomLines]);
+    return [...stopSuggestions, ...lineSuggestions];
+  }, [
+    dashboardLines,
+    geoPosition,
+    nearbyStops,
+    publishedCustomLines,
+    stopCatalog,
+    stopLinesById,
+  ]);
 
   const focusSearchCoordinates = useCallback(
     (coords: LatLng[], maxZoom = 16.5) => {
@@ -2140,14 +2910,44 @@ export function ImmersiveMap({
     [view3D],
   );
 
+  const focusSelectedStop = useCallback(
+    (stop: SelectedMapStop) => {
+      if (stop.lat == null || stop.lng == null) return;
+      const map = mapRef.current;
+      if (!map) return;
+
+      selectedStopMarkerRef.current?.remove();
+      selectedStopMarkerRef.current = new maplibregl.Marker({
+        element: createLineStopElement(stop.name, 0, 1, "#5fe0c4"),
+        anchor: "center",
+      })
+        .setLngLat([stop.lng, stop.lat])
+        .addTo(map);
+
+      const desktopPanel = window.innerWidth >= 720;
+      map.flyTo({
+        center: [stop.lng, stop.lat],
+        zoom: 17.8,
+        pitch: view3D ? 56 : 0,
+        padding: desktopPanel
+          ? { top: 100, right: 70, bottom: 90, left: 430 }
+          : { top: 90, right: 24, bottom: 330, left: 24 },
+        duration: 1_200,
+        essential: true,
+      });
+    },
+    [view3D],
+  );
+
   const clearSelectedLineMap = useCallback(() => {
     lineStopMarkersRef.current.forEach((marker) => marker.remove());
     lineStopMarkersRef.current = [];
-    const lineVehicleId = lineVehicleAnimationRef.current?.id;
-    if (lineVehicleId) previewAnglesRef.current.delete(lineVehicleId);
-    lineVehicleAnimationRef.current = null;
+    for (const lineVehicleId of lineVehicleAnimationsRef.current.keys()) {
+      previewAnglesRef.current.delete(lineVehicleId);
+    }
+    lineVehicleAnimationsRef.current.clear();
     activeLineMapDataRef.current = null;
-    setLineVehicle(null);
+    setLineVehicles([]);
 
     const map = mapRef.current;
     const source = map?.getSource("immersive-map-route") as
@@ -2228,6 +3028,19 @@ export function ImmersiveMap({
             index,
             data.stops.length,
             line.color,
+            () => {
+              const selected = {
+                id: stop.id,
+                name: stop.name,
+                code: stop.id,
+                stationName: stop.name,
+                lat: stop.lat,
+                lng: stop.lng,
+              } satisfies SelectedMapStop;
+              setSearchLineSelection(null);
+              setSelectedStop(selected);
+              focusSelectedStop(selected);
+            },
           ),
           anchor: "center",
         })
@@ -2236,45 +3049,81 @@ export function ImmersiveMap({
       );
 
       if (suggestion.mode === "bus" || suggestion.mode === "tram") {
-        const vehicleId = `selected-line:${line.id}`;
-        const start = pointAt(data.trace, 0);
         const length = pathLen(data.trace);
-        const travelDuration = Math.min(
-          180,
-          Math.max(70, length / 0.00018),
-        );
+        const routeDistanceM = routeDistanceMeters(data.trace);
         const vehicleType = suggestion.mode;
-        setLineVehicle({
-          id: vehicleId,
-          type: vehicleType,
-          mode: "preview",
-          lat: start.lat,
-          lng: start.lng,
-          heading: 0,
-          speedMps: null,
-          recordedAt: null,
-          routeId: line.shortName,
-          destination: line.destination,
-          preview: {
+        const speedMps = vehicleType === "tram" ? 7.5 : 5.8;
+        const travelDuration = Math.max(
+          45,
+          routeDistanceM / speedMps,
+        );
+        const schedules = data.schedules?.length
+          ? data.schedules
+          : data.schedule
+            ? [data.schedule]
+            : [null];
+        const vehicles = schedules.map((schedule, index): MapVehicle => {
+          const vehicleId = `selected-line:${line.id}:${schedule?.departureId ?? index}`;
+          const scheduleReferenceAt = schedule
+            ? new Date(schedule.generatedAt).getTime()
+            : Number.NaN;
+          const scheduleStops =
+            schedule && Number.isFinite(scheduleReferenceAt)
+              ? schedule.stops.map((stop) => ({
+                  stopId: stop.stopId,
+                  fraction: stop.fraction,
+                  passageAtMs:
+                    scheduleReferenceAt + stop.passageInSeconds * 1_000,
+                }))
+              : [];
+          const initialMotion = vehicleScheduleMotionAt(scheduleStops, Date.now());
+          const start = pointAt(
+            data.trace,
+            (initialMotion?.fraction ?? 0) * length,
+          );
+          const nextScheduledStopId = schedule?.stops.find(
+            (stop) => stop.passageInSeconds > 0,
+          )?.stopId;
+          const nextScheduledStop = data.stops.find(
+            (stop) => stop.id === nextScheduledStopId,
+          );
+          lineVehicleAnimationsRef.current.set(vehicleId, {
+            id: vehicleId,
+            coords: data.trace,
+            length,
+            startedAt: performance.now() / 1_000,
+            travelDuration,
+            speedMps,
+            routeDistanceM,
+            scheduleStops,
+          });
+          return {
             id: vehicleId,
             type: vehicleType,
-            path: "",
-            speed: 0,
-            phase: 0,
-            line: suggestion.title,
-            dest: line.destination,
-            nextStop: data.stops[1]?.name ?? data.stops[0]?.name,
-            eta: "En circulation",
-            status: "Suit le tracé de la ligne",
-          },
+            mode: "preview",
+            lat: start.lat,
+            lng: start.lng,
+            heading: 0,
+            speedMps,
+            recordedAt: null,
+            routeId: line.shortName,
+            destination: schedule?.destination ?? line.destination,
+            preview: {
+              id: vehicleId,
+              type: vehicleType,
+              line: suggestion.title,
+              dest: schedule?.destination ?? line.destination,
+              nextStop:
+                nextScheduledStop?.name ??
+                data.stops[1]?.name ??
+                data.stops[0]?.name,
+              status: schedule
+                ? "Calé sur les horaires de station"
+                : "Position estimée sur le tracé",
+            },
+          };
         });
-        lineVehicleAnimationRef.current = {
-          id: vehicleId,
-          coords: data.trace,
-          length,
-          startedAt: performance.now() / 1000,
-          travelDuration,
-        };
+        setLineVehicles(vehicles);
       }
 
       setSearchLineSelection({
@@ -2288,44 +3137,49 @@ export function ImmersiveMap({
         subtitle: suggestion.subtitle,
         coords: data.trace,
         stopCount: data.stops.length,
+        vehicleCount: data.schedules?.length ?? (data.schedule ? 1 : 0),
       });
       focusSearchCoordinates(
         data.trace,
         suggestion.mode === "navibus" ? 14.8 : 15.8,
       );
     },
-    [clearSelectedLineMap, focusSearchCoordinates],
+    [clearSelectedLineMap, focusSearchCoordinates, focusSelectedStop],
   );
 
   const handleGlobalSearchSelect = (suggestion: GlobalSearchSuggestion) => {
       setGlobalSearchQuery(suggestion.title);
       setShowRouteInputs(false);
       setRouteActive(false);
-      setFocusMode(null);
       setSelectedKind(null);
       setSelectedId(null);
-      applyFocus(null);
 
-      if (suggestion.id.startsWith("merchant:")) {
-        const shopId = suggestion.id.slice("merchant:".length);
-        ensureVisible(["shop"]);
-        select("shop", shopId);
-        const marker = shopMarkersRef.current[shopId];
-        if (marker) {
-          const position = marker.getLngLat();
-          focusSearchCoordinates([[position.lat, position.lng]]);
+      if (suggestion.id.startsWith("stop:")) {
+        const stopId = suggestion.id.slice("stop:".length);
+        const stop = stopCatalog.find((item) => item.id === stopId);
+        if (!stop) return;
+        setSelectedStop({
+          id: stop.id,
+          name: stop.name,
+          code: stop.code,
+          stationName: stop.stationName,
+          lat: stop.coordinates?.[1],
+          lng: stop.coordinates?.[0],
+        });
+        if (stop.coordinates) {
+          focusSelectedStop({
+            id: stop.id,
+            name: stop.name,
+            code: stop.code,
+            stationName: stop.stationName,
+            lat: stop.coordinates[1],
+            lng: stop.coordinates[0],
+          });
         }
         return;
       }
 
-      if (suggestion.id.startsWith("driver:")) {
-        const vehicleId = suggestion.id.slice("driver:".length);
-        ensureVisible([suggestion.mode === "taxi" ? "taxi" : "vtc"]);
-        select("vehicle", vehicleId);
-        const vehicle = displayVehicles.find((item) => item.id === vehicleId);
-        if (vehicle) focusSearchCoordinates([[vehicle.lat, vehicle.lng]]);
-        return;
-      }
+      setSelectedStop(null);
 
       if (suggestion.id.startsWith("line:dashboard:")) {
         const lineId = suggestion.id.slice("line:dashboard:".length);
@@ -2466,26 +3320,33 @@ export function ImmersiveMap({
     });
   }, []);
 
-  const startVehicleTracking = async (vehicleId: string) => {
-    const vehicle = displayVehicles.find((item) => item.id === vehicleId);
+  const startVehicleTracking = async (
+    vehicleId: string,
+    vehicleOverride?: MapVehicle,
+  ) => {
+    const vehicle =
+      vehicleOverride ?? displayVehicles.find((item) => item.id === vehicleId);
     if (!vehicle || (vehicle.type !== "bus" && vehicle.type !== "tram")) return;
 
     let route: LatLng[] = [];
     let stops: LineStop[] = [];
     let hasRealtime = vehicle.mode === "live" && !fleetStale;
-    const preview =
-      vehicle.preview ?? VEHICLE_DEFS.find((item) => item.id === vehicleId);
-    const activeLineAnimation = lineVehicleAnimationRef.current;
+    const scheduledPassages = new Map<string, number>();
+    const preview = vehicle.preview;
+    const activeLineAnimation = lineVehicleAnimationsRef.current.get(vehicleId);
 
     if (
-      activeLineAnimation?.id === vehicleId &&
+      activeLineAnimation &&
       activeLineMapDataRef.current
     ) {
       route = activeLineMapDataRef.current.trace;
       stops = activeLineMapDataRef.current.stops;
+      for (const stop of activeLineAnimation.scheduleStops) {
+        scheduledPassages.set(stop.stopId, stop.passageAtMs);
+      }
       hasRealtime = false;
     } else if (preview) {
-      route = pathCoords(preview, realPathsRef.current);
+      route = realPathsRef.current[preview.id] ?? [];
       const length = pathLen(route);
       const stopPositions = [
         { name: "Départ", distance: 0 },
@@ -2586,6 +3447,7 @@ export function ImmersiveMap({
       stops,
       nextStopPosition,
       hasRealtime,
+      scheduledPassages,
     };
 
     trackingRef.current = activeTracking;
@@ -2608,6 +3470,10 @@ export function ImmersiveMap({
               nextStopPosition,
             )
           : null;
+    const initialRouteDistanceM = routeDistanceMeters(route);
+    const initialDistanceRemainingM = initialRouteProjection
+      ? routeDistanceMeters(buildRemainingRoute(route, initialRouteProjection))
+      : null;
     setTracking(activeTracking);
     setTrackingStopPlan(
       buildTrackingStopPlan(
@@ -2615,6 +3481,7 @@ export function ImmersiveMap({
         stops,
         initialRouteProjection,
         nextStop?.name ?? preview?.nextStop ?? "Non renseigné",
+        activeTracking.scheduledPassages,
       ),
     );
     setTrackingMetrics({
@@ -2626,6 +3493,11 @@ export function ImmersiveMap({
             userPositionRef.current,
           )
         : null,
+      distanceTraveledM:
+        initialDistanceRemainingM == null
+          ? null
+          : Math.max(0, initialRouteDistanceM - initialDistanceRemainingM),
+      routeDistanceM: initialRouteDistanceM,
     });
     setTrackingStopsVisible(false);
     trackingStopsVisibleRef.current = false;
@@ -2633,7 +3505,6 @@ export function ImmersiveMap({
     lineStopMarkersRef.current = [];
     setSelectedKind(null);
     setSelectedId(null);
-    setFocusMode(null);
     setRouteActive(false);
     setShowRouteInputs(false);
     setView3D(true);
@@ -2657,6 +3528,114 @@ export function ImmersiveMap({
       showTrackingRoute(route);
     }
     recenterTrackedVehicle();
+  };
+
+  const startScheduledPassageTracking = async (
+    passage: ScheduledPassageSelection | RouteVehicleTracking,
+  ) => {
+    const params = new URLSearchParams({
+      lineId: passage.routeId,
+      departureId: passage.departureId,
+      profileId: passage.profileId,
+      serviceDate: passage.serviceDate,
+    });
+    const response = await fetch(`/api/carte-immersive/line?${params.toString()}`, {
+      cache: "no-store",
+    });
+    const data = (await response.json()) as LoadedLineMapData & { error?: string };
+    if (
+      !response.ok
+      || !data.schedule
+      || !Array.isArray(data.trace)
+      || data.trace.length < 2
+    ) {
+      throw new Error(
+        data.error || "La position de ce véhicule n'est pas encore disponible.",
+      );
+    }
+
+    const scheduleReferenceAt = new Date(data.schedule.generatedAt).getTime();
+    if (!Number.isFinite(scheduleReferenceAt)) {
+      throw new Error("L'horaire de cette course est momentanément indisponible.");
+    }
+    const scheduleStops = data.schedule.stops.map((stop) => ({
+      stopId: stop.stopId,
+      fraction: stop.fraction,
+      passageAtMs: scheduleReferenceAt + stop.passageInSeconds * 1_000,
+    }));
+    const initialMotion = vehicleScheduleMotionAt(scheduleStops, Date.now());
+    if (!initialMotion || scheduleStops.length < 2) {
+      throw new Error("Le trajet de ce véhicule ne peut pas encore être localisé.");
+    }
+
+    const length = pathLen(data.trace);
+    const estimatedPosition = pointAt(
+      data.trace,
+      initialMotion.fraction * length,
+    );
+    const liveVehicle = fleetStale
+      ? null
+      : selectLiveVehicleForSchedule(liveVehicles, {
+          line: passage.line,
+          routeId: passage.routeId,
+          direction: passage.direction,
+          estimatedPosition,
+        });
+
+    selectedStopMarkerRef.current?.remove();
+    selectedStopMarkerRef.current = null;
+    setSelectedStop(null);
+    setSearchLineSelection(null);
+    clearSelectedLineMap();
+
+    if (liveVehicle) {
+      await startVehicleTracking(liveVehicle.id);
+      return;
+    }
+
+    activeLineMapDataRef.current = data;
+    const vehicleId = `scheduled:${passage.serviceDate}:${passage.departureId}`;
+    const routeDistanceM = routeDistanceMeters(data.trace);
+    const speedMps = passage.vehicleType === "tram" ? 7.5 : 5.8;
+    const nextScheduledStopId = data.schedule.stops.find(
+      (stop) => stop.passageInSeconds > 0,
+    )?.stopId;
+    const nextScheduledStop = data.stops.find(
+      (stop) => stop.id === nextScheduledStopId,
+    );
+    const scheduledVehicle: MapVehicle = {
+      id: vehicleId,
+      type: passage.vehicleType,
+      mode: "preview",
+      lat: estimatedPosition.lat,
+      lng: estimatedPosition.lng,
+      heading: 0,
+      speedMps,
+      recordedAt: null,
+      routeId: passage.routeId,
+      destination: data.schedule.destination ?? passage.direction,
+      preview: {
+        id: vehicleId,
+        type: passage.vehicleType,
+        line: `Ligne ${passage.line}`,
+        dest: data.schedule.destination ?? passage.direction,
+        nextStop:
+          nextScheduledStop?.name ?? data.stops[1]?.name ?? data.stops[0]?.name,
+        status: "Position théorique calculée depuis les horaires GTFS",
+      },
+    };
+    setLineVehicles([scheduledVehicle]);
+    lineVehicleAnimationsRef.current.set(vehicleId, {
+      id: vehicleId,
+      coords: data.trace,
+      length,
+      startedAt: performance.now() / 1_000,
+      travelDuration: Math.max(45, routeDistanceM / speedMps),
+      speedMps,
+      routeDistanceM,
+      scheduleStops,
+    });
+    await startVehicleTracking(vehicleId, scheduledVehicle);
   };
 
   const stopVehicleTracking = () => {
@@ -2792,72 +3771,21 @@ export function ImmersiveMap({
         };
       }
 
-      const v = mapVehicle?.preview ?? VEHICLE_DEFS.find((x) => x.id === selectedId);
-      if (!v) return null;
-      if (v.type === "bus" || v.type === "tram") {
-        const facts = [
-          { k: "Destination", v: v.dest ?? "" },
-          { k: "Prochain arrêt", v: v.nextStop ?? "" },
-          { k: "Arrivée", v: v.eta },
-          { k: "Statut", v: v.status ?? "" },
-        ];
-        if (v.occ) facts.push({ k: "Occupation", v: v.occ });
+      if (mapVehicle?.preview) {
+        const v = mapVehicle.preview;
         return {
-          emoji: v.type === "bus" ? "🚌" : "🚋",
+          emoji: v.type === "tram" ? "🚋" : "🚌",
           title: v.line ?? "",
           subtitle: `Aperçu · ${v.type === "bus" ? "Bus en circulation" : "Tramway en circulation"}`,
-          facts,
+          facts: [
+            { k: "Destination", v: v.dest ?? "" },
+            { k: "Prochain arrêt", v: v.nextStop ?? "" },
+            { k: "Statut", v: v.status ?? "" },
+          ],
           actionLabel: v.type === "bus" ? "Suivre ce bus" : "Suivre ce tram",
-          action: () => void startVehicleTracking(mapVehicle?.id ?? v.id),
+          action: () => void startVehicleTracking(mapVehicle.id),
         };
       }
-      if (v.type === "vtc") {
-        return {
-          emoji: "🚖",
-          title: v.driver ?? "",
-          subtitle: "Aperçu · VTC disponible",
-          facts: [
-            { k: "Arrivée estimée", v: v.eta },
-            { k: "Distance", v: v.dist ?? "" },
-            { k: "Note", v: "★ " + v.rating },
-            { k: "Tarif estimé", v: v.price ?? "" },
-          ],
-          actionLabel: "Réserver ce VTC",
-          action: () => {},
-        };
-      }
-      if (v.type === "taxi") {
-        return {
-          emoji: "🚕",
-          title: "Taxi disponible",
-          subtitle: `Aperçu · ${v.station ?? ""}`,
-          facts: [
-            { k: "Arrivée", v: v.eta },
-            { k: "Station la plus proche", v: v.station ?? "" },
-            { k: "Distance", v: v.dist ?? "" },
-            { k: "Paiement", v: "CB / espèces" },
-          ],
-          actionLabel: "Commander ce taxi",
-          action: () => {},
-        };
-      }
-    }
-    if (selectedKind === "shop") {
-      const s = SHOP_DEFS.find((x) => x.id === selectedId);
-      if (!s) return null;
-      return {
-        emoji: s.emoji,
-        title: s.name,
-        subtitle: s.cat,
-        facts: [
-          { k: "Distance", v: s.dist },
-          { k: "À pied", v: s.walk },
-          { k: "Horaires", v: s.hours },
-          { k: "Note", v: "★ " + s.rating },
-        ],
-        actionLabel: "Commander ici",
-        action: () => openMerchant(s.id),
-      };
     }
     return null;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2889,7 +3817,13 @@ export function ImmersiveMap({
           : []),
         ...(searchLineSelection.coords.length > 0 &&
         searchLineSelection.mode !== "navibus"
-          ? [{ k: "Véhicule", v: "En mouvement" }]
+          ? [{
+              k: "Véhicules",
+              v:
+                searchLineSelection.vehicleCount != null
+                  ? `${searchLineSelection.vehicleCount} en circulation`
+                  : "En mouvement",
+            }]
           : []),
         {
           k: "Information",
@@ -2908,101 +3842,58 @@ export function ImmersiveMap({
     };
   }, [focusSearchCoordinates, searchLineSelection]);
 
-  const visibleDetail = tracking ? null : detail ?? searchLineDetail;
-  const focusVisible = !!focusMode && !visibleDetail;
-
-  const rideItems: RideItem[] = useMemo(
-    () =>
-      VEHICLE_DEFS.filter((v) => v.type === "vtc" || v.type === "taxi").map((v) => ({
-        id: v.id,
-        emoji: v.type === "vtc" ? "🚖" : "🚕",
-        title: v.type === "vtc" ? (v.driver ?? "") : "Taxi disponible",
-        meta: `Arrivée ${v.eta} · ${v.dist}`,
-        btn: v.type === "vtc" ? "Réserver" : "Commander",
-        onClick: () => select("vehicle", v.id),
-      })),
-    [select],
-  );
-
-  const shopResults: ShopResultItem[] = useMemo(
-    () =>
-      computeShopResults().map((s) => ({
-        id: s.id,
-        emoji: s.emoji,
-        title: s.name,
-        cat: s.cat,
-        dist: s.dist,
-        walk: s.walk,
-        delivery: s.delivery,
-        rating: s.rating,
-        price: s.price,
-        openLabel: s.open ? "Ouvert" : "Fermé",
-        openColor: s.open ? "#33BFA3" : "#FF6B5E",
-        onClick: () => select("shop", s.id),
-        onEnter: () => hoverShop(s.id),
-        onLeave: () => unhoverShop(s.id),
-      })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shopQuery, activeCats, sortMode, select, hoverShop, unhoverShop],
-  );
-
-  const merchantShop = merchantId ? SHOP_DEFS.find((s) => s.id === merchantId) : null;
+  const visibleDetail = tracking || selectedStop ? null : detail ?? searchLineDetail;
 
   const bottomNavVisible =
-    !tracking && !showRouteInputs && !routeActive && !focusVisible && !visibleDetail && !merchantShop;
+    !tracking && !showRouteInputs && !routeActive && !visibleDetail && !selectedStop;
 
-  const merchantData = useMemo(() => {
-    if (!merchantShop) return null;
-    const fullMenu = buildMenu(merchantShop);
-    const menuChips: MenuChip[] = [{ key: "all", label: "Tout" }]
-      .concat(fullMenu.map((s) => ({ key: s.name, label: s.name })))
-      .map((c) => ({ key: c.key, label: c.label, active: menuCat === c.key }));
-    const menuSections = fullMenu.filter((s) => menuCat === "all" || s.name === menuCat);
-
-    const flat: Record<string, { name: string; price: number }> = {};
-    fullMenu.forEach((s) => s.items.forEach((it) => (flat[it.id] = { name: it.name, price: it.price })));
-    let cartCount = 0;
-    let cartTotal = 0;
-    const cartLines: CartLine[] = [];
-    for (const id in cart) {
-      const it = flat[id];
-      if (!it) continue;
-      const q = cart[id];
-      cartCount += q;
-      cartTotal += q * it.price;
-      cartLines.push({ id, name: it.name, qty: q, lineTotal: fmt(q * it.price) });
-    }
-
-    return {
-      merchant: {
-        emoji: merchantShop.emoji,
-        name: merchantShop.name,
-        cat: merchantShop.cat,
-        open: merchantShop.open,
-        openLabel: merchantShop.open ? "Ouvert" : "Fermé",
-        facts: [
-          { icon: "★", v: merchantShop.rating },
-          { icon: "📍", v: merchantShop.dist },
-          { icon: "🚶", v: merchantShop.walk + " à pied" },
-          { icon: "🚴", v: merchantShop.delivery !== "—" ? merchantShop.delivery : "Retrait" },
-          { icon: "🕒", v: merchantShop.hours },
-        ],
-      },
-      menuChips,
-      menuSections,
-      cartLines,
-      cartCount,
-      cartTotalLabel: fmt(cartTotal),
-    };
-  }, [merchantShop, menuCat, cart]);
-
-  const arrivalStr = routeInfo
-    ? (() => {
-        const arrival = new Date(Date.now() + routeInfo.durationMin * 60000);
-        return `${arrival.getHours().toString().padStart(2, "0")}:${arrival.getMinutes().toString().padStart(2, "0")}`;
-      })()
-    : "";
+  const routeFallbackDeparture = new Date();
+  const routeDeparture = routeInfo
+    ? routeDate(routeInfo.departureAt, routeFallbackDeparture)
+    : routeFallbackDeparture;
+  const routeArrival = routeInfo
+    ? routeDate(
+        routeInfo.arrivalAt,
+        new Date(routeDeparture.getTime() + routeInfo.durationMin * 60_000),
+      )
+    : routeFallbackDeparture;
+  const departureStr = routeInfo ? formatRouteDate(routeDeparture) : "";
+  const arrivalStr = routeInfo ? formatRouteDate(routeArrival) : "";
   const routeSteps: RouteStep[] = routeInfo?.steps ?? [];
+  const routeAlternatives: RouteAlternativeOption[] =
+    routeInfo?.alternatives.map((alternative) => {
+      const departure = routeDate(alternative.departureAt, routeFallbackDeparture);
+      const arrival = routeDate(
+        alternative.arrivalAt,
+        new Date(departure.getTime() + alternative.durationMin * 60_000),
+      );
+      return {
+        id: alternative.id,
+        duration: alternative.durationMin,
+        departure: formatRouteDate(departure),
+        arrival: formatRouteDate(arrival),
+        summary: alternative.summary,
+        accessible: alternative.accessible,
+        alertCount: alternative.alertCount,
+      };
+    }) ?? [];
+  const routeDepartures: RouteDepartureOption[] =
+    routeInfo?.departures.map((alternative) => {
+      const departure = routeDate(alternative.departureAt, routeFallbackDeparture);
+      const arrival = routeDate(
+        alternative.arrivalAt,
+        new Date(departure.getTime() + alternative.durationMin * 60_000),
+      );
+      return {
+        id: alternative.id,
+        duration: alternative.durationMin,
+        departure: formatRouteDate(departure),
+        arrival: formatRouteDate(arrival),
+        summary: alternative.summary,
+        accessible: alternative.accessible,
+        alertCount: alternative.alertCount,
+      };
+    }) ?? [];
   const trackingModeLabel = tracking
     ? tracking.type === "tram"
       ? "Tram"
@@ -3042,7 +3933,10 @@ export function ImmersiveMap({
             : trackingMetrics.distanceToStopM < 1_000
               ? `${Math.max(0, Math.round(trackingMetrics.distanceToStopM))} m`
               : `${(trackingMetrics.distanceToStopM / 1_000).toFixed(1)} km`,
+        distanceTraveledM: trackingMetrics.distanceTraveledM,
+        routeDistanceM: trackingMetrics.routeDistanceM,
         status: tracking.status,
+        hasRealtime: tracking.hasRealtime,
         dataStatus: tracking.hasRealtime
           ? "Position temps réel"
           : "Tracé théorique · suivi disponible",
@@ -3065,9 +3959,111 @@ export function ImmersiveMap({
       }
     : null;
 
+  const buildRouteStopSuggestions = (value: string, idPrefix: string) => {
+    const query = value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+    if (query.length < 2) return [];
+
+    const seen = new Set<string>();
+    return stopCatalog
+      .filter((stop) => {
+        const searchable = `${stop.stationName ?? ""} ${stop.name} ${stop.code}`
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        return searchable.includes(query);
+      })
+      .filter((stop) => {
+        const key = (stop.stationName || stop.name)
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return Boolean(stop.coordinates);
+      })
+      .slice(0, 5)
+      .map((stop) => {
+        const name = stop.stationName || stop.name;
+        const lines = stopLinesById[stop.id] ?? [];
+        const serviceLabel = lines.length
+          ? `${lines.length > 1 ? "Lignes" : "Ligne"} ${lines.join(" · ")}`
+          : "Arrêt Naolib";
+        return {
+          id: `${idPrefix}-${stop.id}`,
+          stopId: stop.id,
+          label: `${name}, ${serviceLabel}`,
+          destination: {
+            name,
+            label: name,
+            latLng: [stop.coordinates![1], stop.coordinates![0]] as LatLng,
+          },
+        };
+      });
+  };
+  const routeStopSuggestions = buildRouteStopSuggestions(searchQuery, "route-stop");
+  const originStopSuggestions = originIsCurrent
+    ? []
+    : buildRouteStopSuggestions(originAddress, "origin-stop");
+  const suggestedStopIds = [...new Set([
+    ...nearbyStopIds,
+    ...routeStopSuggestions.map((suggestion) => suggestion.stopId),
+    ...originStopSuggestions.map((suggestion) => suggestion.stopId),
+  ])];
+  const suggestedStopIdsKey = suggestedStopIds.join(",");
+
+  useEffect(() => {
+    const missingIds = suggestedStopIdsKey.split(",").filter(Boolean).filter(
+      (id) => stopLinesById[id] === undefined && !requestedStopLinesRef.current.has(id),
+    );
+    if (!missingIds.length) return;
+
+    missingIds.forEach((id) => requestedStopLinesRef.current.add(id));
+    const batches = Array.from(
+      { length: Math.ceil(missingIds.length / NEARBY_SEARCH_STOP_LIMIT) },
+      (_, index) =>
+        missingIds.slice(
+          index * NEARBY_SEARCH_STOP_LIMIT,
+          (index + 1) * NEARBY_SEARCH_STOP_LIMIT,
+        ),
+    );
+    void Promise.all(
+      batches.map(async (ids) => {
+        const response = await fetch(
+          `/api/carte-immersive/stop-lines?ids=${encodeURIComponent(ids.join(","))}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) throw new Error("Lignes indisponibles");
+        return response.json() as Promise<{
+          linesByStopId?: Record<string, string[]>;
+        }>;
+      }),
+    )
+      .then((results) => {
+        const linesByStopId = Object.assign(
+          {},
+          ...results.map((data) => data.linesByStopId ?? {}),
+        );
+        setStopLinesById((current) => ({ ...current, ...linesByStopId }));
+      })
+      .catch(() => {
+        missingIds.forEach((id) => requestedStopLinesRef.current.delete(id));
+      });
+  }, [nearbyStopIdsKey, suggestedStopIdsKey, stopLinesById]);
+  const contextPanelOpen = Boolean(
+    routeActive || visibleDetail || selectedStop || tracking,
+  );
+
   return (
     <div
-      className={`immersive-map-root${bottomNavVisible ? " immersive-map-root--nav-visible" : ""}`}
+      className={`immersive-map-root${bottomNavVisible ? " immersive-map-root--nav-visible" : ""}${
+        contextPanelOpen ? " immersive-map-root--context-open" : ""
+      }`}
+      data-period={mapWeather.period}
+      data-weather={mapWeather.condition}
     >
       <div className="immersive-map-canvas">
         <div ref={mapContainerRef} className="h-full w-full" />
@@ -3077,21 +4073,28 @@ export function ImmersiveMap({
           </div>
         )}
       </div>
+      <MapWeatherScene weather={mapWeather} />
       <div className="immersive-map-vignette" />
       <div className="immersive-map-vignette-top" />
-      {!tracking && (
+      {bottomNavVisible && (
         <div
           className={`immersive-map-live-status immersive-map-live-status--${fleetMode}${
             fleetStale ? " immersive-map-live-status--stale" : ""
           }`}
           aria-live="polite"
+          aria-label={`${fleetMode === "live" ? "Temps réel" : "Mode aperçu"}. Météo : ${mapWeather.label}`}
         >
           <span className="immersive-map-live-status-dot" />
-          {fleetMode === "live"
+          <span>{fleetMode === "live"
             ? fleetStale
               ? "Temps réel · signal en attente"
               : `${liveVehicles.length} véhicule${liveVehicles.length > 1 ? "s" : ""} en direct`
-            : "Mode aperçu"}
+            : "Mode aperçu"}</span>
+          <span className="immersive-map-live-status-separator" aria-hidden="true" />
+          <span className="immersive-map-live-status-weather">
+            {mapWeather.temperature != null ? `${Math.round(mapWeather.temperature)}° · ` : ""}
+            {mapWeather.label} · <span className="immersive-map-weather-source">Open-Meteo</span>
+          </span>
         </div>
       )}
 
@@ -3126,95 +4129,135 @@ export function ImmersiveMap({
           setTimeout(() => setShowAddressSuggestions(false), 120);
         }}
         onSearchSubmit={() => void onSearchSubmit()}
-        onCloseInputs={() => {
-          closeRoute();
-          clearFocus();
-        }}
+        onCloseInputs={closeRoute}
         originAddress={originAddress}
+        originIsCurrent={originIsCurrent}
+        onOriginChange={updateOriginQuery}
+        onOriginFocus={() => {
+          if (!originIsCurrent && originAddress.trim().length >= 2) {
+            setShowOriginSuggestions(true);
+          }
+        }}
+        onOriginBlur={() => {
+          setTimeout(() => setShowOriginSuggestions(false), 120);
+        }}
+        onOriginClear={clearOrigin}
+        onUseCurrentPosition={useCurrentPositionAsOrigin}
         originAddressLoading={originAddressLoading}
         destinationLoading={destinationLoading}
         searchError={searchError}
         showAddressSuggestions={
           showAddressSuggestions &&
-          (addressSuggestionsLoading || addressSuggestions.length > 0)
+          (addressSuggestionsLoading || routeStopSuggestions.length > 0 || addressSuggestions.length > 0)
         }
         addressSuggestionsLoading={addressSuggestionsLoading}
-        addressSuggestions={addressSuggestions.map((suggestion, index) => ({
-          id: `${suggestion.latLng[0]}-${suggestion.latLng[1]}-${index}`,
-          label: suggestion.label,
-          onPick: () => pickAddressSuggestion(suggestion),
-        }))}
+        addressSuggestions={[
+          ...routeStopSuggestions.map((suggestion) => ({
+            id: suggestion.id,
+            label: suggestion.label,
+            kind: "stop" as const,
+            onPick: () => pickAddressSuggestion(suggestion.destination),
+          })),
+          ...addressSuggestions.map((suggestion, index) => ({
+            id: `${suggestion.latLng[0]}-${suggestion.latLng[1]}-${index}`,
+            label: suggestion.label,
+            kind: "address" as const,
+            onPick: () => pickAddressSuggestion(suggestion),
+          })),
+        ]}
+        showOriginSuggestions={
+          showOriginSuggestions &&
+          (originSuggestionsLoading || originStopSuggestions.length > 0 || originSuggestions.length > 0)
+        }
+        originSuggestionsLoading={originSuggestionsLoading}
+        originSuggestions={[
+          ...originStopSuggestions.map((suggestion) => ({
+            id: suggestion.id,
+            label: suggestion.label,
+            kind: "stop" as const,
+            onPick: () => pickOriginSuggestion(suggestion.destination),
+          })),
+          ...originSuggestions.map((suggestion, index) => ({
+            id: `origin-${suggestion.latLng[0]}-${suggestion.latLng[1]}-${index}`,
+            label: suggestion.label,
+            kind: "address" as const,
+            onPick: () => pickOriginSuggestion(suggestion),
+          })),
+        ]}
       />
 
       <QuickActionsPanel
-        visible={geoGranted && !showRouteInputs && !tracking}
+        visible={geoGranted && bottomNavVisible}
         collapsed={quickCollapsed}
         onToggleCollapse={() => setQuickCollapsed((c) => !c)}
         onRoute={qaRoute}
-        onRide={qaRide}
-        onShop={qaShop}
       />
+
+      {bottomNavVisible && (
+        <FiltersPanel
+          filters={filters}
+          onToggle={(key) => {
+            const show = !filters[key];
+            setFilters((current) => ({ ...current, [key]: show }));
+            setVehicleTypeDisplay(key, show);
+          }}
+          ambientEnabled={ambientEnabled}
+          onAmbientToggle={() => setAmbientEnabled((current) => !current)}
+        />
+      )}
 
       <GeoPrompt
         promptVisible={geoPromptVisible}
-        deniedNoticeVisible={geoDeniedNoticeVisible}
-        city="Nantes"
+        notice={geoNotice}
         onAllow={onGeoAllow}
         onDeny={onGeoDeny}
       />
 
-      {!tracking && (
-        <FiltersPanel
-          filters={filters}
-          onToggle={toggleFilter}
-          mobileOpen={filtersOpen && bottomNavVisible}
-        />
-      )}
-
       <BottomNav
         visible={bottomNavVisible}
         onRoute={qaRoute}
-        onRide={qaRide}
-        onShop={qaShop}
-        filtersOpen={filtersOpen}
-        onToggleFilters={() => setFiltersOpen((open) => !open)}
       />
 
       {routeActive && (
         <RoutePanel
           destName={destName}
           duration={routeInfo?.durationMin ?? 0}
+          departure={departureStr}
           arrival={arrivalStr}
           steps={routeSteps}
           loading={routeLoading}
           error={routeError}
           mode={routeMode}
+          alternatives={routeAlternatives}
+          departures={routeDepartures}
+          provisionalAlternatives={routeSkeletons}
+          selectedAlternativeId={routeInfo?.selectedAlternativeId ?? null}
+          preferences={routePreferences}
+          advancedAvailable={routeInfo?.engine === "timetable"}
           onModeChange={changeRouteMode}
+          onAlternativeChange={selectRouteAlternative}
+          onDepartureChange={selectRouteAlternative}
+          onTrackVehicle={startScheduledPassageTracking}
+          onPreferencesChange={changeRoutePreferences}
           onClose={closeRoute}
-        />
-      )}
-
-      {focusVisible && (
-        <FocusPanel
-          mode={focusMode as "ride" | "shop"}
-          title={focusMode === "ride" ? "VTC & taxis à proximité" : "Commerçants à proximité"}
-          onClose={clearFocus}
-          rideItems={rideItems}
-          shopQuery={shopQuery}
-          onShopQueryChange={setShopQuery}
-          categories={CATEGORIES}
-          activeCats={activeCats}
-          onToggleCat={(key) => setActiveCats((c) => ({ ...c, [key]: !c[key] }))}
-          sortMode={sortMode}
-          onSortChange={setSortMode}
-          showSearchArea={showSearchArea && focusMode === "shop"}
-          onSearchThisArea={searchThisArea}
-          shopResults={shopResults}
         />
       )}
 
       {visibleDetail && (
         <DetailPanel selected={visibleDetail} onClose={closeSelection} />
+      )}
+
+      {selectedStop && (
+        <StopSchedulePanel
+          key={selectedStop.id}
+          stop={selectedStop}
+          onTrackPassage={startScheduledPassageTracking}
+          onClose={() => {
+            selectedStopMarkerRef.current?.remove();
+            selectedStopMarkerRef.current = null;
+            setSelectedStop(null);
+          }}
+        />
       )}
 
       {trackingPanelData && (
@@ -3228,26 +4271,6 @@ export function ImmersiveMap({
         />
       )}
 
-      {merchantShop && merchantData && (
-        <MerchantSheet
-          merchant={merchantData.merchant}
-          menuChips={merchantData.menuChips}
-          onPickMenuChip={setMenuCat}
-          menuSections={merchantData.menuSections}
-          cart={cart}
-          onAddItem={addItem}
-          onDecItem={decItem}
-          fmt={fmt}
-          cartLines={merchantData.cartLines}
-          cartCount={merchantData.cartCount}
-          cartTotalLabel={merchantData.cartTotalLabel}
-          cartExpanded={cartOpen && merchantData.cartCount > 0}
-          onToggleCart={toggleCart}
-          onClose={closeMerchant}
-          onOrder={placeOrder}
-          orderConfirmVisible={orderPlaced}
-        />
-      )}
     </div>
   );
 }
