@@ -3,13 +3,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { GtfsRoute } from "@/lib/types";
+import { useNetwork } from "@/components/network/network-provider";
 
 export function useGtfsData() {
+  const { isPilotNetwork } = useNetwork();
   const [routes, setRoutes] = useState<GtfsRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
+    if (!isPilotNetwork) {
+      setRoutes([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     const supabase = createClient();
     setError(null);
 
@@ -24,7 +32,7 @@ export function useGtfsData() {
       setRoutes(data as GtfsRoute[]);
     }
     setLoading(false);
-  }, []);
+  }, [isPilotNetwork]);
 
   useEffect(() => {
     void loadData();

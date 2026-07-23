@@ -25,6 +25,7 @@ async function checkWebDashboardAccess(
 ): Promise<{
   hasAccess: boolean;
   hasAdminAccess: boolean;
+  onboardingProfile: string | null;
   error: string | null;
 }> {
   const { data: profile, error: profileErr } = await supabase
@@ -34,7 +35,12 @@ async function checkWebDashboardAccess(
     .maybeSingle();
 
   if (profileErr) {
-    return { hasAccess: false, hasAdminAccess: false, error: profileErr.message };
+    return {
+      hasAccess: false,
+      hasAdminAccess: false,
+      onboardingProfile: null,
+      error: profileErr.message,
+    };
   }
 
   const role = (profile?.role as StaffRole | undefined) ?? "passenger";
@@ -56,6 +62,7 @@ async function checkWebDashboardAccess(
 
   const webProfiles: Profile[] = [
     "merchant",
+    "network_admin",
     "operations",
     "supervisor",
     "platform_admin",
@@ -64,10 +71,28 @@ async function checkWebDashboardAccess(
   ];
   const adminProfiles: Profile[] = ["platform_admin", "super_admin", "admin"];
   const hasAccess = profiles.some((p) => webProfiles.includes(p));
+  const { data: ownedNetwork } = await supabase
+    .from("network_memberships")
+    .select("network_id")
+    .eq("user_id", userId)
+    .in("membership_role", ["owner", "admin"])
+    .limit(1)
+    .maybeSingle();
+  const { data: { user } } = await supabase.auth.getUser();
+  const hasLegacyCustomNetwork = Boolean(user?.user_metadata?.onboarding_network_request);
+  const onboardingProfile =
+    typeof user?.user_metadata?.onboarding_profile === "string"
+      ? user.user_metadata.onboarding_profile
+      : null;
   const hasAdminAccess =
     role === "admin" || profiles.some((p) => adminProfiles.includes(p));
 
-  return { hasAccess, hasAdminAccess, error: null };
+  return {
+    hasAccess: hasAccess || Boolean(ownedNetwork) || hasLegacyCustomNetwork,
+    hasAdminAccess,
+    onboardingProfile,
+    error: null,
+  };
 }
 
 export function LoginForm({
@@ -148,7 +173,7 @@ export function LoginForm({
       return;
     }
 
-    const { hasAccess, hasAdminAccess, error: accessCheckError } =
+    const { hasAccess, hasAdminAccess, onboardingProfile, error: accessCheckError } =
       await checkWebDashboardAccess(supabase, data.user!.id);
 
     if (accessCheckError) {
@@ -159,7 +184,13 @@ export function LoginForm({
 
     if (!hasAccess) {
       await supabase.auth.signOut();
-      setShowMobileInvitation(true);
+      if (onboardingProfile === "conducteur" || onboardingProfile === "controleur") {
+        setShowMobileInvitation(true);
+      } else {
+        setError(
+          "Votre compte est confirmé, mais votre habilitation au dashboard est encore en attente de validation.",
+        );
+      }
       setLoading(false);
       return;
     }
@@ -193,7 +224,7 @@ export function LoginForm({
       return;
     }
 
-    const { hasAccess, hasAdminAccess, error: accessCheckError } =
+    const { hasAccess, hasAdminAccess, onboardingProfile, error: accessCheckError } =
       await checkWebDashboardAccess(supabase, data.user.id);
 
     if (accessCheckError) {
@@ -204,7 +235,13 @@ export function LoginForm({
 
     if (!hasAccess) {
       await supabase.auth.signOut();
-      setShowMobileInvitation(true);
+      if (onboardingProfile === "conducteur" || onboardingProfile === "controleur") {
+        setShowMobileInvitation(true);
+      } else {
+        setError(
+          "Votre compte est confirmé, mais votre habilitation au dashboard est encore en attente de validation.",
+        );
+      }
       setLoading(false);
       return;
     }
@@ -246,6 +283,11 @@ export function LoginForm({
         />
       }
     >
+      <Link href="/" data-hover className={styles.backLink}>
+        <ArrowLeft size={16} />
+        Retour à l&apos;accueil
+      </Link>
+
       <h2 className={styles.title}>Connexion</h2>
       <p className={styles.subtitle}>
         {isProMode ? "Utilisez un compte administrateur autorisé." : "Pas encore de compte ?"}{" "}
@@ -282,20 +324,20 @@ export function LoginForm({
                 <QrCode size={34} />
               </span>
               <div>
-                <div className={styles.qrTextTitle}>Téléchargez l&apos;application</div>
+                <div className={styles.qrTextTitle}>Application bientôt disponible</div>
                 <div className={styles.qrTextDesc}>
-                  Scannez ce code pour ouvrir Aule sur votre téléphone et vous connecter.
+                  Les liens officiels seront activés à l&apos;ouverture des stores.
                 </div>
               </div>
             </div>
           ) : (
             <p className={styles.mobileHint}>
-              Téléchargez l&apos;application Aule ci-dessous pour vous connecter.
+              L&apos;application Aule sera bientôt disponible sur les stores.
             </p>
           )}
 
           <div className={styles.storeBadges}>
-            <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
+            <span aria-disabled="true" className={styles.storeBadge}>
               <svg width="18" height="18" viewBox="0 0 24 24">
                 <path
                   fill="#fff"
@@ -303,11 +345,11 @@ export function LoginForm({
                 />
               </svg>
               <span className={styles.storeBadgeText}>
-                <span className={styles.storeBadgeSmall}>Télécharger sur</span>
-                <span className={styles.storeBadgeBig}>App Store</span>
+                <span className={styles.storeBadgeSmall}>App Store</span>
+                <span className={styles.storeBadgeBig}>Bientôt disponible</span>
               </span>
-            </a>
-            <a href="#" onClick={(e) => e.preventDefault()} className={styles.storeBadge}>
+            </span>
+            <span aria-disabled="true" className={styles.storeBadge}>
               <svg width="17" height="17" viewBox="0 0 24 24">
                 <path fill="#33BFA3" d="M3.6 2.4 13 12 3.6 21.6c-.3-.2-.6-.6-.6-1.1V3.5c0-.5.3-.9.6-1.1Z" />
                 <path fill="#fff" d="m15.3 9.7 2.9 1.6c.9.5.9 1.9 0 2.4l-2.9 1.6L13 12l2.3-2.3Z" />
@@ -315,10 +357,10 @@ export function LoginForm({
                 <path fill="#fff" opacity=".6" d="M4.4 21.9 12.7 13 15 15.4 4.4 21.9Z" />
               </svg>
               <span className={styles.storeBadgeText}>
-                <span className={styles.storeBadgeSmall}>Disponible sur</span>
-                <span className={styles.storeBadgeBig}>Google Play</span>
+                <span className={styles.storeBadgeSmall}>Google Play</span>
+                <span className={styles.storeBadgeBig}>Bientôt disponible</span>
               </span>
-            </a>
+            </span>
           </div>
 
           <button
@@ -524,13 +566,23 @@ export function LoginForm({
             </form>
           )}
 
+          {isProMode ? (
+            <Link
+              href="/signup?mode=pro"
+              data-hover
+              className={styles.signupButton}
+            >
+              Créer un compte
+            </Link>
+          ) : null}
+
           <p className={styles.legal} style={{ marginTop: 24 }}>
             En continuant, vous acceptez les{" "}
-            <a href="#" data-hover className={styles.legalLink}>
+            <a href="/conditions" data-hover className={styles.legalLink}>
               Conditions
             </a>{" "}
             et la{" "}
-            <a href="#" data-hover className={styles.legalLink}>
+            <a href="/confidentialite" data-hover className={styles.legalLink}>
               Politique de confidentialité
             </a>{" "}
             d&apos;Aule.

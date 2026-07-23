@@ -5,10 +5,9 @@ type QuickActionsPanelProps = {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onRoute: () => void;
-  onGuide: () => void;
 };
 
-export function QuickActionsPanel({ visible, collapsed, onToggleCollapse, onRoute, onGuide }: QuickActionsPanelProps) {
+export function QuickActionsPanel({ visible, collapsed, onToggleCollapse, onRoute }: QuickActionsPanelProps) {
   if (!visible) return null;
 
   return (
@@ -24,16 +23,11 @@ export function QuickActionsPanel({ visible, collapsed, onToggleCollapse, onRout
       </div>
 
       {!collapsed && (
-        <div className="flex flex-col gap-2.5">
+        <div>
           <button type="button" onClick={onRoute} className="immersive-map-quick-card text-left">
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-[11px] border border-[#33bfa3]/30 bg-[#33bfa3]/[.14] text-lg">🧭</span>
-            <div className="text-sm font-semibold leading-tight">Planifier un itinéraire</div>
+            <div className="text-sm font-semibold leading-tight">Où allons-nous</div>
             <div className="text-xs leading-snug text-white/60">Bus, tram, navibus ou voiture jusqu’à destination.</div>
-          </button>
-          <button type="button" onClick={onGuide} className="immersive-map-quick-card text-left">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-[11px] border border-[#33bfa3]/30 bg-[#33bfa3]/[.14] text-lg">🛰️</span>
-            <div className="text-sm font-semibold leading-tight">Guidage en temps réel</div>
-            <div className="text-xs leading-snug text-white/60">Recherchez une ligne et suivez votre bus, tram ou navibus en direct.</div>
           </button>
         </div>
       )}

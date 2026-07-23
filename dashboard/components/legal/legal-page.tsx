@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 type LegalPageProps = {
   title: string;
@@ -6,7 +7,7 @@ type LegalPageProps = {
   description: string;
   sections: Array<{
     title: string;
-    body: string;
+    body: ReactNode;
   }>;
 };
 
@@ -51,8 +52,8 @@ export function LegalPage({ title, eyebrow, description, sections }: LegalPagePr
 
         <footer className="border-t border-white/10 pt-6 text-sm text-white/48">
           Dernière mise à jour : juillet 2026 · Contact :{" "}
-          <a className="text-[#33bfa3] hover:text-white" href="mailto:contact@aule.app">
-            contact@aule.app
+          <a className="text-[#33bfa3] hover:text-white" href="mailto:contact@aule.fr">
+            contact@aule.fr
           </a>
         </footer>
       </section>

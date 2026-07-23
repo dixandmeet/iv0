@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
+  CircleDot,
   GitBranchPlus,
   GripVertical,
   Pencil,
@@ -33,6 +34,7 @@ interface LineEditorPlanProps {
   activeOriginLegId: string | null;
   selectedPointId: string | null;
   lineColor: string;
+  showPassagePoints: boolean;
   onSelectStop: (
     pointId: string,
     branchId: string | null,
@@ -87,6 +89,7 @@ export function LineEditorPlan({
   activeOriginLegId,
   selectedPointId,
   lineColor,
+  showPassagePoints,
   onSelectStop,
   onReorder,
   onAddStop,
@@ -471,6 +474,49 @@ export function LineEditorPlan({
     );
   };
 
+  const passagePointsBefore = (
+    stop: RoutePoint,
+    branchId: string | null,
+    originLegId: string | null,
+  ): RoutePoint[] => {
+    const routePoints = originLegId
+      ? originLegs.find((leg) => leg.id === originLegId)?.points ?? []
+      : branchId
+        ? branches.find((branch) => branch.id === branchId)?.points ?? []
+        : allTrunkPoints;
+    const stopPointIndex = routePoints.findIndex((point) => point.id === stop.id);
+    if (stopPointIndex <= 0) return [];
+    let previousStopIndex = -1;
+    for (let index = stopPointIndex - 1; index >= 0; index -= 1) {
+      if (isStopType(routePoints[index].type)) {
+        previousStopIndex = index;
+        break;
+      }
+    }
+    return routePoints
+      .slice(previousStopIndex + 1, stopPointIndex)
+      .filter((point) => point.type === "passage");
+  };
+
+  const renderPassagePoint = (
+    point: RoutePoint,
+    branchId: string | null,
+    originLegId: string | null,
+    index: number,
+  ) => (
+    <button
+      key={point.id}
+      type="button"
+      className={`line-editor-plan-v-gps${point.id === selectedPointId ? " selected" : ""}`}
+      onClick={() => selectStop(point, branchId, originLegId)}
+      data-stop-id={point.id}
+    >
+      <CircleDot className="h-3.5 w-3.5" />
+      <span>{point.gps?.name || `Point GPS ${index + 1}`}</span>
+      <small>{point.gps?.radiusMeters ?? 15} m</small>
+    </button>
+  );
+
   const shouldShowTravel = useCallback(
     (item: PlanListItem, index: number): boolean => {
       if (index === 0 || item.kind === "merge") return false;
@@ -538,7 +584,7 @@ export function LineEditorPlan({
     <aside className="line-editor-plan line-editor-plan--vertical">
       <div className="line-editor-plan-v-header">
         <div>
-          <span className="line-editor-plan-v-title">Plan</span>
+          <span className="line-editor-plan-v-title">Parcours</span>
           <span className="line-editor-plan-v-count">
             {reorderableStops.length} arrêt{reorderableStops.length > 1 ? "s" : ""}
             {reorderableStops.length > 1 && (
@@ -742,6 +788,16 @@ export function LineEditorPlan({
                   ) : (
                     <>
                       {renderTravelSegment(item, index)}
+                      {showPassagePoints &&
+                        passagePointsBefore(stop, branchId, originLegId).map(
+                          (point, passageIndex) =>
+                            renderPassagePoint(
+                              point,
+                              branchId,
+                              originLegId,
+                              passageIndex,
+                            ),
+                        )}
                       {renderStopCard(stop, branchId, originLegId)}
                     </>
                   )}

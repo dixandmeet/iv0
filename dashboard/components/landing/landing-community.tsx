@@ -23,10 +23,10 @@ export function LandingCommunity() {
       <div className="section-container">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <SectionHeading
-            eyebrow="Données communautaires"
-            title="Une carte enrichie par la communauté, en toute confiance"
+            eyebrow="Données communautaires · Déploiement progressif"
+            title="Une contribution encadrée, activée réseau par réseau"
             titleId="community-title"
-            description="Aule agrège les positions anonymes des usagers pour compléter les données officielles et offrir un suivi plus précis — sans compromettre votre vie privée."
+            description="Les fonctions communautaires sont encore en cours de déploiement. Elles ne sont activées qu'après validation des règles de confidentialité et de modération du réseau concerné."
             align="left"
             className="mb-0 lg:max-w-lg"
           />

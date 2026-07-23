@@ -4,6 +4,22 @@ import type { LineEditorState, RoutePoint } from "@/lib/line-editor-types";
 export type LineTraceDirection = "aller" | "retour";
 export type LineTraceVariant = { direction: LineTraceDirection; coordinates: [number, number][] };
 
+type SupabaseRpcError = {
+  code?: string;
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+function reportTraceSyncError(action: string, error: SupabaseRpcError): void {
+  const code = error.code ? ` [${error.code}]` : "";
+  const message = error.message || "Erreur Supabase inconnue";
+  console.error(`${action}${code}: ${message}`, {
+    details: error.details ?? null,
+    hint: error.hint ?? null,
+  });
+}
+
 function trunkForVoice(state: LineEditorState, direction: LineTraceDirection): RoutePoint[] {
   return direction === "aller" ? state.pointsAller : state.pointsRetour;
 }
@@ -60,7 +76,12 @@ export async function syncPublishedLineTrace(state: LineEditorState): Promise<vo
     p_color: state.color,
     p_variants: variants,
   });
-  if (error) console.error("Échec de publication du tracé sur la carte immersive", error);
+  if (error) {
+    reportTraceSyncError(
+      "Échec de publication du tracé sur la carte immersive",
+      error,
+    );
+  }
 }
 
 export async function unpublishLineTrace(lineId: string): Promise<void> {
@@ -69,5 +90,10 @@ export async function unpublishLineTrace(lineId: string): Promise<void> {
 
   const supabase = createClient();
   const { error } = await supabase.rpc("unpublish_line_trace", { p_line_id: trimmed });
-  if (error) console.error("Échec de la dépublication du tracé de la carte immersive", error);
+  if (error) {
+    reportTraceSyncError(
+      "Échec de la dépublication du tracé de la carte immersive",
+      error,
+    );
+  }
 }

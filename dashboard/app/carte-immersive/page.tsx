@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ImmersiveMap } from "@/components/carte-immersive/immersive-map";
 import {
+  loadAleopLineTraces,
   loadDashboardLineCatalog,
   loadPublishedLineTraces,
   loadRealLineTraces,
@@ -24,7 +25,10 @@ export default async function CarteImmersivePage() {
     loadPublishedLineTraces(supabase),
     loadDashboardLineCatalog(supabase),
   ]);
-  const realLineTraces = mergeLineTraces(publishedLineTraces, loadRealLineTraces());
+  const realLineTraces = [
+    ...mergeLineTraces(publishedLineTraces, loadRealLineTraces()),
+    ...loadAleopLineTraces(), // lignes interurbaines Aléop (tracés entiers)
+  ];
   const user = authResult.data.user;
   let viewer: { displayName: string; avatarUrl: string | null } | null = null;
 

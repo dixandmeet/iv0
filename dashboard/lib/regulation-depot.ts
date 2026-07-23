@@ -7,6 +7,7 @@ import {
   getDepotLine,
   makeLineId,
 } from "@/lib/depot-lines";
+import { depotLineStopCount } from "@/lib/depot-types";
 import {
   interpolateTimelineCoordinates,
   type RouteTimelinePoint,
@@ -95,9 +96,12 @@ export function resolveDepotStopsToTimeline(
     const name = stopNames[i];
     const gtfsStop = findGtfsStopByName(name, allStops);
     const coords = gtfsStop ? pointCoordinates(gtfsStop.geom) : null;
+    const fallbackId = `${depotCode.toLowerCase()}-${normalizeStopName(name)
+      .toLowerCase()
+      .replace(/\s+/g, "-")}`;
 
     points.push({
-      stopId: gtfsStop?.stop_id ?? `${depotCode.toLowerCase()}-${i}`,
+      stopId: gtfsStop?.stop_id ?? fallbackId,
       stationId: gtfsStop?.station_id,
       name,
       coordinates: coords ?? [0, 0],
@@ -153,7 +157,7 @@ export function buildDepotRegulationLines(
       avgDelay,
       incidentCount,
       transportType: "Bus",
-      stopCount: depotLine.stops.length,
+      stopCount: depotLineStopCount(depotLine),
       maxVehicles: Math.max(vehicles.length, 1),
       punctuality,
       firstDeparture: "—",
@@ -181,6 +185,27 @@ export function buildDepotTimelineFromSchema(
   const depotLine = getDepotLine(depotCode, routeId);
   if (!depotLine) return [];
   return resolveDepotStopsToTimeline(depotLine.stops, allStops, depotCode);
+}
+
+export function buildDepotTimelinesFromSchema(
+  depotCode: string,
+  routeId: string,
+  allStops: GtfsStop[],
+): Array<{ id: string; destination: string; stops: RouteTimelinePoint[] }> {
+  const depotLine = getDepotLine(depotCode, routeId);
+  if (!depotLine) return [];
+
+  const variants = depotLine.variants?.length
+    ? depotLine.variants
+    : [{ id: "default", destination: depotLine.destination, stops: depotLine.stops }];
+
+  return variants
+    .map((variant) => ({
+      id: variant.id,
+      destination: variant.destination,
+      stops: resolveDepotStopsToTimeline(variant.stops, allStops, depotCode),
+    }))
+    .filter((variant) => variant.stops.length >= 2);
 }
 
 /** @deprecated */

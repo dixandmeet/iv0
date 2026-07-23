@@ -47,6 +47,8 @@ interface OperationalTimelineProps {
   focusVehicleId?: string | null;
   /** Variante compacte pour la fiche véhicule. */
   embedded?: boolean;
+  /** Autorise des positions fictives uniquement sur une fiche explicitement ouverte en démo. */
+  allowDemo?: boolean;
 }
 
 function vehiclePositionPercent(
@@ -113,6 +115,7 @@ export function OperationalTimeline({
   onStopsChange,
   focusVehicleId,
   embedded = false,
+  allowDemo = false,
 }: OperationalTimelineProps) {
   const { stops, segmentQuality } = line;
   const stopCount = stops.length;
@@ -147,6 +150,7 @@ export function OperationalTimeline({
     line.shortName,
     stopCount,
     focusVehicleId,
+    allowDemo,
   );
 
   const vehiclesOnLine = useMemo(() => {
@@ -264,9 +268,6 @@ export function OperationalTimeline({
                 ? "Position sur la ligne"
                 : `Plan de ligne · ${variantTabsSummary(topology.variants)}`}
             </p>
-            {!embedded && !isLive && (
-              <span className="regulation-demo-badge">Données de démo</span>
-            )}
             {!embedded && isLive && (
               <span className="regulation-live-badge">Temps réel</span>
             )}
@@ -317,9 +318,6 @@ export function OperationalTimeline({
           <p className="regulation-timeline-label mb-0">
             {embedded ? "Position sur la ligne" : `Plan de ligne - ${stopCount} arrêts`}
           </p>
-          {!embedded && !isLive && stopCount >= 2 && (
-            <span className="regulation-demo-badge">Données de démo</span>
-          )}
           {!embedded && isLive && (
             <span className="regulation-live-badge">Temps réel</span>
           )}

@@ -18,6 +18,7 @@ interface StationDetailPanelProps {
   onEditStation: () => void;
   onDisableStation: () => void;
   onAddStop: () => void;
+  canManage: boolean;
 }
 
 export function StationDetailPanel({
@@ -28,6 +29,7 @@ export function StationDetailPanel({
   onEditStation,
   onDisableStation,
   onAddStop,
+  canManage,
 }: StationDetailPanelProps) {
   const router = useRouter();
 
@@ -72,15 +74,15 @@ export function StationDetailPanel({
           </div>
         </div>
         <div className="stops-detail-actions">
-          <Button size="sm" variant="outline" onClick={onEditStation}>
+          <Button size="sm" variant="outline" onClick={onEditStation} disabled={!canManage}>
             <Pencil className="h-3.5 w-3.5" />
             Modifier
           </Button>
-          <Button size="sm" variant="outline" onClick={onAddStop}>
+          <Button size="sm" variant="outline" onClick={onAddStop} disabled={!canManage}>
             <Plus className="h-3.5 w-3.5" />
             Ajouter un arrêt
           </Button>
-          <Button size="sm" variant="outline" onClick={onDisableStation}>
+          <Button size="sm" variant="outline" onClick={onDisableStation} disabled={!canManage}>
             <Power className="h-3.5 w-3.5" />
             Désactiver
           </Button>
@@ -128,6 +130,7 @@ export function StationDetailPanel({
                       variant="outline"
                       className="ml-auto"
                       onClick={() => router.push(`/stations/${station.id}/arrets/${stop.id}`)}
+                      disabled={!canManage}
                     >
                       <Pencil className="h-3 w-3" />
                       Modifier

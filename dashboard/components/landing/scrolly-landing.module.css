@@ -63,7 +63,8 @@
 @media (prefers-reduced-motion: reduce) {
   .pulseDot,
   .scrollHint,
-  .dashPath {
+  .dashPath,
+  .environmentMapRealtimeDot {
     animation: none;
   }
 }
@@ -630,38 +631,6 @@
   pointer-events: none;
 }
 
-.weatherSun {
-  position: absolute;
-  top: 16%;
-  right: 18%;
-  width: clamp(150px, 18vw, 300px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  opacity: 0;
-  background: #fff2c2;
-  box-shadow: 0 0 55px 22px rgba(255, 196, 113, 0.42), 0 0 150px 70px rgba(255, 145, 79, 0.2);
-  filter: blur(1px);
-  transform: translateY(30px);
-  transition: opacity 1.2s ease, transform 1.2s ease;
-}
-
-.mapHero[data-weather="clear"][data-period="dawn"] .weatherSun,
-.mapHero[data-weather="clear"][data-period="dusk"] .weatherSun {
-  opacity: 0.82;
-  transform: translateY(0);
-}
-
-.mapHero[data-period="dusk"] .weatherSun {
-  top: 28%;
-  background: #ffc08b;
-}
-
-.mapHero[data-weather="clear"][data-period="day"] .weatherSun {
-  top: -7%;
-  opacity: 0.48;
-  transform: translateY(0);
-}
-
 .weatherCloud {
   position: absolute;
   width: 34vw;
@@ -1154,7 +1123,7 @@
   flex: 0 0 46%;
   max-width: 46%;
   align-self: center;
-  height: clamp(340px, 60vh, 520px);
+  height: clamp(380px, 67vh, 580px);
   overflow: hidden;
   border-radius: 28px;
   border: 1px solid rgba(167, 255, 240, 0.16);
@@ -1214,6 +1183,109 @@
   box-shadow:
     0 14px 38px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.environmentMapRealtime {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 7px 10px;
+  border: 1px solid rgba(141, 238, 221, 0.2);
+  border-radius: 14px;
+  background: rgba(6, 15, 13, 0.86);
+  backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.environmentMapRealtimeDot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 999px;
+  background: #63efd4;
+  box-shadow: 0 0 0 4px rgba(99, 239, 212, 0.12), 0 0 16px rgba(99, 239, 212, 0.65);
+  animation: mapLivePulse 1.8s ease-in-out infinite;
+}
+
+.environmentMapRealtime > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.1;
+}
+
+.environmentMapRealtime strong {
+  color: #ecfffb;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.environmentMapRealtime small {
+  color: rgba(255, 255, 255, 0.46);
+  font-size: 8.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.environmentMapArrivals {
+  position: absolute;
+  z-index: 2;
+  top: 68px;
+  right: 14px;
+  display: grid;
+  width: 148px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(6, 14, 13, 0.84);
+  backdrop-filter: blur(18px) saturate(1.15);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.environmentMapArrivals > span {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 8px;
+}
+
+.environmentMapArrivals > span + span {
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.environmentMapArrivals i {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  font-size: 9px;
+}
+
+.environmentMapArrivals small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.environmentMapArrivals strong {
+  color: #f1fffc;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@keyframes mapLivePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.58; transform: scale(0.82); }
 }
 
 .environmentMapDepartureIcon {
@@ -1994,6 +2066,16 @@
   transform: scale(1.05);
 }
 
+.storeUnavailable {
+  cursor: default;
+  opacity: 0.82;
+  user-select: none;
+}
+
+.storeUnavailable:hover {
+  transform: none;
+}
+
 .storeLight {
   background: #fff;
   color: #04211c;
@@ -2138,6 +2220,12 @@
   border-color: rgba(51, 191, 163, 0.48);
   background: rgba(51, 191, 163, 0.16);
   color: #fff;
+}
+
+.footerStoreLink.storeUnavailable:hover {
+  border-color: rgba(51, 191, 163, 0.22);
+  background: rgba(51, 191, 163, 0.09);
+  color: #dffcf7;
 }
 
 .footerColumn {
@@ -2367,6 +2455,47 @@
 }
 
 @media (max-width: 640px) {
+  .environmentMapDeparture {
+    top: 10px;
+    left: 10px;
+  }
+
+  .environmentMapDepartureIcon {
+    width: 27px;
+    height: 27px;
+  }
+
+  .environmentMapDepartureCopy strong {
+    max-width: 118px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .environmentMapRealtime {
+    top: 10px;
+    right: 10px;
+    min-height: 38px;
+    padding: 6px 8px;
+  }
+
+  .environmentMapRealtime small {
+    display: none;
+  }
+
+  .environmentMapArrivals {
+    top: 58px;
+    right: 10px;
+    width: 136px;
+  }
+
+  .environmentMapLegend {
+    right: 10px;
+    bottom: 8px;
+    left: 10px;
+    gap: 8px;
+  }
+
   .backToTop {
     right: 16px;
     bottom: calc(16px + env(safe-area-inset-bottom));

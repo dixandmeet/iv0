@@ -15,6 +15,7 @@ import type { GtfsStop, LiveFleetPosition, NetworkIncident } from "@/lib/types";
 import { reliabilityColor, severityColor, sourceLabel } from "@/lib/types";
 import { pointCoordinates } from "@/lib/geo";
 import { createDarkMapStyle, NANTES_CENTER } from "@/lib/landing-map-style";
+import { attachMapLibreErrorHandler } from "@/lib/maplibre-errors";
 
 export interface FleetMapHandle {
   flyToVehicle: (vehicleId: string) => void;
@@ -258,11 +259,13 @@ export const FleetMap = forwardRef<FleetMapHandle, FleetMapProps>(
       });
 
       map.addControl(new maplibregl.NavigationControl(), "top-right");
+      const detachMapErrorHandler = attachMapLibreErrorHandler(map, "FleetMap");
       mapRef.current = map;
 
       map.on("load", () => syncAllMarkersRef.current());
 
       return () => {
+        detachMapErrorHandler();
         clearVehicleMarkers();
         clearIncidentMarkers();
         clearStopMarkers();

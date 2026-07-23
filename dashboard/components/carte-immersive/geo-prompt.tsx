@@ -2,13 +2,12 @@
 
 type GeoPromptProps = {
   promptVisible: boolean;
-  deniedNoticeVisible: boolean;
-  city: string;
+  notice: string | null;
   onAllow: () => void;
   onDeny: () => void;
 };
 
-export function GeoPrompt({ promptVisible, deniedNoticeVisible, city, onAllow, onDeny }: GeoPromptProps) {
+export function GeoPrompt({ promptVisible, notice, onAllow, onDeny }: GeoPromptProps) {
   if (promptVisible) {
     return (
       <div className="immersive-map-panel immersive-map-toast absolute left-1/2 top-[84px] z-[400] w-[min(360px,86vw)] -translate-x-1/2 rounded-[20px] p-4">
@@ -41,10 +40,13 @@ export function GeoPrompt({ promptVisible, deniedNoticeVisible, city, onAllow, o
     );
   }
 
-  if (deniedNoticeVisible) {
+  if (notice) {
     return (
-      <div className="immersive-map-panel immersive-map-toast absolute left-1/2 top-[82px] z-[399] w-[min(420px,86vw)] -translate-x-1/2 rounded-full px-[18px] py-2.5 text-center text-[13px] text-white/85">
-        Carte centrée sur {city} — autorisez votre position pour un suivi personnalisé.
+      <div
+        className="immersive-map-panel immersive-map-toast absolute left-1/2 top-[82px] z-[399] w-[min(520px,86vw)] -translate-x-1/2 rounded-[18px] px-[18px] py-2.5 text-center text-[13px] text-white/85"
+        role="status"
+      >
+        {notice}
       </div>
     );
   }

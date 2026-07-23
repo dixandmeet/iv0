@@ -258,7 +258,11 @@ export function ensureRouteLayer(map: maplibregl.Map) {
       source: "immersive-map-route",
       type: "line",
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#33bfa3", "line-width": 5, "line-opacity": 0.95 },
+      paint: {
+        "line-color": ["coalesce", ["get", "color"], "#33bfa3"],
+        "line-width": 5,
+        "line-opacity": 0.95,
+      },
     });
   }
 }

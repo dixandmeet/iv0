@@ -118,6 +118,7 @@ export function useVehiclePage({
     lineShortName ?? "—",
     stopCount,
     vehicleId,
+    isDemo,
   );
 
   const trackedVehicle = useMemo(

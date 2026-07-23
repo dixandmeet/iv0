@@ -26,3 +26,27 @@ export function pointCoordinates(geom: unknown): [number, number] | null {
 
   return [lng, lat];
 }
+
+/** Extrait les points [lng, lat] d'une LineString PostGIS renvoyée par Supabase. */
+export function lineStringCoordinates(geom: unknown): [number, number][] {
+  if (!geom) return [];
+
+  let value: GeoJsonPoint = geom as GeoJsonPoint;
+  if (typeof geom === "string") {
+    try {
+      value = JSON.parse(geom) as GeoJsonPoint;
+    } catch {
+      return [];
+    }
+  }
+
+  if (value.type !== "LineString" || !Array.isArray(value.coordinates)) return [];
+  return value.coordinates.flatMap((coordinate) => {
+    if (!Array.isArray(coordinate) || coordinate.length < 2) return [];
+    const lng = Number(coordinate[0]);
+    const lat = Number(coordinate[1]);
+    return Number.isFinite(lng) && Number.isFinite(lat)
+      ? ([[lng, lat]] as [number, number][])
+      : [];
+  });
+}

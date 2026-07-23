@@ -57,6 +57,7 @@ export const PERMISSIONS = [
   "ops.incidents",
   "ops.teams",
   "ops.stats",
+  "ops.network_manage",
 
   // ── Transport à la demande · Chauffeur VTC ────────────────────────────────
   "vtc.rides",

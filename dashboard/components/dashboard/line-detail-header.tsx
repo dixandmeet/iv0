@@ -7,6 +7,7 @@ import {
   Megaphone,
   MoreHorizontal,
   Pencil,
+  RefreshCw,
   ShieldAlert,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -22,23 +23,13 @@ interface LineDetailHeaderProps {
   topology?: LineTopology | null;
   onOpenEditor?: () => void;
   onEditLineInfo?: () => void;
+  onRegenerate?: () => void;
+  isRegenerating?: boolean;
+  regenerationDisabled?: boolean;
 }
 
-function lineRouteTitle(line: RegulationLine, topology?: LineTopology | null): string {
-  if (!topology?.isComplex || topology.variants.length < 2) {
-    return `${line.origin} ↔ ${line.destination}`;
-  }
-
-  const origins = [...new Set(topology.variants.map((v) => v.origin))];
-  const destinations = [
-    ...new Set(topology.variants.map((v) => v.destination)),
-  ].filter((d) => !origins.includes(d));
-
-  if (origins.length === 1 && destinations.length > 1) {
-    return `${origins[0]} ↔ ${destinations.join(" / ")}`;
-  }
-
-  return topology.variants.map((v) => v.label).join(" · ");
+function lineRouteTitle(line: RegulationLine): string {
+  return `${line.origin} ↔ ${line.destination}`;
 }
 
 export function LineDetailHeader({
@@ -46,6 +37,9 @@ export function LineDetailHeader({
   topology,
   onOpenEditor,
   onEditLineInfo,
+  onRegenerate,
+  isRegenerating = false,
+  regenerationDisabled = false,
 }: LineDetailHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -75,10 +69,10 @@ export function LineDetailHeader({
           </span>
           <div>
             <h1 className="text-lg font-semibold text-white">
-              {lineRouteTitle(line, topology)}
+              {lineRouteTitle(line)}
             </h1>
             <p className="mt-0.5 text-sm text-[#94A3B8]">
-              {line.transportType} · {line.stopCount} arrêts · {line.vehicleCount}{" "}
+              {line.transportType} · {topology?.nodes.length ?? line.stopCount} arrêts · {line.vehicleCount}{" "}
               véhicules en ligne
             </p>
           </div>
@@ -95,6 +89,25 @@ export function LineDetailHeader({
         </div>
 
         <div className="regulation-line-actions">
+          {onRegenerate && (
+            <button
+              type="button"
+              className="regulation-btn-outline regulation-btn-regenerate"
+              onClick={onRegenerate}
+              disabled={isRegenerating || regenerationDisabled}
+              aria-busy={isRegenerating}
+              title={
+                regenerationDisabled
+                  ? "La séquence d’arrêts de référence est indisponible"
+                  : "Recalculer les noms des arrêts et le tracé de la ligne"
+              }
+            >
+              <RefreshCw
+                className={`h-4 w-4${isRegenerating ? " animate-spin" : ""}`}
+              />
+              {isRegenerating ? "Régénération…" : "Régénérer la ligne"}
+            </button>
+          )}
           {onOpenEditor && (
             <button
               type="button"

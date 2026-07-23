@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Label, Select } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ListSkeleton } from "@/components/ui/empty-state";
+import { useNetwork } from "@/components/network/network-provider";
 
 type StationTab = "info" | "map" | "stops" | "lines" | "quality";
 
@@ -86,6 +87,7 @@ function stationSubtitle(
 
 export function StationEditPageContent({ stationId }: StationEditPageContentProps) {
   const router = useRouter();
+  const { canManage } = useNetwork();
   const { detail, stopLines, stopDepartures, loading, error, refresh } = useStationDetail(stationId);
   const { updateStation, disableStation, submitting, error: actionError } = useStationActions();
 
@@ -270,13 +272,17 @@ export function StationEditPageContent({ stationId }: StationEditPageContentProp
 
   const handleToggleStatus = async () => {
     if (!station) return;
-    if (station.status === "active") {
-      if (!confirm("Désactiver cette station ? Elle sera masquée côté voyageur.")) return;
-      await disableStation(station.id);
-    } else {
-      await updateStation(station.id, { status: "active" });
+    try {
+      if (station.status === "active") {
+        if (!confirm("Désactiver cette station ? Elle sera masquée côté voyageur.")) return;
+        await disableStation(station.id);
+      } else {
+        await updateStation(station.id, { status: "active" });
+      }
+      await refresh();
+    } catch {
+      // actionError est mis à jour par le hook
     }
-    await refresh();
   };
 
   if (loading && !station) {
@@ -302,6 +308,23 @@ export function StationEditPageContent({ stationId }: StationEditPageContentProp
               <Link href="/stations">Retour aux stations</Link>
             </Button>
           </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!canManage) {
+    return (
+      <main className="dashboard-panel stops-page stops-edit-page">
+        <div className="stops-edit-empty stops-glass-card">
+          <h2>Accès en lecture seule</h2>
+          <p>
+            Vous pouvez consulter {station.name}, mais vous devez être administrateur du réseau
+            pour modifier cette station ou ses arrêts.
+          </p>
+          <Button asChild variant="outline">
+            <Link href={`/stations?station=${stationId}`}>Retour aux arrêts</Link>
+          </Button>
         </div>
       </main>
     );

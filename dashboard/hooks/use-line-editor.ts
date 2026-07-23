@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   countStops,
   createDemoLineEditorState,
@@ -29,7 +29,6 @@ import {
   findPointInEditor,
   getVoiceBranches,
   getVoiceOriginLegs,
-  migrateLinearOriginsToLegs,
   originLegsFromHub,
   setVoiceBranches,
   updateVoiceBranches,
@@ -42,6 +41,7 @@ import type {
   LineOriginLeg,
   LineVoice,
   PointType,
+  PassageDetails,
   RoutePoint,
   StopDetails,
 } from "@/lib/line-editor-types";
@@ -50,6 +50,7 @@ import { syncPublishedLineTrace, unpublishLineTrace } from "@/lib/line-editor-im
 
 const MAX_HISTORY = 50;
 const IMMERSIVE_SYNC_DEBOUNCE_MS = 1500;
+const AUTO_SAVE_DEBOUNCE_MS = 500;
 
 function getContextPoints(state: LineEditorState): RoutePoint[] {
   if (state.activeOriginLegId) {
@@ -110,7 +111,7 @@ function cloneState(state: LineEditorState): LineEditorState {
 }
 
 export interface UseLineEditorOptions {
-  onAutoSave?: (state: LineEditorState) => void;
+  onAutoSave?: (state: LineEditorState) => void | Promise<void>;
 }
 
 export function useLineEditor(
@@ -122,19 +123,29 @@ export function useLineEditor(
   );
   const historyRef = useRef<LineEditorState[]>([]);
   const futureRef = useRef<LineEditorState[]>([]);
-  const [historyTick, setHistoryTick] = useState(0);
+  const [historyAvailability, setHistoryAvailability] = useState({
+    canUndo: false,
+    canRedo: false,
+  });
   const [tracing, setTracing] = useState(false);
   const [traceError, setTraceError] = useState<string | null>(null);
   const traceAbortRef = useRef<AbortController | null>(null);
   const onAutoSaveRef = useRef(options?.onAutoSave);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
-  const skipNextSaveRef = useRef(true);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<LineEditorState | null>(null);
+  const saveVersionRef = useRef(0);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const immersiveSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPublishedLineIdRef = useRef<string | null>(
     initialState?.status === "published" ? initialState.shortName.trim() || null : null,
   );
 
-  onAutoSaveRef.current = options?.onAutoSave;
+  useEffect(() => {
+    onAutoSaveRef.current = options?.onAutoSave;
+  }, [options?.onAutoSave]);
 
   const syncImmersiveMap = useCallback((next: LineEditorState) => {
     if (immersiveSyncTimerRef.current) clearTimeout(immersiveSyncTimerRef.current);
@@ -148,28 +159,82 @@ export function useLineEditor(
     lastPublishedLineIdRef.current = nextLineId;
 
     if (!nextLineId) return;
+
+    // Une première publication (ou un changement de numéro de ligne) doit être
+    // visible immédiatement, même si l'utilisateur quitte ensuite l'éditeur.
+    if (previousLineId !== nextLineId) {
+      void syncPublishedLineTrace(next);
+      return;
+    }
+
     immersiveSyncTimerRef.current = setTimeout(() => {
       void syncPublishedLineTrace(next);
     }, IMMERSIVE_SYNC_DEBOUNCE_MS);
   }, []);
 
+  const flushAutoSave = useCallback(async () => {
+    const next = pendingSaveRef.current;
+    if (!next) return;
+
+    pendingSaveRef.current = null;
+    autoSaveTimerRef.current = null;
+    const version = saveVersionRef.current;
+
+    try {
+      const queuedSave = saveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          await onAutoSaveRef.current?.(next);
+        });
+      saveQueueRef.current = queuedSave;
+      await queuedSave;
+      if (version === saveVersionRef.current) {
+        setLastSavedAt(Date.now());
+        setSaveStatus("saved");
+        setSaveError(null);
+      }
+    } catch (error) {
+      if (version === saveVersionRef.current) {
+        setSaveStatus("error");
+        setSaveError(
+          error instanceof Error ? error.message : "Impossible d’enregistrer les modifications",
+        );
+      }
+    }
+  }, []);
+
   const persistState = useCallback(
     (next: LineEditorState) => {
       syncImmersiveMap(next);
-      if (skipNextSaveRef.current) {
-        skipNextSaveRef.current = false;
-        return;
-      }
-      onAutoSaveRef.current?.(next);
-      setLastSavedAt(Date.now());
+      pendingSaveRef.current = next;
+      saveVersionRef.current += 1;
+      setSaveStatus("saving");
+      setSaveError(null);
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = setTimeout(() => {
+        void flushAutoSave();
+      }, AUTO_SAVE_DEBOUNCE_MS);
     },
-    [syncImmersiveMap],
+    [flushAutoSave, syncImmersiveMap],
   );
+
+  useEffect(() => () => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    const pending = pendingSaveRef.current;
+    if (pending) {
+      saveQueueRef.current = saveQueueRef.current
+        .catch(() => undefined)
+        .then(async () => {
+          await onAutoSaveRef.current?.(pending);
+        });
+      void saveQueueRef.current.catch(console.error);
+    }
+  }, []);
 
   const pushHistory = useCallback((prev: LineEditorState) => {
     historyRef.current = [...historyRef.current.slice(-(MAX_HISTORY - 1)), cloneState(prev)];
     futureRef.current = [];
-    setHistoryTick((t) => t + 1);
+    setHistoryAvailability({ canUndo: true, canRedo: false });
   }, []);
 
   const commit = useCallback(
@@ -194,7 +259,7 @@ export function useLineEditor(
       queueMicrotask(() => persistState(previous));
       return previous;
     });
-    setHistoryTick((t) => t + 1);
+    setHistoryAvailability({ canUndo: past.length > 1, canRedo: true });
   }, [persistState]);
 
   const redo = useCallback(() => {
@@ -207,10 +272,8 @@ export function useLineEditor(
       queueMicrotask(() => persistState(next));
       return next;
     });
-    setHistoryTick((t) => t + 1);
+    setHistoryAvailability({ canUndo: true, canRedo: future.length > 1 });
   }, [persistState]);
-
-  void historyTick;
 
   const activePoints = useMemo(() => {
     if (state.activeOriginLegId) {
@@ -236,11 +299,11 @@ export function useLineEditor(
   );
 
   const addPoint = useCallback(
-    (coordinates: [number, number]) => {
+    (coordinates: [number, number], type: PointType = "passage") => {
       commit((prev) => {
         const points = getContextPoints(prev);
         const insertIndex = findSegmentInsertIndex(points, coordinates);
-        const point = createRoutePoint(coordinates, "passage");
+        const point = createRoutePoint(coordinates, type, countStops(points) + 1);
         return insertPassageInContext(prev, insertIndex, point);
       });
     },
@@ -262,50 +325,6 @@ export function useLineEditor(
       });
     },
     [commit],
-  );
-
-  const movePoint = useCallback(
-    (pointId: string, coordinates: [number, number]) => {
-      setState((prev) => {
-        const located = findPointInEditor(prev, pointId);
-        if (!located) return prev;
-
-        if (located.originLegId) {
-          return updateVoiceOriginLegs(prev, (legs) =>
-            legs.map((leg) =>
-              leg.id === located.originLegId
-                ? {
-                    ...leg,
-                    points: leg.points.map((p) =>
-                      p.id === pointId ? { ...p, coordinates } : p,
-                    ),
-                  }
-                : leg,
-            ),
-          );
-        }
-
-        if (located.branchId) {
-          return updateVoiceBranches(prev, (branches) =>
-            branches.map((branch) =>
-              branch.id === located.branchId
-                ? {
-                    ...branch,
-                    points: branch.points.map((p) =>
-                      p.id === pointId ? { ...p, coordinates } : p,
-                    ),
-                  }
-                : branch,
-            ),
-          );
-        }
-
-        return updateVoicePoints(prev, (points) =>
-          points.map((p) => (p.id === pointId ? { ...p, coordinates } : p)),
-        );
-      });
-    },
-    [],
   );
 
   const commitPointMove = useCallback(
@@ -465,6 +484,14 @@ export function useLineEditor(
             }
             if (type === "passage") {
               delete next.stop;
+              next.gps ??= {
+                name: "",
+                radiusMeters: 15,
+                estimatedMinutes: 1,
+                notes: "",
+              };
+            } else {
+              delete next.gps;
             }
             return next;
           });
@@ -489,16 +516,10 @@ export function useLineEditor(
           );
         }
 
-        let next = setVoicePoints(
+        return setVoicePoints(
           prev,
           reorderStopsInPoints(applyType(getVoicePoints(prev))),
         );
-
-        if (type === "hub") {
-          next = migrateLinearOriginsToLegs(next, pointId);
-        }
-
-        return next;
       });
     },
     [commit],
@@ -541,6 +562,48 @@ export function useLineEditor(
         }
 
         return updateVoicePoints(prev, mapStop);
+      });
+    },
+    [commit],
+  );
+
+  const updatePassageDetails = useCallback(
+    (pointId: string, patch: Partial<PassageDetails>) => {
+      commit((prev) => {
+        const mapPassage = (points: RoutePoint[]) =>
+          points.map((point) => {
+            if (point.id !== pointId || point.type !== "passage") return point;
+            return {
+              ...point,
+              gps: {
+                name: point.gps?.name ?? "",
+                radiusMeters: point.gps?.radiusMeters ?? 15,
+                estimatedMinutes: point.gps?.estimatedMinutes ?? 1,
+                notes: point.gps?.notes ?? "",
+                ...patch,
+              },
+            };
+          });
+
+        if (prev.activeOriginLegId) {
+          return updateVoiceOriginLegs(prev, (legs) =>
+            legs.map((leg) =>
+              leg.id === prev.activeOriginLegId
+                ? { ...leg, points: mapPassage(leg.points) }
+                : leg,
+            ),
+          );
+        }
+        if (prev.activeBranchId) {
+          return updateVoiceBranches(prev, (branches) =>
+            branches.map((branch) =>
+              branch.id === prev.activeBranchId
+                ? { ...branch, points: mapPassage(branch.points) }
+                : branch,
+            ),
+          );
+        }
+        return updateVoicePoints(prev, mapPassage);
       });
     },
     [commit],
@@ -1028,15 +1091,43 @@ export function useLineEditor(
 
   const clearRouteTrace = useCallback(() => {
     commit((prev) => {
-      const points = reorderStopsInPoints(
-        getVoicePoints(prev).filter((p) => p.type !== "passage"),
-      );
+      const withoutPassages = (points: RoutePoint[]) =>
+        reorderStopsInPoints(points.filter((point) => point.type !== "passage"));
+
+      let points: RoutePoint[];
+      let nextState: LineEditorState;
+
+      if (prev.activeOriginLegId) {
+        const activeLeg = getVoiceOriginLegs(prev).find(
+          (leg) => leg.id === prev.activeOriginLegId,
+        );
+        points = withoutPassages(activeLeg?.points ?? []);
+        nextState = updateVoiceOriginLegs(prev, (legs) =>
+          legs.map((leg) =>
+            leg.id === prev.activeOriginLegId ? { ...leg, points } : leg,
+          ),
+        );
+      } else if (prev.activeBranchId) {
+        const activeBranch = getVoiceBranches(prev).find(
+          (branch) => branch.id === prev.activeBranchId,
+        );
+        points = withoutPassages(activeBranch?.points ?? []);
+        nextState = updateVoiceBranches(prev, (branches) =>
+          branches.map((branch) =>
+            branch.id === prev.activeBranchId ? { ...branch, points } : branch,
+          ),
+        );
+      } else {
+        points = withoutPassages(getVoicePoints(prev));
+        nextState = setVoicePoints(prev, points);
+      }
+
       const selectedPointId =
         prev.selectedPointId &&
         points.some((p) => p.id === prev.selectedPointId)
           ? prev.selectedPointId
           : (points[points.length - 1]?.id ?? null);
-      return { ...setVoicePoints(prev, points), selectedPointId };
+      return { ...nextState, selectedPointId };
     });
     setTraceError(null);
   }, [commit]);
@@ -1091,6 +1182,7 @@ export function useLineEditor(
   const resetEditor = useCallback((next?: LineEditorState) => {
     historyRef.current = [];
     futureRef.current = [];
+    setHistoryAvailability({ canUndo: false, canRedo: false });
     setState(normalizeLineEditorState(next ?? createDemoLineEditorState()));
   }, []);
 
@@ -1109,19 +1201,21 @@ export function useLineEditor(
     tracing,
     traceError,
     lastSavedAt,
+    saveStatus,
+    saveError,
     hasPassagePoints,
-    canUndo: historyRef.current.length > 0,
-    canRedo: futureRef.current.length > 0,
+    canUndo: historyAvailability.canUndo,
+    canRedo: historyAvailability.canRedo,
     undo,
     redo,
     addPoint,
     insertPointAtSegment,
-    movePoint,
     commitPointMove,
     deletePoint,
     selectPoint,
     updatePointType,
     updateStopDetails,
+    updatePassageDetails,
     updateLineMeta,
     reorderStops,
     addStopAt,

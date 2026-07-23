@@ -7,8 +7,8 @@ import {
   isDuplicateStationNameError,
   type StationFormPayload,
 } from "@/lib/stations-types";
+import { useNetwork } from "@/components/network/network-provider";
 
-const DEFAULT_NETWORK_CODE = "naolib-nantes";
 
 async function logStationAudit(
   stationId: string,
@@ -26,34 +26,23 @@ async function logStationAudit(
 }
 
 export function useStationActions() {
+  const { network } = useNetwork();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const getNetworkId = useCallback(async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("networks")
-      .select("id")
-      .eq("code", DEFAULT_NETWORK_CODE)
-      .maybeSingle();
-    return data?.id as string | undefined;
-  }, []);
 
   const createStation = useCallback(async (payload: StationFormPayload) => {
     setSubmitting(true);
     setError(null);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    const networkId = await getNetworkId();
-    if (!networkId) throw new Error("Réseau introuvable");
 
     const { data, error: insertError } = await supabase
       .from("stations")
       .insert({
-        network_id: networkId,
+        network_id: network.id,
         name: payload.name.trim(),
         description: payload.description ?? null,
-        commune: payload.commune ?? "Nantes",
+        commune: payload.commune ?? network.territory,
         latitude_center: payload.latitude_center ?? null,
         longitude_center: payload.longitude_center ?? null,
         status: payload.status,
@@ -74,7 +63,7 @@ export function useStationActions() {
     await logStationAudit(data.id, "created", payload as unknown as Record<string, unknown>, user?.id);
     setSubmitting(false);
     return data.id as string;
-  }, [getNetworkId]);
+  }, [network.id, network.territory]);
 
   const updateStation = useCallback(
     async (stationId: string, payload: Partial<StationFormPayload>) => {

@@ -4,8 +4,10 @@ import { useCallback, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { NetworkIncident } from "@/lib/types";
 import type { IncidentActionLog } from "@/lib/types";
+import { useNetwork } from "@/components/network/network-provider";
 
 export function useIncidentActions() {
+  const { network } = useNetwork();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +29,7 @@ export function useIncidentActions() {
         .from("network_incidents")
         .insert({
           ...payload,
+          network_id: network.id,
           source: "regulator",
           reported_by: user?.id,
           status: "open",
@@ -52,7 +55,7 @@ export function useIncidentActions() {
       setSubmitting(false);
       return data as NetworkIncident;
     },
-    [],
+    [network.id],
   );
 
   const updateIncidentStatus = useCallback(
