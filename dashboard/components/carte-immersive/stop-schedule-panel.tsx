@@ -33,6 +33,10 @@ type StopSchedulePanelProps = {
   stop: SelectedMapStop;
   onClose: () => void;
   onTrackPassage: (passage: ScheduledPassageSelection) => Promise<void>;
+  // Vue d'ouverture : permet de rouvrir directement les « Horaires de la
+  // journée » d'une ligne (retour depuis un suivi via « Quitter le suivi »).
+  initialLine?: SelectedLineSchedule | null;
+  initialDate?: string;
 };
 
 type SelectedLineSchedule = {
@@ -40,6 +44,39 @@ type SelectedLineSchedule = {
   direction: string;
   lineColor: string;
 };
+
+type StopServingLine = {
+  line: string;
+  direction: string;
+  lineColor: string | null;
+  vehicleType: "bus" | "tram";
+};
+
+function normalizeDirection(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Les destinations du temps réel Naolib et les headsigns GTFS ne sont pas
+ * écrits pareil (« Beaujoire » vs « Beaujoire / Babinière ») : on rapproche les
+ * deux dès que l'un contient l'autre, sinon la même direction apparaîtrait
+ * deux fois dans la liste.
+ */
+function directionsMatch(a: string, b: string): boolean {
+  const left = normalizeDirection(a);
+  const right = normalizeDirection(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  if (left.includes(right) || right.includes(left)) return true;
+  const parts = (value: string) =>
+    value.split(" ").filter((part) => part.length >= 4);
+  return parts(left).some((part) => right.includes(part));
+}
 
 type DayScheduleTime = {
   seconds: number;
@@ -94,13 +131,17 @@ export function StopSchedulePanel({
   stop,
   onClose,
   onTrackPassage,
+  initialLine = null,
+  initialDate,
 }: StopSchedulePanelProps) {
   const [passages, setPassages] = useState<RealtimeStopPassage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [servingLines, setServingLines] = useState<StopServingLine[]>([]);
+  const [linesLoading, setLinesLoading] = useState(true);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [selectedLine, setSelectedLine] = useState<SelectedLineSchedule | null>(null);
-  const [selectedDate, setSelectedDate] = useState(todayInParis);
+  const [selectedLine, setSelectedLine] = useState<SelectedLineSchedule | null>(initialLine);
+  const [selectedDate, setSelectedDate] = useState(initialDate ?? todayInParis);
   const [dayTimes, setDayTimes] = useState<DayScheduleTime[]>([]);
   const [dayLoading, setDayLoading] = useState(false);
   const [dayError, setDayError] = useState<string | null>(null);
@@ -152,6 +193,34 @@ export function StopSchedulePanel({
       cancelled = true;
       window.clearInterval(interval);
     };
+  }, [stop.name, stop.stationName]);
+
+  // Les lignes desservant l'arrêt viennent du GTFS : elles restent affichées
+  // même quand aucun passage n'est prévu dans les trois prochaines heures.
+  useEffect(() => {
+    const controller = new AbortController();
+    const stationName = stop.stationName || stop.name;
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) setLinesLoading(true);
+    });
+
+    void fetch(
+      `/api/carte-immersive/stop-serving-lines?name=${encodeURIComponent(stationName)}`,
+      { signal: controller.signal },
+    )
+      .then(async (response) => {
+        const data = (await response.json()) as { lines?: StopServingLine[] };
+        if (!response.ok) throw new Error("Lignes indisponibles");
+        setServingLines(data.lines ?? []);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setServingLines([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLinesLoading(false);
+      });
+
+    return () => controller.abort();
   }, [stop.name, stop.stationName]);
 
   useEffect(() => {
@@ -213,6 +282,45 @@ export function StopSchedulePanel({
     return [...grouped.values()];
   }, [nowMs, passages]);
 
+  // Niveau 1 du panneau : toutes les lignes desservant l'arrêt, enrichies des
+  // prochains passages temps réel quand il y en a.
+  const servedLines = useMemo(() => {
+    const entries = servingLines.map((line) => ({
+      line: line.line,
+      direction: line.direction,
+      lineColor: line.lineColor ?? "#33bfa3",
+      passages: [] as RealtimeStopPassage[],
+    }));
+
+    const matched = new Set<number>();
+    for (const group of groups) {
+      const index = entries.findIndex(
+        (entry, position) =>
+          !matched.has(position) &&
+          entry.line === group.line &&
+          directionsMatch(entry.direction, group.direction),
+      );
+      if (index >= 0) {
+        matched.add(index);
+        entries[index].passages = group.passages;
+        entries[index].lineColor = group.lineColor || entries[index].lineColor;
+      } else {
+        entries.push({
+          line: group.line,
+          direction: group.direction,
+          lineColor: group.lineColor,
+          passages: group.passages,
+        });
+      }
+    }
+
+    return entries.sort(
+      (a, b) =>
+        a.line.localeCompare(b.line, "fr", { numeric: true }) ||
+        a.direction.localeCompare(b.direction, "fr"),
+    );
+  }, [groups, servingLines]);
+
   const hours = useMemo(() => {
     const grouped = new Map<string, IndexedDayScheduleTime[]>();
     for (const [scheduleIndex, passage] of dayTimes.entries()) {
@@ -259,13 +367,13 @@ export function StopSchedulePanel({
                 type="button"
                 onClick={() => setSelectedLine(null)}
                 className="rounded-lg bg-white/[.08] px-2 py-1 text-xs text-white/70 hover:bg-white/[.12]"
-                aria-label="Revenir aux prochains passages"
+                aria-label="Revenir aux lignes de l'arrêt"
               >
                 ←
               </button>
             )}
             <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#5fe0c4]">
-              {selectedLine ? "Horaires de la journée" : "Prochains passages"}
+              {selectedLine ? "Horaires de la journée" : "Lignes desservant l’arrêt"}
             </div>
           </div>
           <h2 className="mt-1 truncate text-base font-semibold text-white">{stop.stationName || stop.name}</h2>
@@ -283,7 +391,11 @@ export function StopSchedulePanel({
               <span className="truncate">vers {selectedLine.direction}</span>
             </div>
           ) : (
-            <p className="mt-0.5 text-xs text-white/50">Temps d’attente en temps réel</p>
+            <p className="mt-0.5 text-xs text-white/50">
+              {servedLines.length
+                ? "Choisissez une ligne pour voir ses horaires"
+                : "Temps d’attente en temps réel"}
+            </p>
           )}
         </div>
         <button type="button" onClick={onClose} className="immersive-map-icon-btn flex-none" aria-label="Fermer les horaires">×</button>
@@ -425,54 +537,64 @@ export function StopSchedulePanel({
         )}
         {!selectedLine && (
           <>
-        {loading && <p className="py-4 text-sm text-white/55">Chargement des passages en direct…</p>}
-        {!loading && error && <p className="py-4 text-sm text-white/55">{error}</p>}
-        {!loading && !error && groups.map((group) => (
+        {linesLoading && loading && (
+          <p className="py-4 text-sm text-white/55">Chargement des lignes de l’arrêt…</p>
+        )}
+        {servedLines.map((entry) => (
           <button
             type="button"
-            key={`${group.line}-${group.direction}`}
+            key={`${entry.line}-${entry.direction}`}
             onClick={() => {
               setSelectedDate(todayInParis());
               setSelectedLine({
-                line: group.line,
-                direction: group.direction,
-                lineColor: group.lineColor,
+                line: entry.line,
+                direction: entry.direction,
+                lineColor: entry.lineColor,
               });
             }}
             className="block w-full rounded-2xl bg-white/[.05] p-3 text-left transition-colors hover:bg-white/[.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5fe0c4]"
-            aria-label={`Voir les horaires de la ligne ${group.line} vers ${group.direction}`}
+            aria-label={`Voir les horaires de la ligne ${entry.line} vers ${entry.direction}`}
           >
-            <div className="mb-2.5 flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <span
                 className="flex min-w-9 items-center justify-center rounded-lg px-2 py-1 text-xs font-extrabold"
                 style={{
-                  backgroundColor: group.lineColor,
-                  color: lineBadgeTextColor(group.lineColor),
+                  backgroundColor: entry.lineColor,
+                  color: lineBadgeTextColor(entry.lineColor),
                 }}
               >
-                {group.line}
+                {entry.line}
               </span>
-              <span className="truncate text-sm font-medium text-white/90">→ {group.direction}</span>
+              <span className="truncate text-sm font-medium text-white/90">→ {entry.direction}</span>
+              <span className="ml-auto flex-none text-sm text-white/30" aria-hidden="true">›</span>
             </div>
-            <div className="space-y-1.5">
-              {group.passages.map((passage) => (
-                <div key={passage.id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="truncate text-white/55">{passage.destination}</span>
-                  <span className="font-bold tabular-nums text-white">
-                    {(() => {
-                      const waitMinutes = stopPassageWaitMinutes(passage.expectedAt, nowMs);
-                      const displayedWait = waitMinutes ?? passage.waitMinutes;
-                      return displayedWait <= 0 ? "Imminent" : `${displayedWait} min`;
-                    })()}
-                    {passage.realtime && <span className="ml-1 text-[#5fe0c4]" aria-label="Temps réel">∿</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {entry.passages.length > 0 ? (
+              <div className="mt-2.5 space-y-1.5">
+                {entry.passages.map((passage) => (
+                  <div key={passage.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="truncate text-white/55">{passage.destination}</span>
+                    <span className="font-bold tabular-nums text-white">
+                      {(() => {
+                        const waitMinutes = stopPassageWaitMinutes(passage.expectedAt, nowMs);
+                        const displayedWait = waitMinutes ?? passage.waitMinutes;
+                        return displayedWait <= 0 ? "Imminent" : `${displayedWait} min`;
+                      })()}
+                      {passage.realtime && <span className="ml-1 text-[#5fe0c4]" aria-label="Temps réel">∿</span>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mb-0 mt-2 text-xs text-white/40">
+                {loading ? "Recherche des passages en direct…" : "Aucun passage à venir · voir les horaires"}
+              </p>
+            )}
           </button>
         ))}
-        {!loading && !error && groups.length === 0 && (
-          <p className="py-4 text-sm text-white/55">Aucun autre passage prévu prochainement.</p>
+        {!linesLoading && !loading && servedLines.length === 0 && (
+          <p className="py-4 text-sm text-white/55">
+            {error ?? "Aucune ligne ne dessert cet arrêt."}
+          </p>
         )}
           </>
         )}
@@ -480,7 +602,7 @@ export function StopSchedulePanel({
       <p className="mb-0 mt-3 text-[11px] text-white/35">
         {selectedLine
           ? "Source GTFS Naolib · horaires théoriques"
-          : "Source Naolib · actualisation toutes les 30 secondes"}
+          : "Lignes GTFS Naolib · temps réel actualisé toutes les 30 secondes"}
       </p>
     </aside>
   );

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { lineStringCoordinates, pointCoordinates } from "@/lib/geo";
+import { distanceMeters } from "@/lib/carte-immersive/geo";
 import { parseLineId } from "@/lib/depot-lines";
 import { buildDepotTimelineFromSchema } from "@/lib/regulation-depot";
 import type { LineEditorState } from "@/lib/line-editor-types";
@@ -340,6 +341,89 @@ async function loadActiveStops(
   return stops;
 }
 
+type PublishedTraceVariant = { direction: string; coordinates: [number, number][] };
+type PublishedTraceRow = {
+  line_id: string;
+  transport_mode: string;
+  color: string;
+  variants: PublishedTraceVariant[];
+};
+
+/**
+ * Fraction (0..1) de la position de `point` le long de `trace` ([lat,lng]).
+ * Métrique planaire cohérente avec pathLen/pointAt côté client : le véhicule
+ * animé (fraction → point) reste ainsi calé sur la géométrie renvoyée.
+ */
+function fractionAlongTrace(
+  trace: [number, number][],
+  point: [number, number],
+): number {
+  if (trace.length < 2) return 0;
+  let bestDist = Infinity;
+  let bestAlong = 0;
+  let cumulative = 0;
+  for (let i = 1; i < trace.length; i++) {
+    const [x1, y1] = trace[i - 1];
+    const [x2, y2] = trace[i];
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const segLen = Math.hypot(dx, dy);
+    const t =
+      segLen > 0
+        ? Math.max(
+            0,
+            Math.min(
+              1,
+              ((point[0] - x1) * dx + (point[1] - y1) * dy) / (segLen * segLen),
+            ),
+          )
+        : 0;
+    const projX = x1 + dx * t;
+    const projY = y1 + dy * t;
+    const d = Math.hypot(point[0] - projX, point[1] - projY);
+    if (d < bestDist) {
+      bestDist = d;
+      bestAlong = cumulative + segLen * t;
+    }
+    cumulative += segLen;
+  }
+  return cumulative > 0 ? Math.max(0, Math.min(1, bestAlong / cumulative)) : 0;
+}
+
+/**
+ * Choisit, parmi les variantes de tracé publiées (éditeur de ligne), celle dont
+ * les extrémités collent au premier et au dernier arrêt de la course — en
+ * testant les deux orientations. Renvoie la géométrie en [lat,lng], ou null si
+ * aucune variante n'est assez proche (on conserve alors le shape GTFS).
+ */
+function pickManualTrace(
+  variants: PublishedTraceVariant[],
+  stops: LineStop[],
+): [number, number][] | null {
+  if (variants.length === 0 || stops.length < 2) return null;
+  const first: [number, number] = [stops[0].lat, stops[0].lng];
+  const last: [number, number] = [
+    stops[stops.length - 1].lat,
+    stops[stops.length - 1].lng,
+  ];
+  const THRESHOLD_M = 350;
+  let best: { trace: [number, number][]; score: number } | null = null;
+  for (const variant of variants) {
+    const latLng = (variant.coordinates ?? [])
+      .filter((coords) => Array.isArray(coords) && coords.length === 2)
+      .map(([lng, lat]) => [lat, lng] as [number, number]);
+    if (latLng.length < 2) continue;
+    for (const oriented of [latLng, [...latLng].reverse()]) {
+      const dStart = distanceMeters(oriented[0], first);
+      const dEnd = distanceMeters(oriented[oriented.length - 1], last);
+      if (dStart > THRESHOLD_M || dEnd > THRESHOLD_M) continue;
+      const score = dStart + dEnd;
+      if (!best || score < best.score) best = { trace: oriented, score };
+    }
+  }
+  return best?.trace ?? null;
+}
+
 export async function GET(request: Request) {
   const searchParams = new URL(request.url).searchParams;
   const lineId = searchParams.get("lineId")?.trim();
@@ -558,6 +642,73 @@ export async function GET(request: Request) {
       } catch {
         schedules = [];
       }
+    }
+
+    // Tracé manuel prioritaire : si l'itinéraire de la ligne a été édité puis
+    // publié depuis l'éditeur (clé = short name, alignée sur driver_services),
+    // le suivi ET l'affichage des véhicules en mouvement doivent suivre CE tracé
+    // plutôt que le shape GTFS. Les fractions d'arrêt sont recalculées sur la
+    // nouvelle géométrie pour que les véhicules restent calés sur leurs horaires.
+    try {
+      const [routeRes, publishedRes] = await Promise.all([
+        supabase
+          .from("gtfs_routes")
+          .select("route_short_name")
+          .eq("route_id", routeId)
+          .maybeSingle(),
+        supabase.rpc("get_published_line_traces"),
+      ]);
+      const shortName = (routeRes.data?.route_short_name as string | null)?.trim();
+      const published = shortName
+        ? ((publishedRes.data as PublishedTraceRow[] | null) ?? []).find(
+            (row) => row.line_id === shortName,
+          )
+        : undefined;
+      const manualTrace = published
+        ? pickManualTrace(published.variants ?? [], stops)
+        : null;
+
+      if (manualTrace && manualTrace.length >= 2) {
+        const coordsById = new Map<string, [number, number]>();
+        for (const stop of stops) coordsById.set(stop.id, [stop.lat, stop.lng]);
+        const missingIds = [
+          ...new Set(
+            schedules.flatMap((schedule) =>
+              schedule.stops
+                .map((stop) => stop.stopId)
+                .filter((stopId) => !coordsById.has(stopId)),
+            ),
+          ),
+        ];
+        if (missingIds.length) {
+          const { data: extraStops } = await supabase
+            .from("gtfs_stops")
+            .select("stop_id, geom")
+            .in("stop_id", missingIds);
+          for (const row of extraStops ?? []) {
+            const coords = pointCoordinates(row.geom);
+            if (coords) coordsById.set(String(row.stop_id), [coords[1], coords[0]]);
+          }
+        }
+
+        trace = manualTrace;
+        schedules = schedules.map((schedule) => {
+          let running = 0;
+          return {
+            ...schedule,
+            stops: schedule.stops.map((stop) => {
+              const coords = coordsById.get(stop.stopId);
+              if (!coords) return stop;
+              // Monotone croissant : la géométrie manuelle peut faire remonter
+              // une projection isolée, mais un arrêt ne recule jamais.
+              running = Math.max(running, fractionAlongTrace(manualTrace, coords));
+              return { ...stop, fraction: running };
+            }),
+          };
+        });
+      }
+    } catch {
+      // Aucun tracé manuel exploitable : on conserve la géométrie GTFS.
     }
 
     return NextResponse.json(

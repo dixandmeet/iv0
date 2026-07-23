@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Search, X } from "lucide-react";
+import { LogIn, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 export type ImmersiveViewer = {
@@ -27,6 +27,10 @@ type TopBarProps = {
   globalSearchSuggestions: GlobalSearchSuggestion[];
   onGlobalSearchChange: (value: string) => void;
   onGlobalSearchSelect: (suggestion: GlobalSearchSuggestion) => void;
+  /** Sur mobile la recherche vit dans la barre du bas : le header ne l'affiche
+   *  que si elle a été ouverte depuis là. */
+  mobileSearchOpen: boolean;
+  onMobileSearchOpenChange: (open: boolean) => void;
   showInputs: boolean;
   searchQuery: string;
   onSearchChange: (value: string) => void;
@@ -100,6 +104,8 @@ export function TopBar({
   globalSearchSuggestions,
   onGlobalSearchChange,
   onGlobalSearchSelect,
+  mobileSearchOpen,
+  onMobileSearchOpenChange,
   showInputs,
   searchQuery,
   onSearchChange,
@@ -128,7 +134,9 @@ export function TopBar({
   const canSubmit = searchQuery.trim().length >= 3 && !destinationLoading;
   const searchRootRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  // La surcouche mobile implique l'ouverture du panneau de résultats.
+  const searchOpen = searchPanelOpen || mobileSearchOpen;
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
 
   const filteredSuggestions = useMemo(() => {
@@ -169,18 +177,25 @@ export function TopBar({
   useEffect(() => {
     const closeOnOutsideClick = (event: PointerEvent) => {
       if (!searchRootRef.current?.contains(event.target as Node)) {
-        setSearchOpen(false);
+        setSearchPanelOpen(false);
+        onMobileSearchOpenChange(false);
       }
     };
     document.addEventListener("pointerdown", closeOnOutsideClick);
     return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
-  }, []);
+  }, [onMobileSearchOpenChange]);
+
+  // Ouverture depuis la barre du bas (mobile) : on donne le focus au champ.
+  useEffect(() => {
+    if (!mobileSearchOpen) return;
+    searchInputRef.current?.focus();
+  }, [mobileSearchOpen]);
 
   useEffect(() => {
     const focusGlobalSearch = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setSearchOpen(true);
+        setSearchPanelOpen(true);
         searchInputRef.current?.focus();
       }
     };
@@ -190,20 +205,21 @@ export function TopBar({
 
   function selectGlobalSuggestion(suggestion: GlobalSearchSuggestion) {
     onGlobalSearchSelect(suggestion);
-    setSearchOpen(false);
+    setSearchPanelOpen(false);
+    onMobileSearchOpenChange(false);
     searchInputRef.current?.blur();
   }
 
   function handleGlobalSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setSearchOpen(true);
+      setSearchPanelOpen(true);
       setActiveSuggestionIndex((index) =>
         filteredSuggestions.length ? (index + 1) % filteredSuggestions.length : 0,
       );
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setSearchOpen(true);
+      setSearchPanelOpen(true);
       setActiveSuggestionIndex((index) =>
         filteredSuggestions.length
           ? (index - 1 + filteredSuggestions.length) % filteredSuggestions.length
@@ -215,7 +231,8 @@ export function TopBar({
         filteredSuggestions[activeSuggestionIndex] ?? filteredSuggestions[0],
       );
     } else if (event.key === "Escape") {
-      setSearchOpen(false);
+      setSearchPanelOpen(false);
+      onMobileSearchOpenChange(false);
       searchInputRef.current?.blur();
     }
   }
@@ -234,10 +251,10 @@ export function TopBar({
           >
             ←
           </Link>
-          <span className="hidden h-6 w-px flex-none bg-white/15 sm:block" aria-hidden="true" />
+          <span className="h-6 w-px flex-none bg-white/15" aria-hidden="true" />
           <Link
             href="/"
-            className="hidden min-w-0 items-center gap-2.5 rounded-xl text-white no-underline sm:flex"
+            className="flex min-w-0 items-center gap-2.5 rounded-xl text-white no-underline"
             aria-label="Aule — Accueil"
           >
             <Image
@@ -259,7 +276,9 @@ export function TopBar({
 
         <div
           ref={searchRootRef}
-          className="relative mx-auto min-w-0 flex-1 sm:max-w-[560px]"
+          className={`immersive-map-search-slot${
+            mobileSearchOpen ? " immersive-map-search-slot--open" : ""
+          } relative mx-auto min-w-0 flex-1 sm:max-w-[560px]`}
         >
           <div
             className={`immersive-map-global-search${searchOpen ? " immersive-map-global-search--open" : ""}`}
@@ -271,9 +290,9 @@ export function TopBar({
               onChange={(event) => {
                 onGlobalSearchChange(event.target.value);
                 setActiveSuggestionIndex(0);
-                setSearchOpen(true);
+                setSearchPanelOpen(true);
               }}
-              onFocus={() => setSearchOpen(true)}
+              onFocus={() => setSearchPanelOpen(true)}
               onKeyDown={handleGlobalSearchKeyDown}
               className="immersive-map-global-search-input"
               id="immersive-line-search"
@@ -297,11 +316,24 @@ export function TopBar({
                 onClick={() => {
                   onGlobalSearchChange("");
                   setActiveSuggestionIndex(0);
-                  setSearchOpen(true);
+                  setSearchPanelOpen(true);
                   searchInputRef.current?.focus();
                 }}
                 className="immersive-map-global-search-clear"
                 aria-label="Effacer la recherche"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {mobileSearchOpen && !globalSearchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchPanelOpen(false);
+                  onMobileSearchOpenChange(false);
+                }}
+                className="immersive-map-global-search-clear"
+                aria-label="Fermer la recherche"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -401,11 +433,11 @@ export function TopBar({
 
         {viewer ? (
           <div
-            className="inline-flex h-[42px] flex-none items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] py-0 pl-1 pr-3 shadow-[0_8px_22px_rgba(0,0,0,0.18)]"
+            className="ml-auto inline-flex h-9 flex-none items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] py-0 pl-0.5 pr-0.5 shadow-[0_8px_22px_rgba(0,0,0,0.18)] sm:h-[42px] sm:pl-1 sm:pr-3"
             aria-label={`Connecté en tant que ${viewer.displayName}`}
             title={viewer.displayName}
           >
-            <span className="relative flex h-[34px] w-[34px] flex-none items-center justify-center overflow-hidden rounded-full border border-[#5fe0c4]/45 bg-[#33bfa3]/20 text-[11px] font-extrabold text-[#8cf0da]">
+            <span className="relative flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border border-[#5fe0c4]/45 bg-[#33bfa3]/20 text-[11px] font-extrabold text-[#8cf0da] sm:h-[34px] sm:w-[34px]">
               <span aria-hidden="true">{getInitials(viewer.displayName)}</span>
               {viewer.avatarUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -422,14 +454,20 @@ export function TopBar({
             <span className="hidden max-w-36 truncate text-sm font-semibold text-white lg:block">
               {viewer.displayName}
             </span>
-            <span className="h-2 w-2 flex-none rounded-full bg-[#33bfa3]" aria-hidden="true" />
+            <span
+              className="hidden h-2 w-2 flex-none rounded-full bg-[#33bfa3] sm:block"
+              aria-hidden="true"
+            />
           </div>
         ) : (
           <Link
             href="/login"
-            className="inline-flex h-10 flex-none items-center justify-center rounded-full bg-[#33bfa3] px-[18px] text-[13px] font-bold text-[#04211c] no-underline transition hover:-translate-y-px hover:bg-[#5fe0c4]"
+            aria-label="Se connecter"
+            title="Se connecter"
+            className="ml-auto inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-[#5fe0c4]/40 bg-[#33bfa3]/18 text-[#8cf0da] no-underline transition hover:bg-[#33bfa3]/30 sm:h-10 sm:w-auto sm:border-0 sm:bg-[#33bfa3] sm:px-[18px] sm:text-[13px] sm:font-bold sm:text-[#04211c] sm:hover:-translate-y-px sm:hover:bg-[#5fe0c4]"
           >
-            Se connecter
+            <LogIn className="h-[17px] w-[17px] sm:hidden" strokeWidth={2.1} aria-hidden="true" />
+            <span className="hidden sm:inline">Se connecter</span>
           </Link>
         )}
       </header>

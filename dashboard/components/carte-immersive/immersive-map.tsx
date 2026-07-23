@@ -55,6 +55,7 @@ import {
 import { QuickActionsPanel } from "./quick-actions-panel";
 import { FiltersPanel, type FilterKey } from "./filters-panel";
 import { BottomNav } from "./bottom-nav";
+import { CorrespondancesPanel } from "./correspondances-panel";
 import { GeoPrompt } from "./geo-prompt";
 import {
   RoutePanel,
@@ -878,10 +879,14 @@ function buildTrackingStopPlan(
         ? a.distance - b.distance
         : b.distance - a.distance,
     );
+  // Le marqueur du véhicule doit se poser sur l'arrêt courant : le premier
+  // arrêt non encore dépassé (seuil symétrique de `isPassed` ci-dessous). Ainsi,
+  // un véhicule à quai (ex. au terminus, 0 km) reste marqué SUR cet arrêt et non
+  // sur le suivant.
   const nextByProgress = stopProgress.find((item) =>
     projection.direction === 1
-      ? item.distance > projection.distance + tolerance
-      : item.distance < projection.distance - tolerance,
+      ? item.distance >= projection.distance - tolerance
+      : item.distance <= projection.distance + tolerance,
   );
   const nextStopId =
     nextByProgress?.stop.id ??
@@ -1134,6 +1139,22 @@ export function ImmersiveMap({
   const [stopLinesById, setStopLinesById] = useState<Record<string, string[]>>({});
   const requestedStopLinesRef = useRef(new Set<string>());
   const [selectedStop, setSelectedStop] = useState<SelectedMapStop | null>(null);
+  // Contexte de retour vers les « Horaires de la journée » après un suivi :
+  // mémorise l'arrêt/ligne d'origine pour rouvrir la bonne vue au « Quitter le suivi ».
+  const [scheduleReturn, setScheduleReturn] = useState<{
+    stopId: string;
+    line: string;
+    direction: string;
+    lineColor: string;
+    serviceDate: string;
+  } | null>(null);
+  const trackingOriginRef = useRef<{
+    stop: SelectedMapStop;
+    line: string;
+    direction: string;
+    lineColor: string;
+    serviceDate: string;
+  } | null>(null);
   const [searchLineSelection, setSearchLineSelection] =
     useState<SearchLineSelection | null>(null);
   const [publishedCustomLines, setPublishedCustomLines] = useState<
@@ -1193,6 +1214,10 @@ export function ImmersiveMap({
   const addressSearchRequestRef = useRef(0);
   const [quickCollapsed, setQuickCollapsed] = useState(false);
   const [showRouteInputs, setShowRouteInputs] = useState(false);
+  const [showCorrespondances, setShowCorrespondances] = useState(false);
+  // Sur mobile la recherche globale est déportée dans la barre du bas : ce
+  // drapeau la fait apparaître en surcouche du header.
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [view3D, setView3D] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -1274,6 +1299,14 @@ export function ImmersiveMap({
     // que le navigateur attend encore une mesure GPS.
     const initialUserPosition = userPositionRef.current;
     if (!initialUserPosition) return;
+
+    // Le GPS peut répondre avant le chargement du style : dans ce cas
+    // placeUserMarker a déjà posé un marqueur, il faut le déplacer plutôt que
+    // d'en empiler un second (double marqueur à l'écran).
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLngLat([initialUserPosition[1], initialUserPosition[0]]);
+      return;
+    }
 
     const userEl = createUserElement();
     userMarkerRef.current = new maplibregl.Marker({ element: userEl, anchor: "center" })
@@ -1673,6 +1706,8 @@ export function ImmersiveMap({
       window.visualViewport?.removeEventListener("resize", handleViewportResize);
       cancelAnimationFrame(rafRef.current);
       detachMapErrorHandler();
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
       vehicleLayerRef.current = null;
@@ -2710,11 +2745,50 @@ export function ImmersiveMap({
   };
 
   const qaRoute = () => {
+    setMobileSearchOpen(false);
     setSearchQuery("");
     setSearchError(null);
+    setShowCorrespondances(false);
     setShowRouteInputs(true);
     setSelectedKind(null);
     setSelectedId(null);
+  };
+
+  const qaCorrespondances = () => {
+    setMobileSearchOpen(false);
+    setSearchQuery("");
+    setSearchError(null);
+    setShowRouteInputs(false);
+    setRouteActive(false);
+    setSelectedStop(null);
+    setSelectedKind(null);
+    setSelectedId(null);
+    setSearchLineSelection(null);
+    clearSelectedLineMap();
+    setShowCorrespondances(true);
+    // Sans position connue, on déclenche la géolocalisation : la liste se
+    // remplira automatiquement dès que le point GPS arrive.
+    if (!userPositionRef.current) onLocateClick();
+  };
+
+  const handleCorrespondanceSelect = (stop: {
+    id: string;
+    name: string;
+    code: string;
+    lat?: number;
+    lng?: number;
+  }) => {
+    setShowCorrespondances(false);
+    const selection = {
+      id: stop.id,
+      name: stop.name,
+      code: stop.code,
+      stationName: stop.name,
+      lat: stop.lat,
+      lng: stop.lng,
+    };
+    setSelectedStop(selection);
+    if (stop.lat != null && stop.lng != null) focusSelectedStop(selection);
   };
 
   const closeSelection = () => {
@@ -2880,6 +2954,71 @@ export function ImmersiveMap({
     stopCatalog,
     stopLinesById,
   ]);
+
+  // Arrêts (stations) autour de l'utilisateur, triés du plus proche au plus
+  // lointain, avec les numéros des lignes qui y passent. Les deux sens d'une
+  // même station sont regroupés et leurs lignes fusionnées.
+  const nearbyStopCorrespondances = useMemo(() => {
+    // Métadonnées de ligne (couleur, mode) par nom normalisé.
+    const lineMeta = new Map<
+      string,
+      { shortName: string; color?: string; mode: "bus" | "tram" | "navibus" }
+    >();
+    for (const line of [...dashboardLines, ...publishedCustomLines]) {
+      const key = normalizePublicLineName(line.shortName);
+      if (lineMeta.has(key)) continue;
+      const transport = line.transportType.toLowerCase();
+      const mode = transport.includes("tram")
+        ? ("tram" as const)
+        : transport.includes("navibus") || transport.includes("bateau")
+          ? ("navibus" as const)
+          : ("bus" as const);
+      lineMeta.set(key, { shortName: line.shortName, color: line.color, mode });
+    }
+
+    const groups = new Map<
+      string,
+      { stop: RegisteredStop; distanceMeters: number; lineNames: Map<string, string> }
+    >();
+    for (const { stop, distanceMeters: stopDistance } of nearbyStops) {
+      const groupKey = normalizePublicLineName(stop.stationName || stop.name);
+      let group = groups.get(groupKey);
+      if (!group) {
+        group = { stop, distanceMeters: stopDistance, lineNames: new Map() };
+        groups.set(groupKey, group);
+      } else if (stopDistance < group.distanceMeters) {
+        group.stop = stop;
+        group.distanceMeters = stopDistance;
+      }
+      for (const raw of stopLinesById[stop.id] ?? []) {
+        const lineKey = normalizePublicLineName(raw);
+        if (!group.lineNames.has(lineKey)) group.lineNames.set(lineKey, raw);
+      }
+    }
+
+    return [...groups.values()]
+      .map(({ stop, distanceMeters: stopDistance, lineNames }) => ({
+        id: stop.id,
+        name: stop.stationName || stop.name,
+        code: stop.code,
+        lat: stop.coordinates?.[1],
+        lng: stop.coordinates?.[0],
+        distanceMeters: stopDistance,
+        lines: [...lineNames.entries()]
+          .map(([lineKey, raw]) => {
+            const meta = lineMeta.get(lineKey);
+            return {
+              shortName: meta?.shortName ?? raw,
+              color: meta?.color,
+              mode: meta?.mode ?? ("bus" as const),
+            };
+          })
+          .sort((a, b) =>
+            a.shortName.localeCompare(b.shortName, "fr", { numeric: true }),
+          ),
+      }))
+      .sort((a, b) => a.distanceMeters - b.distanceMeters);
+  }, [nearbyStops, stopLinesById, dashboardLines, publishedCustomLines]);
 
   const focusSearchCoordinates = useCallback(
     (coords: LatLng[], maxZoom = 16.5) => {
@@ -3582,6 +3721,20 @@ export function ImmersiveMap({
           estimatedPosition,
         });
 
+    // Mémorise l'arrêt d'origine (vue « Horaires de la journée ») pour pouvoir y
+    // revenir au « Quitter le suivi ». Un suivi lancé depuis l'itinéraire
+    // (RouteVehicleTracking, sans couleur de ligne) n'a pas de retour d'arrêt.
+    trackingOriginRef.current =
+      selectedStop && "lineColor" in passage
+        ? {
+            stop: selectedStop,
+            line: passage.line,
+            direction: passage.direction,
+            lineColor: passage.lineColor,
+            serviceDate: passage.serviceDate,
+          }
+        : null;
+
     selectedStopMarkerRef.current?.remove();
     selectedStopMarkerRef.current = null;
     setSelectedStop(null);
@@ -3639,6 +3792,10 @@ export function ImmersiveMap({
   };
 
   const stopVehicleTracking = () => {
+    // Retour éventuel vers les « Horaires de la journée » de l'arrêt d'origine.
+    const origin = trackingOriginRef.current;
+    trackingOriginRef.current = null;
+
     trackingRef.current = null;
     trackingRouteProjectionRef.current = null;
     trackingNotificationRef.current = false;
@@ -3665,6 +3822,26 @@ export function ImmersiveMap({
       map.setLayoutProperty("immersive-map-route-line", "line-cap", "round");
     }
     if (map) updateTrackingRouteMask(map, null);
+
+    // Priorité au retour vers l'arrêt d'origine : on rouvre le panneau des
+    // horaires de la journée (ligne + date mémorisées) et on recentre l'arrêt.
+    if (origin) {
+      const source = map?.getSource("immersive-map-route") as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      source?.setData({ type: "FeatureCollection", features: [] });
+      setScheduleReturn({
+        stopId: origin.stop.id,
+        line: origin.line,
+        direction: origin.direction,
+        lineColor: origin.lineColor,
+        serviceDate: origin.serviceDate,
+      });
+      setSelectedStop(origin.stop);
+      focusSelectedStop(origin.stop);
+      return;
+    }
+
     if (searchLineSelection?.coords.length) {
       focusSearchCoordinates(searchLineSelection.coords, 15.8);
     } else {
@@ -3845,7 +4022,12 @@ export function ImmersiveMap({
   const visibleDetail = tracking || selectedStop ? null : detail ?? searchLineDetail;
 
   const bottomNavVisible =
-    !tracking && !showRouteInputs && !routeActive && !visibleDetail && !selectedStop;
+    !tracking &&
+    !showRouteInputs &&
+    !routeActive &&
+    !visibleDetail &&
+    !selectedStop &&
+    !showCorrespondances;
 
   const routeFallbackDeparture = new Date();
   const routeDeparture = routeInfo
@@ -4076,20 +4258,19 @@ export function ImmersiveMap({
       <MapWeatherScene weather={mapWeather} />
       <div className="immersive-map-vignette" />
       <div className="immersive-map-vignette-top" />
-      {bottomNavVisible && (
+      {/* La pastille n'apparaît qu'en temps réel : en aperçu elle n'apportait rien. */}
+      {bottomNavVisible && fleetMode === "live" && (
         <div
           className={`immersive-map-live-status immersive-map-live-status--${fleetMode}${
             fleetStale ? " immersive-map-live-status--stale" : ""
           }`}
           aria-live="polite"
-          aria-label={`${fleetMode === "live" ? "Temps réel" : "Mode aperçu"}. Météo : ${mapWeather.label}`}
+          aria-label={`Temps réel. Météo : ${mapWeather.label}`}
         >
           <span className="immersive-map-live-status-dot" />
-          <span>{fleetMode === "live"
-            ? fleetStale
-              ? "Temps réel · signal en attente"
-              : `${liveVehicles.length} véhicule${liveVehicles.length > 1 ? "s" : ""} en direct`
-            : "Mode aperçu"}</span>
+          <span>{fleetStale
+            ? "Temps réel · signal en attente"
+            : `${liveVehicles.length} véhicule${liveVehicles.length > 1 ? "s" : ""} en direct`}</span>
           <span className="immersive-map-live-status-separator" aria-hidden="true" />
           <span className="immersive-map-live-status-weather">
             {mapWeather.temperature != null ? `${Math.round(mapWeather.temperature)}° · ` : ""}
@@ -4104,6 +4285,8 @@ export function ImmersiveMap({
         globalSearchSuggestions={globalSearchSuggestions}
         onGlobalSearchChange={setGlobalSearchQuery}
         onGlobalSearchSelect={handleGlobalSearchSelect}
+        mobileSearchOpen={mobileSearchOpen}
+        onMobileSearchOpenChange={setMobileSearchOpen}
         showInputs={showRouteInputs}
         searchQuery={searchQuery}
         onSearchChange={(v) => {
@@ -4215,8 +4398,19 @@ export function ImmersiveMap({
 
       <BottomNav
         visible={bottomNavVisible}
+        onSearch={() => setMobileSearchOpen(true)}
         onRoute={qaRoute}
+        onCorrespondances={qaCorrespondances}
       />
+
+      {showCorrespondances && (
+        <CorrespondancesPanel
+          stops={nearbyStopCorrespondances}
+          locating={!geoPosition}
+          onSelect={handleCorrespondanceSelect}
+          onClose={() => setShowCorrespondances(false)}
+        />
+      )}
 
       {routeActive && (
         <RoutePanel
@@ -4251,11 +4445,26 @@ export function ImmersiveMap({
         <StopSchedulePanel
           key={selectedStop.id}
           stop={selectedStop}
+          initialLine={
+            scheduleReturn && scheduleReturn.stopId === selectedStop.id
+              ? {
+                  line: scheduleReturn.line,
+                  direction: scheduleReturn.direction,
+                  lineColor: scheduleReturn.lineColor,
+                }
+              : null
+          }
+          initialDate={
+            scheduleReturn && scheduleReturn.stopId === selectedStop.id
+              ? scheduleReturn.serviceDate
+              : undefined
+          }
           onTrackPassage={startScheduledPassageTracking}
           onClose={() => {
             selectedStopMarkerRef.current?.remove();
             selectedStopMarkerRef.current = null;
             setSelectedStop(null);
+            setScheduleReturn(null);
           }}
         />
       )}

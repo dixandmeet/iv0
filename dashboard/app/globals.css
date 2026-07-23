@@ -12103,7 +12103,9 @@ textarea.station-field {
   backdrop-filter: blur(10px);
 }
 
-.immersive-map-root .maplibregl-ctrl-group button {
+/* Seules les icônes MapLibre (SVG sombres) sont inversées : appliquer le filtre
+   au bouton entier noircissait aussi le texte de nos contrôles maison (3D, ⟳). */
+.immersive-map-root .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
   filter: invert(1) hue-rotate(180deg);
 }
 
@@ -12111,8 +12113,7 @@ textarea.station-field {
 .immersive-map-root .immersive-map-orbit-step-control {
   display: grid;
   place-items: center;
-  filter: none;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.92);
   font-family: var(--font-sans), system-ui, sans-serif;
   font-weight: 800;
 }
@@ -13396,6 +13397,28 @@ textarea.station-field {
     width: auto;
     max-height: calc(100dvh - 96px);
   }
+
+  /* Le header mobile ne porte plus la recherche : elle s'ouvre depuis la barre
+     du bas et se pose en surcouche, à la place du header. */
+  .immersive-map-search-slot {
+    display: none;
+  }
+
+  .immersive-map-search-slot--open {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    z-index: 430;
+    display: block;
+    margin: 0;
+    animation: immersive-map-panel-in 0.18s ease both;
+  }
+
+  .immersive-map-search-slot--open .immersive-map-global-search {
+    height: 46px;
+    border-radius: 16px;
+  }
 }
 
 .immersive-map-search-bar {
@@ -13891,6 +13914,7 @@ textarea.station-field {
 
   .immersive-map-bottom-nav-btn {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -13900,10 +13924,18 @@ textarea.station-field {
     border-radius: 14px;
     color: rgba(255, 255, 255, 0.62);
     font: inherit;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 650;
     letter-spacing: 0.01em;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Trois onglets : les libellés longs sont tronqués plutôt que de déborder. */
+  .immersive-map-bottom-nav-btn > span:last-child {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .immersive-map-bottom-nav-icon {
