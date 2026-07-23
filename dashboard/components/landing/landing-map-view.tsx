@@ -16,6 +16,7 @@ import {
   registerMissingImageFallback,
 } from "@/components/carte-immersive/map-style";
 import { Vehicle3DLayer } from "@/components/carte-immersive/vehicle-3d-layer";
+import { AmbientSimulationLayer } from "@/components/carte-immersive/ambient-simulation-layer";
 import type { MapVehicle } from "@/lib/carte-immersive/vehicles";
 import {
   buildRouteGlowLayer,
@@ -64,6 +65,8 @@ type LandingMapViewProps = {
   bounds?: MapBounds;
   fitPadding?: number;
   threeD?: boolean;
+  ambientSimulation?: boolean;
+  ambientDensity?: number;
   scrollZoom?: boolean;
   showControls?: boolean;
   onVehicleLayerReady?: (layer: Vehicle3DLayer) => void;
@@ -267,6 +270,8 @@ export function LandingMapView({
   bounds,
   fitPadding = 48,
   threeD = false,
+  ambientSimulation = false,
+  ambientDensity = 0.5,
   scrollZoom = true,
   showControls = false,
   onVehicleLayerReady,
@@ -275,6 +280,7 @@ export function LandingMapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const vehicleLayerRef = useRef<Vehicle3DLayer | null>(null);
+  const ambientLayerRef = useRef<AmbientSimulationLayer | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const routeIdsRef = useRef<string[]>([]);
   const zoneIdsRef = useRef<string[]>([]);
@@ -291,6 +297,8 @@ export function LandingMapView({
     maxZoom,
     interactive,
     threeD,
+    ambientSimulation,
+    ambientDensity,
     scrollZoom,
     showControls,
   });
@@ -359,10 +367,20 @@ export function LandingMapView({
         else applyDarkReskin(map);
         hideGenericPois(map);
 
+        if (initialOptions.ambientSimulation) {
+          const ambientLayer = new AmbientSimulationLayer({
+            densityScale: initialOptions.ambientDensity,
+          });
+          map.addLayer(ambientLayer);
+          ambientLayerRef.current = ambientLayer;
+        }
+
         const vehicleLayer = new Vehicle3DLayer({ onSelect: () => {} });
+        vehicleLayer.setAtmosphere(atmosphereRef.current ?? null);
         map.addLayer(vehicleLayer);
         vehicleLayer.setVehicles(modelVehiclesRef.current);
         vehicleLayerRef.current = vehicleLayer;
+        ambientLayerRef.current?.moveBelowTransit();
         onVehicleLayerReady?.(vehicleLayer);
       }
 
@@ -384,11 +402,13 @@ export function LandingMapView({
       routeIdsRef.current = [];
       zoneIdsRef.current = [];
       vehicleLayerRef.current = null;
+      ambientLayerRef.current = null;
       map.remove();
       mapRef.current = null;
       setReady(false);
     };
     // La carte n'est créée qu'une fois ; caméra et routes se mettent à jour via d'autres effets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldInit]);
 
   useEffect(() => {
@@ -481,6 +501,7 @@ export function LandingMapView({
     if (!map || !ready || !atmosphere) return;
     applyAtmosphereSky(map, atmosphere);
     applyAtmosphereReskin(map, atmosphere);
+    vehicleLayerRef.current?.setAtmosphere(atmosphere);
   }, [atmosphere, ready]);
 
   useEffect(() => {

@@ -1,0 +1,291 @@
+/* Landing « classique » — sections empilées, sans scrollytelling.
+   Réutilise les atomes visuels de scrolly-landing.module.css ; ce module ne porte
+   que la mise en page (flux vertical normal, grilles deux colonnes, reveal au scroll). */
+
+.page {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* Voile sombre translucide global : reprend l'esprit du voile du hero et l'applique
+   à toute la page en couche fixe. Centre transparent (lisibilité du contenu), bords et
+   extrémités assombris pour une profondeur cohérente d'un bout à l'autre.
+   Au-dessus du contenu des sections, mais sous la nav / le bouton haut de page. */
+.pageVeil {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  background:
+    radial-gradient(125% 80% at 50% 42%, transparent 56%, rgba(5, 8, 7, 0.5) 100%),
+    linear-gradient(180deg, rgba(5, 8, 7, 0.32), transparent 16%, transparent 84%, rgba(5, 8, 7, 0.36));
+}
+
+/* ---------- Reveal à l'entrée dans le viewport ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.reveal[data-visible="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    transition: none;
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  min-height: 100svh;
+  padding: clamp(104px, 15vh, 150px) clamp(24px, 7vw, 90px) clamp(80px, 12vh, 120px);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Couche carte + météo en fond plein cadre (réutilise .mapHero de scrolly). */
+.heroBg {
+  z-index: 0;
+}
+
+/* Transition douce hero → section suivante : le bas du hero se fond vers le fond de
+   page (#050807) pour supprimer la démarcation nette avec la section d'après. */
+.hero::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  height: 52%;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, #050807 84%);
+}
+
+.heroInner {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: clamp(32px, 4vw, 64px);
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.heroContent {
+  max-width: 600px;
+}
+
+/* Carte d'itinéraire statique (glass) — reprend le visuel de scrolly sans le
+   positionnement absolu. */
+.itineraryCard {
+  justify-self: end;
+  width: 100%;
+  max-width: 540px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 28px;
+  background: rgba(4, 12, 10, 0.78);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(24px) saturate(1.35);
+  -webkit-backdrop-filter: blur(24px) saturate(1.35);
+}
+
+/* ---------- Sections deux colonnes ---------- */
+.section {
+  position: relative;
+  z-index: 1;
+  padding: clamp(80px, 11vh, 140px) clamp(24px, 6vw, 90px);
+}
+
+/* Première section après le hero : elle remonte légèrement pour recouvrir le bas du
+   hero, avec un fond noir dégradé en tête (opaque en haut → transparent vers le bas)
+   qui fond la démarcation et masque la texture de carte résiduelle. */
+.blendTop {
+  margin-top: clamp(-96px, -10vh, -52px);
+}
+
+.blendTop::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: -1;
+  height: clamp(200px, 30vh, 320px);
+  pointer-events: none;
+  background: linear-gradient(180deg, #050807 0%, #050807 22%, transparent 100%);
+}
+
+.sectionInner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: clamp(40px, 5vw, 72px);
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.sectionInner[data-reverse="true"] .colVisual {
+  order: -1;
+}
+
+.colText {
+  max-width: 480px;
+}
+
+.colVisual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* La carte d'environnement rend son propre panneau (flex 0 0 46%) : on le laisse
+   remplir sa colonne. */
+.mapCol > div {
+  width: 100%;
+  max-width: 560px;
+  height: clamp(380px, 58vh, 560px);
+  flex: 1 1 auto;
+}
+
+/* ---------- Sections centrées ---------- */
+.sectionCentered {
+  text-align: center;
+}
+
+.centeredInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+/* ---------- Typographie des blocs texte ---------- */
+.eyebrow {
+  margin-bottom: 16px;
+  color: #33bfa3;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.colTitle {
+  margin: 0;
+  font-size: clamp(32px, 4vw, 56px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.colCopy {
+  max-width: 440px;
+  margin: 20px 0 0;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 17px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1024px) {
+  .hero {
+    /* En pile, on aligne le contenu en haut : centré, un hero plus haut que l'écran
+       rognerait le titre au-dessus de la barre de navigation. Généreux en haut et en
+       bas pour laisser respirer le hero et la carte en fond. */
+    align-items: flex-start;
+    padding: clamp(120px, 18vh, 156px) clamp(22px, 6vw, 48px) clamp(88px, 12vh, 120px);
+  }
+
+  .heroInner {
+    grid-template-columns: 1fr;
+    gap: clamp(24px, 4vh, 40px);
+    max-width: 560px;
+  }
+
+  .heroContent {
+    max-width: 100%;
+  }
+
+  /* Rythme vertical aéré du contenu du hero (surcharge les marges des atomes
+     partagés issus du module scrolly). */
+  .heroContent > :first-child {
+    margin-bottom: 30px;
+  }
+
+  .heroContent > h1 {
+    line-height: 1.1;
+  }
+
+  .heroContent > p {
+    margin-top: 26px;
+    line-height: 1.6;
+  }
+
+  .heroContent > :last-child {
+    margin-top: 40px;
+    gap: 14px;
+  }
+
+  .heroContent > :last-child a {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  /* Vue mobile : la carte « Nouvel itinéraire » est masquée. */
+  .itineraryCard {
+    display: none;
+  }
+
+  .sectionInner {
+    grid-template-columns: 1fr;
+    gap: clamp(28px, 5vh, 44px);
+    max-width: 560px;
+  }
+
+  /* En pile, le texte passe toujours au-dessus du visuel, quel que soit le sens. */
+  .sectionInner[data-reverse="true"] .colVisual {
+    order: 0;
+  }
+
+  .colText {
+    max-width: 100%;
+  }
+
+  .colTitle {
+    font-size: clamp(29px, 6.5vw, 40px);
+    line-height: 1.08;
+  }
+
+  .colCopy {
+    max-width: 100%;
+    font-size: 15.5px;
+  }
+
+  .eyebrow {
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section {
+    padding: clamp(64px, 9vh, 96px) 20px;
+  }
+}

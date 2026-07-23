@@ -23,6 +23,7 @@ import {
   ArrowUp,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import {
   reverseGeocodeLocation,
   searchAddresses,
@@ -57,16 +58,15 @@ const FOOTER_PRODUCT_LINKS = [
 ] as const;
 
 const FOOTER_PRO_LINKS = [
-  { label: "Aule Pro", href: "/pro" },
-  { label: "Conducteur", href: "/pro/conducteur" },
-  { label: "Régulateur", href: "/pro/regulateur" },
-  { label: "Exploitation", href: "/pro/exploitation" },
-  { label: "Espace connecté", href: "/login" },
+  { label: "Découvrir le SAEIV", href: "/pro" },
+  { label: "Fonctionnalités", href: "/pro#fonctionnalites" },
+  { label: "Déploiement", href: "/pro#deploiement" },
+  { label: "Connexion au dashboard", href: "/login" },
 ] as const;
 
 const FOOTER_SUPPORT_LINKS = [
   { label: "Centre d'aide", href: "/aide" },
-  { label: "Contact", href: "mailto:contact@aule.app" },
+  { label: "Contact", href: "/contact" },
   { label: "Confidentialité", href: "/confidentialite" },
   { label: "Conditions", href: "/conditions" },
   { label: "Cookies", href: "/cookies" },
@@ -388,8 +388,12 @@ function IconImage({
 }
 
 function StageContent({ children, index, reverse, centered, fullBleed }: StageContentProps) {
+  const sectionId =
+    index === 1 ? "fonctionnalites" : index === 4 ? "services" : index === 7 ? "vision" : undefined;
+
   return (
     <div
+      id={sectionId}
       data-sec
       data-screen-label={`${String(index + 1).padStart(2, "0")} ${STAGE_SECTIONS[index]}`}
       style={{
@@ -896,7 +900,6 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
               weather={heroWeather}
             />
             <div className={styles.weatherScene} aria-hidden="true">
-              <span className={styles.weatherSun} />
               <span className={`${styles.weatherCloud} ${styles.weatherCloudOne}`} />
               <span className={`${styles.weatherCloud} ${styles.weatherCloudTwo}`} />
               <span className={styles.weatherRain} />
@@ -1085,37 +1088,37 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
           </StageContent>
 
           <StageContent index={4} reverse>
-            <TextBlock eyebrow="04 - Commerces partenaires" title="Commandez pendant votre trajet.">
-              Recherchez un commerce, parcourez les produits, passez commande et choisissez une livraison sur votre quai. Profitez de votre temps de trajet pour préparer vos achats.
+            <TextBlock eyebrow="04 - Commerces partenaires · Prochainement" title="Les services de proximité arrivent bientôt.">
+              La commande auprès de commerces partenaires et la livraison sur le trajet sont en préparation. Elles ne sont pas encore disponibles dans Aule.
             </TextBlock>
             <div data-par="1.6" className={styles.orderStack}>
               <div className={styles.orderCard} style={panel}>
-                <div className={styles.orderHeader}><strong>☕ Café Louna · quai B</strong><span>Partenaire</span></div>
+              <div className={styles.orderHeader}><strong>☕ Exemple de parcours</strong><span>Prochainement</span></div>
                 <div><span>Cappuccino x1</span><span>3,80 €</span></div>
                 <div><span>Croissant x2</span><span>2,40 €</span></div>
                 <div className={styles.orderTotal}><strong>Total</strong><strong>6,20 €</strong></div>
               </div>
-              <div className={styles.deliveryCard}>🛵 Livreur en route · quai B <strong>sync. 12 min</strong></div>
+              <div className={styles.deliveryCard}>🛵 Livraison sur le trajet <strong>Prochainement</strong></div>
             </div>
           </StageContent>
 
           <StageContent index={5} centered>
             <div data-par="1" style={{ maxWidth: 640, willChange: "transform" }}>
-              <div style={label}>05 - VTC & Taxi</div>
+              <div style={label}>05 - VTC & Taxi · Prochainement</div>
               <h2 className={styles.centerTitle}>Besoin d&apos;une autre solution ?</h2>
-              <p className={styles.centerCopy}>Choisissez à tout moment le mode de transport le plus adapté, sans quitter l&apos;application.</p>
+              <p className={styles.centerCopy}>La réservation de VTC et de taxis est une évolution envisagée. Aucun service de course n&apos;est encore réservable dans Aule.</p>
             </div>
             <div data-par="1.5" className={styles.modeCards}>
-              <div><span>🚗</span><div><strong>Réserver un VTC</strong><small>3 min · 11,50 €</small></div></div>
-              <div><span>🚕</span><div><strong>Commander un taxi</strong><small>5 min · 13,00 €</small></div></div>
+              <div><span>🚗</span><div><strong>VTC</strong><small>Bientôt disponible</small></div></div>
+              <div><span>🚕</span><div><strong>Taxi</strong><small>Bientôt disponible</small></div></div>
             </div>
           </StageContent>
 
           <StageContent index={6} centered>
             <div data-par="1" style={{ maxWidth: 720, willChange: "transform" }}>
-              <div style={label}>06 - La communauté</div>
-              <h2 className={styles.centerTitle}>Une mobilité plus intelligente grâce à la communauté.</h2>
-              <p className={styles.centerCopy}>Les informations partagées par la communauté rendent chaque trajet plus fiable et plus prévisible.</p>
+              <div style={label}>06 - La communauté · Déploiement progressif</div>
+              <h2 className={styles.centerTitle}>Des contributions communautaires encadrées.</h2>
+              <p className={styles.centerCopy}>Les signalements et informations partagées seront activés progressivement selon les réseaux. Leur disponibilité n&apos;est pas encore généralisée.</p>
             </div>
             <div data-par="1.5" className={styles.chips}>
               {["🚏 Véhicule chargé", "⚠ Perturbation", "🚧 Incident", "🚦 Circulation difficile", "👥 Affluence modérée"].map((item) => (
@@ -1128,7 +1131,7 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
             <div data-par="1" style={{ maxWidth: 820, willChange: "transform" }}>
               <div style={label}>07 - La vision</div>
               <h2 className={styles.visionTitle}>Une application qui évolue avec <span>votre ville</span>.</h2>
-              <p className={styles.centerCopy}>Aule connecte progressivement tous les acteurs de la mobilité pour centraliser tous les services utiles à vos déplacements du quotidien.</p>
+              <p className={styles.centerCopy}>Aule prévoit de connecter progressivement les acteurs de la mobilité. Les VTC, taxis et commerces présentés ci-dessous font partie de la feuille de route et ne sont pas encore disponibles.</p>
             </div>
             <div data-par="1.5" className={styles.squareChips}>
               {["🚶 Voyageurs", "Conducteurs", "Opérateurs", "🚗 VTC", "🚕 Taxis", "🛍️ Commerces"].map((item) => (
@@ -1151,9 +1154,9 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
               { Icon: RadioTower, title: "Information enrichie", text: "Une information voyageur plus riche et plus fiable." },
               { Icon: Map, title: "Carte temps réel", text: "Une carte interactive qui réunit toutes vos mobilités." },
               { Icon: Bell, title: "Notifications intelligentes", text: "Averti au bon moment, avant l'arrivée et la descente." },
-              { Icon: Users, title: "Communauté active", text: "Des trajets plus fiables grâce aux signalements partagés." },
-              { Icon: ShoppingBag, title: "Commerces accessibles", text: "Commandez et faites-vous livrer pendant vos trajets." },
-              { Icon: CarFront, title: "VTC & taxis", text: "Réservez un VTC ou un taxi sans quitter l'application." },
+              { Icon: Users, title: "Communauté progressive", text: "Signalements communautaires disponibles selon les réseaux." },
+              { Icon: ShoppingBag, title: "Commerces · prochainement", text: "Commande et livraison font partie de la feuille de route." },
+              { Icon: CarFront, title: "VTC & taxis · prochainement", text: "La réservation de courses n'est pas encore disponible." },
               { Icon: CircleCheck, title: "Pensée pour simplifier", text: "Une expérience conçue pour simplifier chaque déplacement." },
             ].map(({ Icon, title, text }, index) => (
               <article key={title} className={index === 7 ? styles.highlightBenefit : undefined}>
@@ -1171,32 +1174,32 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
       <section id="download" className={styles.download} data-screen-label="10 Télécharger">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={LOGO} alt="Aule" />
-        <h2>Votre prochain trajet<br />commence ici.</h2>
-        <p>Téléchargez Aule et découvrez une nouvelle façon de vous déplacer. Plus simple, plus intuitive et plus connectée à votre quotidien.</p>
+        <h2>Aule arrive bientôt<br />sur les stores.</h2>
+        <p>L&apos;application iOS et Android est en préparation. Les liens officiels seront activés dès l&apos;ouverture des stores.</p>
         <div>
-          <a href="#" data-hover className={styles.storeLight}>
+          <span className={`${styles.storeLight} ${styles.storeUnavailable}`} aria-disabled="true">
             <span className={styles.storeIcon} aria-hidden="true">
               <Apple size={26} strokeWidth={2.4} />
             </span>
-            <span><small>Télécharger sur</small><strong>l&apos;App Store</strong></span>
-          </a>
-          <a href="#" data-hover className={styles.storeDark}>
+            <span><small>App Store</small><strong>Bientôt disponible</strong></span>
+          </span>
+          <span className={`${styles.storeDark} ${styles.storeUnavailable}`} aria-disabled="true">
             <span className={styles.storeIcon} aria-hidden="true">
               <Play size={22} fill="currentColor" strokeWidth={2.4} />
             </span>
-            <span><small>Disponible sur</small><strong>Google Play</strong></span>
-          </a>
+            <span><small>Google Play</small><strong>Bientôt disponible</strong></span>
+          </span>
         </div>
       </section>
 
       <footer className={styles.footer} data-screen-label="Footer" role="contentinfo">
         <div className={styles.footerInner}>
           <div className={styles.footerMain}>
-            <a href="#" className={styles.footerBrand} data-hover aria-label="Retour à l'accueil Aule">
+            <Link href="/" className={styles.footerBrand} data-hover aria-label="Retour à l'accueil Aule">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={LOGO} alt="" />
               <span>Aule</span>
-            </a>
+            </Link>
             <p className={styles.footerText}>
               Le GPS intelligent qui réunit itinéraires, temps réel, alertes, services partenaires
               et mobilité professionnelle dans une seule expérience.
@@ -1206,15 +1209,15 @@ export function ScrollyLanding({ fontClassName = "" }: ScrollyLandingProps) {
               <span>Voyageurs & Pro</span>
               <span>Temps réel</span>
             </div>
-            <div className={styles.footerStoreLinks} aria-label="Télécharger Aule">
-              <a href="#" data-hover className={styles.footerStoreLink}>
+            <div className={styles.footerStoreLinks} aria-label="Disponibilité d'Aule sur les stores">
+              <span className={`${styles.footerStoreLink} ${styles.storeUnavailable}`} aria-disabled="true">
                 <Apple size={18} strokeWidth={2.3} aria-hidden="true" />
-                <span>App Store</span>
-              </a>
-              <a href="#" data-hover className={styles.footerStoreLink}>
+                <span>App Store · bientôt</span>
+              </span>
+              <span className={`${styles.footerStoreLink} ${styles.storeUnavailable}`} aria-disabled="true">
                 <Play size={16} fill="currentColor" strokeWidth={2.3} aria-hidden="true" />
-                <span>Google Play</span>
-              </a>
+                <span>Google Play · bientôt</span>
+              </span>
             </div>
           </div>
 
