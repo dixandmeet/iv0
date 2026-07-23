@@ -13,6 +13,7 @@ interface StationsHeaderProps {
   onExport: () => void;
   onToggleFilters: () => void;
   filtersOpen: boolean;
+  canManage: boolean;
 }
 
 export function StationsHeader({
@@ -24,6 +25,7 @@ export function StationsHeader({
   onExport,
   onToggleFilters,
   filtersOpen,
+  canManage,
 }: StationsHeaderProps) {
   return (
     <header className="stops-header">
@@ -35,11 +37,11 @@ export function StationsHeader({
           </p>
         </div>
         <div className="stops-header-actions">
-          <Button onClick={onAdd} className="stops-btn-primary">
+          <Button onClick={onAdd} className="stops-btn-primary" disabled={!canManage}>
             <Plus className="h-4 w-4" />
             Ajouter une station
           </Button>
-          <Button variant="outline" onClick={onImport} className="stops-btn-secondary">
+          <Button variant="outline" onClick={onImport} className="stops-btn-secondary" disabled={!canManage}>
             <Upload className="h-4 w-4" />
             Importer
           </Button>

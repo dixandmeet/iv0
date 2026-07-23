@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 interface DashboardUserCardProps {
   displayName: string;
   role: string;
@@ -20,9 +22,11 @@ export function DashboardUserCard({
   collapsed = false,
 }: DashboardUserCardProps) {
   return (
-    <div
+    <Link
+      href="/compte"
       className={`dashboard-user-card${collapsed ? " dashboard-user-card--collapsed" : ""}`}
       title={collapsed ? `${displayName} · ${role}` : undefined}
+      aria-label={`Ouvrir mon compte — ${displayName}`}
     >
       <div className="dashboard-user-avatar">{getInitials(displayName)}</div>
       <div className="dashboard-user-card-text min-w-0 flex-1">
@@ -33,6 +37,6 @@ export function DashboardUserCard({
         <span className="h-2 w-2 rounded-full bg-[#22C55E]" />
         <span className="text-[11px] text-[#22C55E]">En ligne</span>
       </div>
-    </div>
+    </Link>
   );
 }

@@ -3,17 +3,31 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { StationFilters, StationListItem, StationStatus } from "@/lib/stations-types";
+import { useNetwork } from "@/components/network/network-provider";
 
 const PAGE_SIZE = 50;
 const SEARCH_FETCH_LIMIT = 500;
-const DEFAULT_NETWORK_CODE = "naolib-nantes";
 
 const DEFAULT_FILTERS: StationFilters = {
   status: "all",
   commune: "",
 };
 
+async function enrichWithStopCounts(items: StationListItem[]) {
+  if (!items.length) return items;
+  const supabase = createClient();
+  const ids = items.map((station) => station.id);
+  const { data } = await supabase.from("stops").select("station_id").in("station_id", ids);
+  const counts = new Map<string, number>();
+  for (const row of data ?? []) {
+    const stationId = row.station_id as string;
+    counts.set(stationId, (counts.get(stationId) ?? 0) + 1);
+  }
+  return items.map((station) => ({ ...station, stop_count: counts.get(station.id) ?? 0 }));
+}
+
 export function useStationsData() {
+  const { network } = useNetwork();
   const [stations, setStations] = useState<StationListItem[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -22,28 +36,17 @@ export function useStationsData() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [communes, setCommunes] = useState<string[]>([]);
-  const [networkId, setNetworkId] = useState<string | null>(null);
-
-  const loadNetwork = useCallback(async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("networks")
-      .select("id")
-      .eq("code", DEFAULT_NETWORK_CODE)
-      .maybeSingle();
-    if (data) setNetworkId(data.id as string);
-  }, []);
-
   const loadCommunes = useCallback(async () => {
     const supabase = createClient();
     const { data } = await supabase
       .from("stations")
       .select("commune")
+      .eq("network_id", network.id)
       .not("commune", "is", null)
       .limit(500);
     const unique = [...new Set((data ?? []).map((r) => r.commune as string).filter(Boolean))].sort();
-    setCommunes(unique.length ? unique : ["Nantes"]);
-  }, []);
+    setCommunes(unique);
+  }, [network.id]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -51,41 +54,18 @@ export function useStationsData() {
     const supabase = createClient();
     const isSearch = Boolean(search.trim());
 
-    if (isSearch) {
-      const { data, error: rpcError } = await supabase.rpc("search_stations", {
-        p_query: search.trim(),
-        p_audience: "staff",
-        p_limit: SEARCH_FETCH_LIMIT,
-      });
-      if (rpcError) {
-        setError(rpcError.message);
-        setLoading(false);
-        return;
-      }
-      let items: StationListItem[] = (data ?? []).map(mapStationRow);
-      if (filters.status !== "all") {
-        items = items.filter((s: StationListItem) => s.status === filters.status);
-      }
-      if (filters.commune) {
-        items = items.filter((s: StationListItem) => s.commune === filters.commune);
-      }
-      const start = page * PAGE_SIZE;
-      setTotalCount(items.length);
-      setStations(items.slice(start, start + PAGE_SIZE));
-      setLoading(false);
-      return;
-    }
-
     let query = supabase
       .from("stations")
       .select("id, network_id, name, commune, status, latitude_center, longitude_center, description", {
         count: "exact",
       })
+      .eq("network_id", network.id)
       .order("name")
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
     if (filters.status !== "all") query = query.eq("status", filters.status);
     if (filters.commune) query = query.eq("commune", filters.commune);
+    if (isSearch) query = query.ilike("name", `%${search.trim()}%`).limit(SEARCH_FETCH_LIMIT);
 
     const { data, error: fetchError, count } = await query;
     if (fetchError) {
@@ -98,25 +78,11 @@ export function useStationsData() {
     setStations(items);
     setTotalCount(count ?? items.length);
     setLoading(false);
-  }, [page, search, filters]);
-
-  const enrichWithStopCounts = async (items: StationListItem[]) => {
-    if (!items.length) return items;
-    const supabase = createClient();
-    const ids = items.map((s) => s.id);
-    const { data } = await supabase.from("stops").select("station_id").in("station_id", ids);
-    const counts = new Map<string, number>();
-    for (const row of data ?? []) {
-      const sid = row.station_id as string;
-      counts.set(sid, (counts.get(sid) ?? 0) + 1);
-    }
-    return items.map((s) => ({ ...s, stop_count: counts.get(s.id) ?? 0 }));
-  };
+  }, [page, search, filters, network.id]);
 
   useEffect(() => {
-    void loadNetwork();
     void loadCommunes();
-  }, [loadNetwork, loadCommunes]);
+  }, [loadCommunes]);
 
   useEffect(() => {
     void loadData();
@@ -146,7 +112,7 @@ export function useStationsData() {
     totalCount,
     totalPages,
     communes,
-    networkId,
+    networkId: network.id,
     refresh: loadData,
     PAGE_SIZE,
   };
@@ -167,20 +133,25 @@ function mapStationRow(row: Record<string, unknown>): StationListItem {
 }
 
 export function useStopRouteFilter() {
+  const { network, isPilotNetwork } = useNetwork();
   const [routes, setRoutes] = useState<
     { route_id: string; route_short_name: string | null; route_type?: number }[]
   >([]);
 
   useEffect(() => {
     const supabase = createClient();
-    void supabase
-      .from("gtfs_routes")
-      .select("route_id, route_short_name, route_type")
-      .order("route_short_name")
+    const query = isPilotNetwork
+      ? supabase.from("gtfs_routes").select("route_id, route_short_name, route_type").order("route_short_name")
+      : supabase.from("network_lines").select("line_id, short_name, transport_mode").eq("network_id", network.id).order("short_name");
+    void query
       .then(({ data }) => {
-        if (data) setRoutes(data);
+        if (data) setRoutes(data.map((row: Record<string, unknown>) => ({
+          route_id: String(row.route_id ?? row.line_id),
+          route_short_name: String(row.route_short_name ?? row.short_name),
+          route_type: row.route_type == null ? 3 : Number(row.route_type),
+        })));
       });
-  }, []);
+  }, [isPilotNetwork, network.id]);
 
   return { routes };
 }

@@ -4,8 +4,16 @@ import { useCallback, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { StopFormPayload, StopListItem, StopStatus } from "@/lib/stops-types";
 import type { StopSource, StopTransportMode } from "@/lib/stations-types";
+import { useNetwork } from "@/components/network/network-provider";
 
-const DEFAULT_NETWORK_CODE = "naolib-nantes";
+const NETWORK_ADMIN_REQUIRED =
+  "Vous devez être administrateur du réseau pour modifier les arrêts.";
+
+function stopActionError(message: string): string {
+  return message.toLowerCase().includes("row-level security")
+    ? NETWORK_ADMIN_REQUIRED
+    : message;
+}
 
 async function logAudit(
   stopUuid: string,
@@ -25,33 +33,27 @@ async function logAudit(
 }
 
 export function useStopActions() {
+  const { network, canManage } = useNetwork();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const getNetworkId = useCallback(async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("networks")
-      .select("id")
-      .eq("code", DEFAULT_NETWORK_CODE)
-      .maybeSingle();
-    return data?.id as string | undefined;
-  }, []);
 
   const createStop = useCallback(
     async (stationId: string, payload: StopFormPayload) => {
       setSubmitting(true);
       setError(null);
+      if (!canManage) {
+        setError(NETWORK_ADMIN_REQUIRED);
+        setSubmitting(false);
+        throw new Error(NETWORK_ADMIN_REQUIRED);
+      }
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      const networkId = await getNetworkId();
-      if (!networkId) throw new Error("Réseau introuvable");
       const [lng, lat] = payload.coordinates;
 
       const { data, error: insertError } = await supabase
         .from("stops")
         .insert({
-          network_id: networkId,
+          network_id: network.id,
           station_id: stationId,
           code: payload.code.toUpperCase(),
           name: payload.name ?? null,
@@ -71,14 +73,15 @@ export function useStopActions() {
         .single();
 
       if (insertError) {
-        setError(insertError.message);
+        const message = stopActionError(insertError.message);
+        setError(message);
         setSubmitting(false);
-        throw new Error(insertError.message);
+        throw new Error(message);
       }
 
       if (payload.source === "gtfs") {
         await supabase.from("gtfs_stop_mapping").insert({
-          network_id: networkId,
+          network_id: network.id,
           gtfs_stop_id: payload.code.toUpperCase(),
           stop_id: data.id,
         });
@@ -88,12 +91,17 @@ export function useStopActions() {
       setSubmitting(false);
       return data.id as string;
     },
-    [getNetworkId],
+    [canManage, network.id],
   );
 
   const updateStop = useCallback(async (stopId: string, payload: Partial<StopFormPayload>) => {
     setSubmitting(true);
     setError(null);
+    if (!canManage) {
+      setError(NETWORK_ADMIN_REQUIRED);
+      setSubmitting(false);
+      throw new Error(NETWORK_ADMIN_REQUIRED);
+    }
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -114,18 +122,24 @@ export function useStopActions() {
     const { error: updateError } = await supabase.from("stops").update(updates).eq("id", stopId);
 
     if (updateError) {
-      setError(updateError.message);
+      const message = stopActionError(updateError.message);
+      setError(message);
       setSubmitting(false);
-      throw new Error(updateError.message);
+      throw new Error(message);
     }
 
     await logAudit(stopId, existing?.code ?? stopId, "updated", updates, user?.id);
     setSubmitting(false);
-  }, []);
+  }, [canManage]);
 
   const disableStop = useCallback(async (stopId: string) => {
     setSubmitting(true);
     setError(null);
+    if (!canManage) {
+      setError(NETWORK_ADMIN_REQUIRED);
+      setSubmitting(false);
+      throw new Error(NETWORK_ADMIN_REQUIRED);
+    }
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     const { data: existing } = await supabase.from("stops").select("code").eq("id", stopId).single();
@@ -134,13 +148,14 @@ export function useStopActions() {
       .update({ status: "inactive", updated_by: user?.id })
       .eq("id", stopId);
     if (updateError) {
-      setError(updateError.message);
+      const message = stopActionError(updateError.message);
+      setError(message);
       setSubmitting(false);
-      throw new Error(updateError.message);
+      throw new Error(message);
     }
     await logAudit(stopId, existing?.code ?? stopId, "disabled", { status: "inactive" }, user?.id);
     setSubmitting(false);
-  }, []);
+  }, [canManage]);
 
   const importStops = useCallback(
     async (stationId: string, rows: Array<Record<string, string>>) => {

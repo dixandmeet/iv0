@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { NetworkIncident } from "@/lib/types";
+import { useNetwork } from "@/components/network/network-provider";
 
 export type IncidentStatusFilter =
   | "open"
@@ -20,6 +21,7 @@ interface UseIncidentsDataOptions {
 }
 
 export function useIncidentsData(options: UseIncidentsDataOptions = {}) {
+  const { network, isPilotNetwork, schemaReady } = useNetwork();
   const { statusFilter = "all", severityFilter = "all" } = options;
   const [incidents, setIncidents] = useState<NetworkIncident[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,11 +32,20 @@ export function useIncidentsData(options: UseIncidentsDataOptions = {}) {
     const supabase = createClient();
     setError(null);
 
+    if (!schemaReady && !isPilotNetwork) {
+      setIncidents([]);
+      setLastUpdated(new Date());
+      setLoading(false);
+      return;
+    }
+
     let query = supabase
       .from("network_incidents")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
+
+    if (schemaReady) query = query.eq("network_id", network.id);
 
     if (statusFilter !== "all") {
       query = query.eq("status", statusFilter);
@@ -62,7 +73,7 @@ export function useIncidentsData(options: UseIncidentsDataOptions = {}) {
     }
 
     setLoading(false);
-  }, [statusFilter, severityFilter]);
+  }, [statusFilter, severityFilter, isPilotNetwork, network.id, schemaReady]);
 
   useEffect(() => {
     setLoading(true);
@@ -73,7 +84,9 @@ export function useIncidentsData(options: UseIncidentsDataOptions = {}) {
       .channel("incidents-page")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "network_incidents" },
+        schemaReady
+          ? { event: "*", schema: "public", table: "network_incidents", filter: `network_id=eq.${network.id}` }
+          : { event: "*", schema: "public", table: "network_incidents" },
         () => loadData(),
       )
       .subscribe();
@@ -81,7 +94,7 @@ export function useIncidentsData(options: UseIncidentsDataOptions = {}) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadData]);
+  }, [loadData, network.id, schemaReady]);
 
   return { incidents, loading, error, lastUpdated, refresh: loadData };
 }

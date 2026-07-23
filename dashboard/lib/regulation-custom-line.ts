@@ -23,14 +23,15 @@ export const CUSTOM_LINES_STORAGE_KEY = "regulation-custom-lines";
 export const LINE_INFO_OVERRIDES_STORAGE_KEY = "regulation-line-info-overrides";
 
 export function isCustomRegulationLine(lineId: string): boolean {
-  return lineId.startsWith("custom:");
+  return lineId.startsWith("custom:") || lineId.startsWith("network:");
 }
 
-export function loadCustomRegulationLines(): RegulationLine[] {
+export function loadCustomRegulationLines(scope?: string): RegulationLine[] {
   if (typeof window === "undefined") return [];
 
   try {
-    const raw = localStorage.getItem(CUSTOM_LINES_STORAGE_KEY);
+    const storageKey = scope ? `${CUSTOM_LINES_STORAGE_KEY}:${scope}` : CUSTOM_LINES_STORAGE_KEY;
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return [];
 
     const parsed = JSON.parse(raw) as unknown;
@@ -48,11 +49,12 @@ export function loadCustomRegulationLines(): RegulationLine[] {
   }
 }
 
-export function saveCustomRegulationLines(lines: RegulationLine[]): void {
+export function saveCustomRegulationLines(lines: RegulationLine[], scope?: string): void {
   if (typeof window === "undefined") return;
 
   try {
-    localStorage.setItem(CUSTOM_LINES_STORAGE_KEY, JSON.stringify(lines));
+    const storageKey = scope ? `${CUSTOM_LINES_STORAGE_KEY}:${scope}` : CUSTOM_LINES_STORAGE_KEY;
+    localStorage.setItem(storageKey, JSON.stringify(lines));
   } catch {
     // Ignore quota or private-mode storage errors.
   }

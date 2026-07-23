@@ -17,6 +17,7 @@ export const PROFILES = [
   "operations", // Agent exploitation / Régulateur
   "supervisor", // Agent maîtrise / Dépôt / Ligne
   "merchant", // Commerçant
+  "network_admin", // Propriétaire / administrateur d'un réseau
   "platform_admin", // Équipe interne Aule
   "super_admin", // Super-administrateur (toutes permissions)
   "admin", // Compatibilité legacy : super-administrateur
@@ -46,6 +47,11 @@ export const PROFILE_META: Record<Profile, ProfileMeta> = {
     domain: "transport",
   },
   merchant: { key: "merchant", label: "Commerçant", domain: "commerce" },
+  network_admin: {
+    key: "network_admin",
+    label: "Administrateur réseau",
+    domain: "transport",
+  },
   platform_admin: {
     key: "platform_admin",
     label: "Administrateur Aule",
@@ -140,6 +146,14 @@ export const PROFILE_PERMISSIONS: Record<Profile, Permission[]> = {
     "commerce.reviews",
     "commerce.employees",
     "commerce.stats",
+  ],
+  network_admin: [
+    "ops.network_view",
+    "ops.network_manage",
+    "ops.fleet_tracking",
+    "ops.announcements",
+    "ops.incidents",
+    "ops.stats",
   ],
   platform_admin: [
     "admin.dashboard",

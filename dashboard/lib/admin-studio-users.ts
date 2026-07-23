@@ -3,6 +3,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { PROFILE_META, profilesFromStaffRole, type Profile } from "@/lib/access/profiles";
 import type { StaffRole } from "@/lib/types";
 import { studioUsers } from "@/components/admin/admin-studio-data";
+import { demoDataEnabled } from "@/lib/demo-mode";
 
 export type AdminStudioUser = {
   id: string;
@@ -209,7 +210,11 @@ async function loadAuthUsers() {
 export async function loadAdminStudioUsers(): Promise<AdminStudioUsersResult> {
   const hasSupabaseEnv = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   if (!hasSupabaseEnv) {
-    return { users: fallbackUsers, source: "demo", warning: "Supabase n'est pas configuré." };
+    return {
+      users: demoDataEnabled ? fallbackUsers : [],
+      source: demoDataEnabled ? "demo" : "supabase",
+      warning: "Supabase n'est pas configuré.",
+    };
   }
 
   const supabase = await getReadableClient();
@@ -234,8 +239,8 @@ export async function loadAdminStudioUsers(): Promise<AdminStudioUsersResult> {
 
   if (profilesRes.error) {
     return {
-      users: fallbackUsers,
-      source: "demo",
+      users: demoDataEnabled ? fallbackUsers : [],
+      source: demoDataEnabled ? "demo" : "supabase",
       warning: `Lecture Supabase impossible: ${profilesRes.error.message}`,
     };
   }
@@ -315,7 +320,11 @@ export async function loadAdminStudioUsers(): Promise<AdminStudioUsersResult> {
 
   const mergedUsers = [...users, ...driverOnlyUsers];
   if (!mergedUsers.length) {
-    return { users: fallbackUsers, source: "demo", warning: "Aucun utilisateur trouvé dans user_profiles ou drivers." };
+    return {
+      users: demoDataEnabled ? fallbackUsers : [],
+      source: demoDataEnabled ? "demo" : "supabase",
+      warning: "Aucun utilisateur trouvé dans user_profiles ou drivers.",
+    };
   }
 
   return {

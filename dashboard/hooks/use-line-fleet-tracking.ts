@@ -38,6 +38,7 @@ export function useLineFleetTracking(
   lineShortName: string,
   stopCount: number,
   focusVehicleId?: string | null,
+  allowDemo = false,
 ): { vehicles: RegulationVehicle[]; isLive: boolean } {
   const animRef = useRef<Map<string, AnimState>>(new Map());
   const demoRef = useRef<Map<string, AnimState>>(new Map());
@@ -129,7 +130,7 @@ export function useLineFleetTracking(
 
           next.push(regulationVehicleFromLineProgress(state));
         });
-      } else {
+      } else if (allowDemo) {
         if (demoRef.current.size === 0) {
           const demo = buildDemoVehicles(stopCount, lineShortName).filter(
             (vehicle) => !focusVehicleId || vehicle.id === focusVehicleId,
@@ -172,6 +173,8 @@ export function useLineFleetTracking(
 
           next.push(regulationVehicleFromLineProgress(state));
         });
+      } else {
+        demoRef.current.clear();
       }
 
       next.sort((a, b) => a.service.localeCompare(b.service, "fr", { numeric: true }));
@@ -181,7 +184,7 @@ export function useLineFleetTracking(
 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [stopCount, lineShortName, fleet.length, focusVehicleId]);
+  }, [stopCount, lineShortName, fleet.length, focusVehicleId, allowDemo]);
 
   useEffect(() => {
     if (fleet.length > 0) demoRef.current.clear();

@@ -1,3 +1,5 @@
+import { demoDataEnabled } from "@/lib/demo-mode";
+
 export type TravelerCommentCategory =
   | "incident"
   | "delay"
@@ -185,6 +187,7 @@ export function travelerCommentsForVehicle(
   stopName?: string,
   currentDelayMin = 0,
 ): TravelerComment[] {
+  if (!demoDataEnabled) return [];
   const stop = stopName ?? "Bd de Boulon";
   return demoComments(lineName, vehicleService, stop, currentDelayMin)
     .filter((comment) => isTravelerCommentActive(comment))

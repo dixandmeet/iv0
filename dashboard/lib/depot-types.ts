@@ -16,7 +16,18 @@ export interface DepotLine {
   destination: string;
   lineColor: string;
   stops: string[];
+  /** Parcours commerciaux distincts quand la ligne possède plusieurs branches. */
+  variants?: Array<{
+    id: string;
+    destination: string;
+    stops: string[];
+  }>;
   depotCode: string;
+}
+
+export function depotLineStopCount(line: DepotLine): number {
+  if (!line.variants?.length) return line.stops.length;
+  return new Set(line.variants.flatMap((variant) => variant.stops)).size;
 }
 
 export function makeLineId(depotCode: string, routeId: string): string {

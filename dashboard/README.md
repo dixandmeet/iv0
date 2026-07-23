@@ -4,7 +4,7 @@ Interface Web d'exploitation pour régulateurs, superviseurs MSR et administrate
 
 ## Stack
 
-- **Next.js 15** (App Router)
+- **Next.js 16** (App Router)
 - **Supabase** (auth + Realtime)
 - **MapLibre GL JS** (cartographie open source)
 
@@ -31,6 +31,10 @@ npm run dev:clean
 |----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | URL du projet Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clé anon / publishable |
+| `SUPABASE_SERVICE_ROLE_KEY` | Routes serveur d'administration et invitations |
+| `GOOGLE_MAPS_API_KEY` | Autocomplétion d’adresses Google Places (repli OSM sans clé) |
+| `NAOLIB_SIRI_API_KEY` | Optionnel : perturbations opérateur SIRI Situation Exchange via Okina |
+| `NEXT_PUBLIC_ENABLE_DEMO_DATA` | Démo locale uniquement ; toujours désactivée en production |
 
 ## Accès
 
@@ -57,7 +61,11 @@ WHERE id = '<uuid-auth-user>';
 
 ## Prérequis Supabase
 
-Appliquer les migrations `supabase/migrations/001` → `007` et activer Realtime sur `live_fleet_positions`, `network_incidents`, `msr_missions`, `staff_messages` et `passenger_announcements`.
+Appliquer les migrations Supabase dans l’ordre. Le planificateur horaire de la
+carte immersive nécessite en particulier `067_theoretical_fleet.sql`,
+`074_transit_routing_performance.sql` et `075_timetable_journey_planner.sql`.
+Activer Realtime sur `live_fleet_positions`, `network_incidents`, `msr_missions`,
+`staff_messages` et `passenger_announcements`.
 
 ### Données de démonstration (dev)
 

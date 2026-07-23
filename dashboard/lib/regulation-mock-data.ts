@@ -36,6 +36,8 @@ export interface RegulationVehicle {
 }
 
 export interface RegulationLine {
+  /** Brouillon serveur pour les lignes propres à un réseau. */
+  editorState?: import("@/lib/line-editor-types").LineEditorState | null;
   id: string;
   shortName: string;
   origin: string;
@@ -56,6 +58,10 @@ export interface RegulationLine {
   segmentQuality: Array<"on-time" | "light-delay" | "major-delay">;
   vehicles: RegulationVehicle[];
   lineColor: string;
+  /** Métadonnées du catalogue du réseau, absentes des anciens flux GTFS. */
+  lifecycleStatus?: "active" | "inactive" | "preparation" | "archived";
+  source?: "manual" | "gtfs";
+  updatedAt?: string;
 }
 
 export function formatDelayMinutes(delay: number): string {

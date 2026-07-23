@@ -14,6 +14,7 @@ import { StopDetailMap } from "@/components/stops/stop-detail-map";
 import { EMPTY_STOP_FORM, StopForm, stopToFormPayload } from "@/components/stops/stop-form";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/empty-state";
+import { useNetwork } from "@/components/network/network-provider";
 
 interface StopEditPageContentProps {
   stationId: string;
@@ -22,6 +23,7 @@ interface StopEditPageContentProps {
 
 export function StopEditPageContent({ stationId, stopId }: StopEditPageContentProps) {
   const router = useRouter();
+  const { canManage } = useNetwork();
   const { stop, lines, nearby, loading, error, refresh } = useStopDetail(stopId);
   const { updateStop, disableStop, submitting, error: actionError } = useStopActions();
   const [form, setForm] = useState<StopFormPayload>(EMPTY_STOP_FORM);
@@ -50,16 +52,24 @@ export function StopEditPageContent({ stationId, stopId }: StopEditPageContentPr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.code.trim()) return;
-    await updateStop(stopId, form);
-    setDirty(false);
-    setSaveMessage("Modifications enregistrées.");
-    await refresh();
+    try {
+      await updateStop(stopId, form);
+      setDirty(false);
+      setSaveMessage("Modifications enregistrées.");
+      await refresh();
+    } catch {
+      // Le hook expose l'erreur dans la bannière ; éviter une erreur runtime non interceptée.
+    }
   };
 
   const handleDisable = async () => {
     if (!confirm("Désactiver cet arrêt ?")) return;
-    await disableStop(stopId);
-    router.push(`/stations?station=${stationId}`);
+    try {
+      await disableStop(stopId);
+      router.push(`/stations?station=${stationId}`);
+    } catch {
+      // Le hook expose l'erreur dans la bannière ; rester sur la page courante.
+    }
   };
 
   const handleCancel = () => {
@@ -90,6 +100,23 @@ export function StopEditPageContent({ stationId, stopId }: StopEditPageContentPr
   }
 
   const displayName = stop.name ?? stop.station_name ?? stop.code;
+
+  if (!canManage) {
+    return (
+      <main className="dashboard-panel stops-page stops-edit-page">
+        <div className="stops-edit-empty stops-glass-card">
+          <h2>Accès en lecture seule</h2>
+          <p>
+            Vous pouvez consulter {displayName}, mais vous devez être administrateur du réseau
+            pour modifier cet arrêt.
+          </p>
+          <Button asChild variant="outline">
+            <Link href={`/stations?station=${stationId}`}>Retour aux arrêts</Link>
+          </Button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="dashboard-panel stops-page stops-edit-page">

@@ -17,6 +17,7 @@ import {
   isDepotRoute,
   makeLineId,
 } from "@/lib/depot-lines";
+import { depotLineStopCount } from "@/lib/depot-types";
 
 export interface RouteTimelinePoint {
   stopId: string;
@@ -136,8 +137,10 @@ export function isNavibusRoute(route: GtfsRoute): boolean {
   return label.includes("navibus") || label.includes("bateau") || label.includes("ferry");
 }
 
-function networkDepotCode(route: GtfsRoute): "TRAM" | "NAV" {
-  return isNavibusRoute(route) ? "NAV" : "TRAM";
+function networkDepotCode(route: GtfsRoute): "NETWORK" | "TRAM" | "NAV" {
+  if (isNavibusRoute(route)) return "NAV";
+  if (isTramRoute(route)) return "TRAM";
+  return "NETWORK";
 }
 
 function sortRegulationLines(lines: RegulationLine[]): RegulationLine[] {
@@ -407,8 +410,6 @@ export function buildRegulationLines(
     const tram = isTramRoute(route);
     const navibus = isNavibusRoute(route);
 
-    if (!depot && !tram && !navibus) continue;
-
     if (depot) {
       for (const depotLine of getDepotLinesForRoute(route.route_id)) {
         lines.push(
@@ -418,7 +419,7 @@ export function buildRegulationLines(
             depotCode: depotLine.depotCode,
             origin: depotLine.origin,
             destination: depotLine.destination,
-            stopCount: depotLine.stops.length,
+            stopCount: depotLineStopCount(depotLine),
             lineColor: depotLine.lineColor ?? lineColorFromRoute(route),
           }),
         );
@@ -432,7 +433,7 @@ export function buildRegulationLines(
         id: makeLineId(networkCode, route.route_id),
         routeId: route.route_id,
         depotCode: networkCode,
-        transportType: navibus ? "Navibus" : "Tramway",
+        transportType: navibus ? "Navibus" : tram ? "Tramway" : routeTypeLabel(route.route_type),
       }),
     );
   }

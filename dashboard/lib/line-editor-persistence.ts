@@ -97,7 +97,11 @@ export function regulationStopsFromEditor(
       index === stopPoints.length - 1;
 
     return {
-      stopId: previous?.stopId ?? `${state.id}-stop-${index}`,
+      stopId:
+        point.stop?.code?.trim() ||
+        previous?.stopId ||
+        `${state.id}-stop-${index}`,
+      stationId: previous?.stationId,
       name: point.stop?.name?.trim() || `Arrêt ${index + 1}`,
       theoreticalTime: previous?.theoreticalTime ?? "—",
       isTerminus,

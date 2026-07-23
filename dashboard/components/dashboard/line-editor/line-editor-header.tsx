@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  AlertCircle,
   ArrowLeft,
   BookOpen,
   Bus,
   Check,
   Clock,
   MapPin,
+  Loader2,
   Redo2,
   Route,
   Send,
@@ -25,7 +27,6 @@ import {
   type LineVoice,
 } from "@/lib/line-editor-types";
 import { formatDistance } from "@/lib/line-editor-utils";
-import { collectTerminiLabels, getVoiceBranches } from "@/lib/line-editor-branches";
 
 interface LineEditorHeaderProps {
   state: LineEditorState;
@@ -34,6 +35,8 @@ interface LineEditorHeaderProps {
   canUndo: boolean;
   canRedo: boolean;
   lastSavedAt: number | null;
+  saveStatus: "idle" | "saving" | "saved" | "error";
+  saveError: string | null;
   onUndo: () => void;
   onRedo: () => void;
   onPublish: () => void;
@@ -70,6 +73,8 @@ export function LineEditorHeader({
   canUndo,
   canRedo,
   lastSavedAt,
+  saveStatus,
+  saveError,
   onUndo,
   onRedo,
   onPublish,
@@ -115,6 +120,7 @@ export function LineEditorHeader({
             </label>
             <select
               className="line-editor-select"
+              aria-label="Mode de transport"
               value={state.transportMode}
               onChange={(e) =>
                 onMetaChange({
@@ -131,7 +137,14 @@ export function LineEditorHeader({
               )}
             </select>
             <select
-              className="line-editor-select"
+              className="line-editor-select line-editor-status-select"
+              aria-label="Statut de publication"
+              title="Changer le statut de publication"
+              style={{
+                color: LINE_STATUS_COLORS[state.status],
+                borderColor: `${LINE_STATUS_COLORS[state.status]}55`,
+                background: `${LINE_STATUS_COLORS[state.status]}16`,
+              }}
               value={state.status}
               onChange={(e) =>
                 onMetaChange({ status: e.target.value as EditorLineStatus })
@@ -145,16 +158,6 @@ export function LineEditorHeader({
                 ),
               )}
             </select>
-            <span
-              className="line-editor-status-pill"
-              style={{
-                color: LINE_STATUS_COLORS[state.status],
-                borderColor: `${LINE_STATUS_COLORS[state.status]}50`,
-                background: `${LINE_STATUS_COLORS[state.status]}18`,
-              }}
-            >
-              {LINE_STATUS_LABELS[state.status]}
-            </span>
           </div>
         </div>
       </div>
@@ -241,15 +244,45 @@ export function LineEditorHeader({
         >
           <Redo2 className="h-4 w-4" />
         </button>
-        {lastSavedAt != null && (
+        {saveStatus === "saving" && (
+          <span className="line-editor-autosave-pill">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Enregistrement…
+          </span>
+        )}
+        {saveStatus === "error" && (
+          <span
+            className="line-editor-autosave-pill line-editor-autosave-pill--error"
+            title={saveError ?? "Impossible d’enregistrer les modifications"}
+            role="alert"
+          >
+            <AlertCircle className="h-3.5 w-3.5" />
+            Non enregistré
+          </span>
+        )}
+        {saveStatus === "saved" && lastSavedAt != null && (
           <span className="line-editor-autosave-pill">
             <Check className="h-3.5 w-3.5" />
             Enregistré
           </span>
         )}
-        <button type="button" className="line-editor-btn-primary" onClick={onPublish}>
-          <Send className="h-4 w-4" />
-          Publier la ligne
+        <button
+          type="button"
+          className="line-editor-btn-primary"
+          onClick={onPublish}
+          disabled={state.status === "published"}
+          title={
+            state.status === "published"
+              ? "La ligne est déjà publiée"
+              : "Passer directement le statut à Publiée"
+          }
+        >
+          {state.status === "published" ? (
+            <Check className="h-4 w-4" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+          {state.status === "published" ? "Ligne publiée" : "Publier la ligne"}
         </button>
       </div>
     </header>

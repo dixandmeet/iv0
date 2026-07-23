@@ -40,10 +40,12 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/alertes") ||
     request.nextUrl.pathname.startsWith("/info-voyageur") ||
     request.nextUrl.pathname.startsWith("/reporting") ||
+    request.nextUrl.pathname.startsWith("/compte") ||
     request.nextUrl.pathname.startsWith("/stations") ||
     request.nextUrl.pathname.startsWith("/arrets");
+  const isNetworkConfiguration = request.nextUrl.pathname.startsWith("/configuration/reseau");
 
-  if (!user && isProtected) {
+  if (!user && (isProtected || isNetworkConfiguration)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -63,11 +65,30 @@ export async function proxy(request: NextRequest) {
       .maybeSingle();
 
     const role = (profile?.role as StaffRole | undefined) ?? "passenger";
-    if (!WEB_STAFF_ROLES.includes(role)) {
+    const { data: managedNetwork } = await supabase
+      .from("network_memberships")
+      .select("network_id")
+      .eq("user_id", user.id)
+      .in("membership_role", ["owner", "admin"])
+      .limit(1)
+      .maybeSingle();
+    const hasLegacyCustomNetwork = Boolean(user.user_metadata?.onboarding_network_request);
+    if (!WEB_STAFF_ROLES.includes(role) && !managedNetwork && !hasLegacyCustomNetwork) {
+      const onboardingProfile =
+        typeof user.user_metadata?.onboarding_profile === "string"
+          ? user.user_metadata.onboarding_profile
+          : null;
       await supabase.auth.signOut();
       const url = request.nextUrl.clone();
       url.pathname = "/login";
-      url.searchParams.set("error", "unauthorized");
+      url.searchParams.set(
+        "error",
+        onboardingProfile === "conducteur" || onboardingProfile === "controleur"
+          ? "mobile_only"
+          : user.user_metadata?.requested_access === "pro"
+            ? "access_pending"
+            : "unauthorized",
+      );
       return NextResponse.redirect(url);
     }
   }
@@ -85,8 +106,10 @@ export const config = {
     "/alertes/:path*",
     "/info-voyageur/:path*",
     "/reporting/:path*",
+    "/compte/:path*",
     "/stations/:path*",
     "/arrets/:path*",
+    "/configuration/reseau/:path*",
     "/login",
   ],
 };

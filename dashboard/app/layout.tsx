@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://aule.fr"),
+  metadataBase: new URL("https://www.aule.fr"),
   title: {
     default: "Aule — SAEIV pour voyageurs et professionnels",
     template: "%s | Aule",

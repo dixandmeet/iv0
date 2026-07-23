@@ -6,13 +6,18 @@ import maplibregl, {
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import type { FilterKey } from "./filters-panel";
 import {
   normalizeHeading,
   shortestHeadingDelta,
   type MapVehicle,
 } from "@/lib/carte-immersive/vehicles";
 import { CITY_CENTER, type VehicleType } from "@/lib/carte-immersive/data";
+import {
+  getVehicleLightIntensity,
+  getVehicleShadowStyle,
+  getVehicleTimeColor,
+  type VehicleShadowAtmosphere,
+} from "@/lib/carte-immersive/vehicle-time-palette";
 
 const LAYER_ID = "immersive-vehicle-models";
 const LOD_SOURCE_ID = "immersive-vehicle-lod-source";
@@ -20,11 +25,12 @@ const LOD_LAYER_ID = "immersive-vehicle-lod-layer";
 const MAX_INSTANCES = 256;
 const STALE_AFTER_MS = 30_000;
 const EXPIRE_AFTER_MS = 120_000;
-const SNAP_DISTANCE_METERS = 300;
+const SNAP_DISTANCE_METERS = 2_000;
 const INTERPOLATION_MS = 5_000;
+const MAX_INTERPOLATION_MS = 20_000;
+const TIME_PALETTE_REFRESH_MS = 30_000;
 
-type FocusMode = "ride" | "shop" | null;
-type VehicleFilter = Exclude<FilterKey, "shop">;
+type VehicleFilter = VehicleType;
 
 type MotionState = {
   vehicle: MapVehicle;
@@ -58,27 +64,23 @@ type ControllerOptions = {
 
 const MODEL_CONFIG: Record<
   VehicleType,
-  { asset: string; dimensions: [number, number, number]; color: string }
+  { asset: string; dimensions: [number, number, number] }
 > = {
   bus: {
     asset: "/models/vehicles/bus.glb",
     dimensions: [2.55, 3.2, 11],
-    color: "#566c66",
   },
   tram: {
     asset: "/models/vehicles/tram.glb",
     dimensions: [2.65, 3.35, 28],
-    color: "#22b99d",
   },
   vtc: {
     asset: "/models/vehicles/car.glb",
     dimensions: [1.9, 1.55, 4.6],
-    color: "#222c29",
   },
   taxi: {
     asset: "/models/vehicles/car.glb",
     dimensions: [1.9, 1.55, 4.6],
-    color: "#f2a93b",
   },
 };
 
@@ -92,16 +94,10 @@ function distanceMeters(a: MapVehicle, b: MapVehicle) {
   return Math.hypot((a.lat - b.lat) * latScale, (a.lng - b.lng) * lngScale);
 }
 
-function modelBrightness(vehicle: MapVehicle, selected: boolean, focus: FocusMode) {
+function modelBrightness(vehicle: MapVehicle, selected: boolean) {
   const age = vehicle.recordedAt ? Date.now() - new Date(vehicle.recordedAt).getTime() : 0;
   const staleFactor = age > STALE_AFTER_MS ? 0.48 : 1;
-  const focusFactor =
-    focus === "shop"
-      ? 0.24
-      : focus === "ride" && vehicle.type !== "vtc" && vehicle.type !== "taxi"
-        ? 0.24
-        : 1;
-  return clamp(staleFactor * focusFactor * (selected ? 1.18 : 1), 0.18, 1.18);
+  return clamp(staleFactor * (selected ? 1.34 : 1.06), 0.24, 1.34);
 }
 
 function roundedRect(
@@ -130,7 +126,18 @@ function roundedRect(
   context.closePath();
 }
 
-function createLodIcon(type: VehicleType, color: string): ImageData {
+function colorWithOpacity(color: string, opacity: number) {
+  const alpha = Math.round(clamp(opacity, 0, 1) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `${color}${alpha}`;
+}
+
+function createLodIcon(
+  type: VehicleType,
+  color: string,
+  shadow = getVehicleShadowStyle(),
+): ImageData {
   const canvas = document.createElement("canvas");
   canvas.width = 64;
   canvas.height = 64;
@@ -138,7 +145,10 @@ function createLodIcon(type: VehicleType, color: string): ImageData {
   if (!context) return new ImageData(64, 64);
 
   context.clearRect(0, 0, 64, 64);
-  context.shadowColor = "rgba(0,0,0,.42)";
+  context.shadowColor = colorWithOpacity(
+    shadow.color,
+    Math.min(0.42, shadow.opacity * 1.7),
+  );
   context.shadowBlur = 8;
   context.shadowOffsetY = 3;
   context.fillStyle = color;
@@ -184,17 +194,17 @@ function bodyMaterial(type: VehicleType, partName: string) {
   const isLight = /light/.test(lower);
 
   const color = isGlass
-    ? "#10211f"
+    ? "#29443f"
     : isDark
-      ? "#171d1b"
+      ? "#343f3c"
       : isLight
         ? "#f8e7b0"
-        : MODEL_CONFIG[type].color;
+        : getVehicleTimeColor(type);
 
   const emissive = isLight
     ? new THREE.Color("#5e4a20")
-    : new THREE.Color(color).multiplyScalar(isGlass || isDark ? 0.06 : 0.16);
-  return new THREE.MeshStandardMaterial({
+    : new THREE.Color(color).multiplyScalar(isGlass || isDark ? 0.11 : 0.26);
+  const material = new THREE.MeshStandardMaterial({
     color,
     roughness: isGlass ? 0.18 : isDark ? 0.7 : 0.38,
     metalness: isGlass ? 0.55 : isDark ? 0.1 : 0.22,
@@ -202,6 +212,14 @@ function bodyMaterial(type: VehicleType, partName: string) {
     emissiveIntensity: isLight ? 0.45 : 1,
     vertexColors: true,
   });
+  material.userData.vehiclePart = isGlass
+    ? "windows"
+    : isDark
+      ? "details"
+      : isLight
+        ? "lights"
+        : "body";
+  return material;
 }
 
 function standardizeTemplate(
@@ -322,11 +340,12 @@ export class Vehicle3DLayer implements CustomLayerInterface {
   };
   private readonly onSelect: (id: string) => void;
   private selectedId: string | null = null;
-  private focus: FocusMode = null;
   private view3D = true;
   private ready = false;
   private failed = false;
   private lodRefreshAt = 0;
+  private timePaletteRefreshAt = 0;
+  private atmosphere: VehicleShadowAtmosphere | null = null;
   private ring: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial> | null = null;
   private disposed = false;
 
@@ -351,9 +370,9 @@ export class Vehicle3DLayer implements CustomLayerInterface {
     this.renderer.autoClear = false;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.14;
 
-    this.scene.add(new THREE.HemisphereLight("#d9fff7", "#07100e", 1.65));
+    this.scene.add(new THREE.HemisphereLight("#e9fffa", "#29453e", 1.8));
     const key = new THREE.DirectionalLight("#fff5df", 2.4);
     key.position.set(-30, 45, -20);
     this.scene.add(key);
@@ -406,6 +425,7 @@ export class Vehicle3DLayer implements CustomLayerInterface {
       this.batches.set("tram", this.createBatch("tram", templates.tram));
       this.batches.set("vtc", this.createBatch("vtc", templates.car));
       this.batches.set("taxi", this.createBatch("taxi", templates.car));
+      this.updateTimePalette(true);
 
       this.ring = new THREE.Mesh(
         new THREE.RingGeometry(2.4, 3.05, 48),
@@ -449,12 +469,13 @@ export class Vehicle3DLayer implements CustomLayerInterface {
       32,
     );
     shadowGeometry.rotateX(-Math.PI / 2);
+    const shadowStyle = getVehicleShadowStyle(this.atmosphere);
     const shadows = new THREE.InstancedMesh(
       shadowGeometry,
       new THREE.MeshBasicMaterial({
-        color: "#000000",
+        color: shadowStyle.color,
         transparent: true,
-        opacity: 0.22,
+        opacity: shadowStyle.opacity,
         depthWrite: false,
       }),
       MAX_INSTANCES,
@@ -473,9 +494,17 @@ export class Vehicle3DLayer implements CustomLayerInterface {
     for (const type of ["bus", "tram", "vtc", "taxi"] as VehicleType[]) {
       const imageId = `immersive-vehicle-${type}`;
       if (!map.hasImage(imageId)) {
-        map.addImage(imageId, createLodIcon(type, MODEL_CONFIG[type].color), {
+        map.addImage(
+          imageId,
+          createLodIcon(
+            type,
+            getVehicleTimeColor(type),
+            getVehicleShadowStyle(this.atmosphere),
+          ),
+          {
           pixelRatio: 2,
-        });
+          },
+        );
       }
     }
 
@@ -548,7 +577,8 @@ export class Vehicle3DLayer implements CustomLayerInterface {
       }
 
       const pose = this.currentPose(existing, now);
-      const snap = distanceMeters(existing.vehicle, vehicle) > SNAP_DISTANCE_METERS;
+      const traveledMeters = distanceMeters(existing.vehicle, vehicle);
+      const snap = traveledMeters > SNAP_DISTANCE_METERS;
       existing.vehicle = vehicle;
       existing.startLat = snap ? vehicle.lat : pose.lat;
       existing.startLng = snap ? vehicle.lng : pose.lng;
@@ -557,7 +587,16 @@ export class Vehicle3DLayer implements CustomLayerInterface {
       existing.targetLng = vehicle.lng;
       existing.targetHeading = vehicle.heading;
       existing.startedAt = now;
-      existing.durationMs = vehicle.mode === "live" && !snap ? INTERPOLATION_MS : 0;
+      if (vehicle.mode === "live" && !snap) {
+        const maxVisualSpeedMps = vehicle.type === "tram" ? 20 : vehicle.type === "bus" ? 16 : 22;
+        const reportedSpeedMps = clamp(vehicle.speedMps ?? maxVisualSpeedMps, 2, maxVisualSpeedMps);
+        existing.durationMs = Math.min(
+          MAX_INTERPOLATION_MS,
+          Math.max(INTERPOLATION_MS, (traveledMeters / reportedSpeedMps) * 1_000),
+        );
+      } else {
+        existing.durationMs = 0;
+      }
     }
 
     for (const [id, motion] of this.motions) {
@@ -593,12 +632,6 @@ export class Vehicle3DLayer implements CustomLayerInterface {
     this.map?.triggerRepaint();
   }
 
-  setFocus(focus: FocusMode) {
-    this.focus = focus;
-    this.refreshLodSource(true);
-    this.map?.triggerRepaint();
-  }
-
   setSelected(id: string | null) {
     this.selectedId = id;
     this.moveToTop();
@@ -610,6 +643,12 @@ export class Vehicle3DLayer implements CustomLayerInterface {
     this.view3D = enabled;
     this.updateRenderMode();
     this.moveToTop();
+  }
+
+  setAtmosphere(atmosphere: VehicleShadowAtmosphere | null) {
+    this.atmosphere = atmosphere;
+    this.updateTimePalette(true);
+    this.map?.triggerRepaint();
   }
 
   moveToTop() {
@@ -646,7 +685,7 @@ export class Vehicle3DLayer implements CustomLayerInterface {
       const age = motion.vehicle.recordedAt
         ? now - new Date(motion.vehicle.recordedAt).getTime()
         : 0;
-      if (age > EXPIRE_AFTER_MS) {
+      if (motion.vehicle.mode !== "preview" && age > EXPIRE_AFTER_MS) {
         this.motions.delete(id);
         continue;
       }
@@ -695,7 +734,7 @@ export class Vehicle3DLayer implements CustomLayerInterface {
           type: motion.vehicle.type,
           heading: pose.heading,
           selected,
-          opacity: modelBrightness(motion.vehicle, selected, this.focus),
+          opacity: modelBrightness(motion.vehicle, selected),
         },
         geometry: {
           type: "Point" as const,
@@ -704,6 +743,46 @@ export class Vehicle3DLayer implements CustomLayerInterface {
       };
     });
     source.setData({ type: "FeatureCollection", features });
+  }
+
+  private updateTimePalette(force = false) {
+    const now = Date.now();
+    if (!force && now - this.timePaletteRefreshAt < TIME_PALETTE_REFRESH_MS) {
+      return;
+    }
+    this.timePaletteRefreshAt = now;
+    const date = new Date(now);
+    const lightIntensity = getVehicleLightIntensity(date);
+    const shadow = getVehicleShadowStyle(this.atmosphere, date);
+
+    for (const type of ["bus", "tram", "vtc", "taxi"] as VehicleType[]) {
+      const timeColor = getVehicleTimeColor(type, date);
+      const batch = this.batches.get(type);
+      if (batch) {
+        for (const part of batch.parts) {
+          const category = part.material.userData.vehiclePart;
+          if (category === "body") {
+            part.material.color.set(timeColor);
+            part.material.emissive.set(timeColor).multiplyScalar(0.26);
+          } else if (category === "lights") {
+            part.material.emissiveIntensity = lightIntensity;
+          }
+          part.material.needsUpdate = true;
+        }
+        batch.shadows.material.color.set(shadow.color);
+        batch.shadows.material.opacity = shadow.opacity;
+        batch.shadows.material.needsUpdate = true;
+      }
+
+      const imageId = `immersive-vehicle-${type}`;
+      if (this.map?.hasImage(imageId)) {
+        try {
+          this.map.updateImage(imageId, createLodIcon(type, timeColor, shadow));
+        } catch {
+          // Le style peut être rechargé pendant la mise à jour horaire.
+        }
+      }
+    }
   }
 
   private updateInstances() {
@@ -754,11 +833,7 @@ export class Vehicle3DLayer implements CustomLayerInterface {
         scale.setScalar(selected ? emphasis * 1.28 : emphasis);
         matrix.compose(position, rotation, scale);
 
-        const brightness = modelBrightness(
-          motion.vehicle,
-          selected,
-          this.focus,
-        );
+        const brightness = modelBrightness(motion.vehicle, selected);
         color.setRGB(brightness, brightness, brightness);
         for (const part of batch.parts) {
           part.setMatrixAt(index, matrix);
@@ -799,7 +874,9 @@ export class Vehicle3DLayer implements CustomLayerInterface {
     _gl: WebGLRenderingContext | WebGL2RenderingContext,
     options: CustomRenderMethodInput,
   ) {
-    if (!this.renderer || !this.map || !this.use3DModels()) return;
+    if (!this.renderer || !this.map) return;
+    this.updateTimePalette();
+    if (!this.use3DModels()) return;
 
     this.updateInstances();
     const scale = this.anchor.meterInMercatorCoordinateUnits();

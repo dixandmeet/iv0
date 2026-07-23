@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { DriverSession } from "@/lib/types";
 import { isRelationshipError } from "@/lib/supabase-errors";
+import { useNetwork } from "@/components/network/network-provider";
 
 export function useDriversData() {
+  const { network, isPilotNetwork, schemaReady } = useNetwork();
   const [drivers, setDrivers] = useState<DriverSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,20 +17,31 @@ export function useDriversData() {
     const supabase = createClient();
     setError(null);
 
-    let result = await supabase
+    if (!schemaReady && !isPilotNetwork) {
+      setDrivers([]);
+      setLastUpdated(new Date());
+      setLoading(false);
+      return;
+    }
+
+    let primaryQuery = supabase
       .from("driver_sessions")
       .select("*, driver:user_profiles(display_name, role)")
       .in("status", ["detecting", "active", "paused"])
       .order("started_at", { ascending: false })
       .limit(50);
+    if (schemaReady) primaryQuery = primaryQuery.eq("network_id", network.id);
+    let result = await primaryQuery;
 
     if (result.error && isRelationshipError(result.error.message)) {
-      result = await supabase
+      let fallbackQuery = supabase
         .from("driver_sessions")
         .select("*")
         .in("status", ["detecting", "active", "paused"])
         .order("started_at", { ascending: false })
         .limit(50);
+      if (schemaReady) fallbackQuery = fallbackQuery.eq("network_id", network.id);
+      result = await fallbackQuery;
     }
 
     if (result.error) {
@@ -38,7 +51,7 @@ export function useDriversData() {
       setLastUpdated(new Date());
     }
     setLoading(false);
-  }, []);
+  }, [isPilotNetwork, network.id, schemaReady]);
 
   useEffect(() => {
     loadData();
@@ -47,7 +60,9 @@ export function useDriversData() {
       .channel("drivers-page")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "driver_sessions" },
+        schemaReady
+          ? { event: "*", schema: "public", table: "driver_sessions", filter: `network_id=eq.${network.id}` }
+          : { event: "*", schema: "public", table: "driver_sessions" },
         () => loadData(),
       )
       .subscribe();

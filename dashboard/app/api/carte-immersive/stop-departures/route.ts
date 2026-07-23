@@ -1,109 +1,65 @@
 import { NextResponse } from "next/server";
+import { fetchNaolibDepartures } from "@/lib/carte-immersive/naolib-realtime";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-type LogicalStopFeature = {
-  properties?: { id?: string | number; name?: string };
-};
+const FALLBACK_LINE_COLORS = [
+  "#2563eb",
+  "#dc2626",
+  "#7c3aed",
+  "#0891b2",
+  "#ca8a04",
+  "#db2777",
+  "#0f766e",
+  "#ea580c",
+];
+const lineColorCache = new Map<string, string>();
 
-type LogicalStopsGeoJson = { features?: LogicalStopFeature[] };
-
-type NaolibHour = {
-  time?: string;
-  is_rt?: boolean;
-  destination_label?: string;
-};
-
-type NaolibDirection = {
-  direction?: string;
-  direction_label?: string;
-  hours?: NaolibHour[];
-};
-
-type NaolibStopDetail = {
-  departures?: Record<string, Record<string, NaolibDirection>>;
-};
-
-export type RealtimeStopPassage = {
-  id: string;
-  line: string;
-  direction: string;
-  destination: string;
-  expectedAt: string;
-  waitMinutes: number;
-  realtime: boolean;
-};
-
-const NAOLIB_PLAN_BASE = "https://plan.naolib.fr";
-
-function normalize(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+function normalizedColor(value: string | null | undefined): string | null {
+  const hex = value?.trim().replace(/^#/, "");
+  return hex && /^[0-9a-f]{6}$/i.test(hex) ? `#${hex.toLowerCase()}` : null;
 }
 
-function parisClockMinutes(date: Date): number {
-  const parts = new Intl.DateTimeFormat("fr-FR", {
-    timeZone: "Europe/Paris",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
-  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
-  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
-  return hour * 60 + minute;
+function fallbackLineColor(line: string): string {
+  let hash = 0;
+  for (const character of line) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+  return FALLBACK_LINE_COLORS[hash % FALLBACK_LINE_COLORS.length];
 }
 
-function waitForTime(time: string, now: Date): number | null {
-  const match = time.match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const targetMinutes = Number(match[1]) * 60 + Number(match[2]);
-  let waitMinutes = targetMinutes - parisClockMinutes(now);
-  if (waitMinutes < -120) waitMinutes += 24 * 60;
-  if (waitMinutes < 0 || waitMinutes > 180) return null;
-  return waitMinutes;
-}
-
-async function resolveLogicalStopId(stopName: string): Promise<string | null> {
-  const response = await fetch(`${NAOLIB_PLAN_BASE}/map/logical_stops.geojson`, {
-    next: { revalidate: 86_400 },
-  });
-  if (!response.ok) throw new Error(`Catalogue Naolib ${response.status}`);
-  const data = (await response.json()) as LogicalStopsGeoJson;
-  const normalizedName = normalize(stopName);
-  const feature = data.features?.find(
-    (item) => normalize(item.properties?.name ?? "") === normalizedName,
+async function colorsForLines(lines: string[]): Promise<Map<string, string>> {
+  const uniqueLines = [...new Set(lines.filter(Boolean))];
+  const colors = new Map(
+    uniqueLines.flatMap((line) => {
+      const color = lineColorCache.get(line);
+      return color ? [[line, color] as const] : [];
+    }),
   );
-  const id = feature?.properties?.id;
-  return id == null ? null : String(id);
-}
+  const missingLines = uniqueLines.filter((line) => !colors.has(line));
+  if (!missingLines.length) return colors;
 
-function normalizeDepartures(detail: NaolibStopDetail): RealtimeStopPassage[] {
-  const now = new Date();
-  const passages: RealtimeStopPassage[] = [];
+  const supabase = createAdminClient();
+  if (!supabase) return colors;
+  const { data, error } = await supabase
+    .from("gtfs_routes")
+    .select("route_id, route_short_name, route_color")
+    .in("route_short_name", missingLines);
+  if (error) return colors;
 
-  for (const [lineKey, directions] of Object.entries(detail.departures ?? {})) {
-    for (const [directionKey, direction] of Object.entries(directions ?? {})) {
-      for (const [index, hour] of (direction.hours ?? []).entries()) {
-        if (!hour.time) continue;
-        const waitMinutes = waitForTime(hour.time, now);
-        if (waitMinutes == null) continue;
-        passages.push({
-          id: `${lineKey}-${directionKey}-${hour.time}-${index}`,
-          line: lineKey,
-          direction: direction.direction || direction.direction_label || "Direction non renseignée",
-          destination:
-            hour.destination_label || direction.direction_label || direction.direction || "Destination",
-          expectedAt: new Date(now.getTime() + waitMinutes * 60_000).toISOString(),
-          waitMinutes,
-          realtime: Boolean(hour.is_rt),
-        });
-      }
+  for (const line of missingLines) {
+    const matches = (data ?? []).filter(
+      (route) => String(route.route_short_name ?? "") === line,
+    );
+    const preferred =
+      matches.find((route) => String(route.route_id ?? "") === line) ??
+      matches.find((route) => normalizedColor(route.route_color));
+    const color = normalizedColor(preferred?.route_color);
+    if (color) {
+      colors.set(line, color);
+      lineColorCache.set(line, color);
     }
   }
-
-  return passages.sort((a, b) => a.waitMinutes - b.waitMinutes);
+  return colors;
 }
 
 export async function GET(request: Request) {
@@ -114,18 +70,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const logicalStopId = await resolveLogicalStopId(stopName);
-    if (!logicalStopId) {
-      return NextResponse.json({ error: "Arrêt Naolib introuvable" }, { status: 404 });
-    }
-
-    const response = await fetch(
-      `${NAOLIB_PLAN_BASE}/api/stop/logical/${encodeURIComponent(logicalStopId)}`,
-      { cache: "no-store", signal: AbortSignal.timeout(8_000) },
-    );
-    if (!response.ok) throw new Error(`Horaires Naolib ${response.status}`);
-    const detail = (await response.json()) as NaolibStopDetail;
-    const passages = normalizeDepartures(detail);
+    const { stopId: logicalStopId, passages } = await fetchNaolibDepartures(stopName);
 
     if (!passages.length) {
       return NextResponse.json(
@@ -134,11 +79,21 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({
-      stopId: logicalStopId,
-      passages,
-      updatedAt: new Date().toISOString(),
-    });
+    const lineColors = await colorsForLines(passages.map((passage) => passage.line));
+    return NextResponse.json(
+      {
+        stopId: logicalStopId,
+        passages: passages.map((passage) => ({
+          ...passage,
+          lineColor:
+            lineColors.get(passage.line) ?? fallbackLineColor(passage.line),
+        })),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        headers: { "Cache-Control": "no-store" },
+      },
+    );
   } catch {
     return NextResponse.json(
       { error: "Service temps réel Naolib momentanément indisponible" },

@@ -1,277 +1,120 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowRight, BusFront, Plus } from "lucide-react";
 import { ErrorBanner } from "@/components/dashboard/error-banner";
 import { RegulationKpiBar } from "@/components/dashboard/regulation-kpi-bar";
 import { LinesPanel } from "@/components/dashboard/lines-panel";
-import { LineDetailHeader } from "@/components/dashboard/line-detail-header";
-import { LineInfoEditModal } from "@/components/dashboard/line-info-edit-modal";
-import { OperationalTimeline } from "@/components/dashboard/operational-timeline";
 import { TimelineLegend } from "@/components/dashboard/timeline-legend";
-import { LineEditorWorkspace } from "@/components/dashboard/line-editor/line-editor-workspace";
 import { useRegulationDashboard } from "@/hooks/use-regulation-dashboard";
 import { useCustomRegulationLines } from "@/hooks/use-custom-regulation-lines";
-import { applyEditedStops } from "@/lib/regulation-stop-edits";
-import {
-  applyLineInfoUpdate,
-  isCustomRegulationLine,
-  loadLineInfoOverrides,
-  saveLineInfoOverrides,
-  type NewLineInput,
-} from "@/lib/regulation-custom-line";
-import {
-  regulationStopsFromEditor,
-  saveLineEditorDraft,
-} from "@/lib/line-editor-persistence";
-import type { LineEditorState } from "@/lib/line-editor-types";
-import type { RegulationLine, RegulationStop } from "@/lib/regulation-mock-data";
+import { useNetwork } from "@/components/network/network-provider";
 
 export function OperationsDashboard() {
-  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
-  const { customLines, ready: customLinesReady, addLine, deleteLine, updateLineStops, updateLineFromEditor, updateLineInfo } =
-    useCustomRegulationLines();
-  const [editedStopsByLine, setEditedStopsByLine] = useState<
-    Record<string, RegulationStop[]>
-  >({});
-  const [lineInfoOverrides, setLineInfoOverrides] = useState<
-    Record<string, NewLineInput>
-  >({});
-  const [lineInfoEditOpen, setLineInfoEditOpen] = useState(false);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [selectedVariantByLine, setSelectedVariantByLine] = useState<
-    Record<string, string>
-  >({});
-
+  const router = useRouter();
+  const { network, canManage } = useNetwork();
+  const {
+    customLines,
+    ready: customLinesReady,
+    deleteLine,
+  } = useCustomRegulationLines();
   const {
     lines: networkLines,
-    selectedLine: networkSelectedLine,
-    fleetOnRoute,
-    topology,
-    timelineStops,
     loading,
-    timelineLoading,
     error,
     lastUpdated,
     refresh,
     kpis,
     alerts,
-  } = useRegulationDashboard(selectedLineId, selectedVariantByLine);
+  } = useRegulationDashboard(null);
 
   const lines = useMemo(
     () => [...customLines, ...networkLines],
     [customLines, networkLines],
   );
 
-  const defaultLineId = useMemo(
-    () =>
-      lines.find((line) => line.vehicleCount > 0)?.id ??
-      lines[0]?.id ??
-      null,
-    [lines],
-  );
-
-  useEffect(() => {
-    setLineInfoOverrides(loadLineInfoOverrides());
-  }, []);
-
-  useEffect(() => {
-    if (selectedLineId == null && defaultLineId) {
-      setSelectedLineId(defaultLineId);
-    }
-  }, [selectedLineId, defaultLineId]);
-
-  const activeLineId = selectedLineId ?? defaultLineId;
-
-  const selectedLine = useMemo((): RegulationLine | null => {
-    const custom = customLines.find((line) => line.id === activeLineId);
-    if (custom) return custom;
-    return networkSelectedLine;
-  }, [customLines, activeLineId, networkSelectedLine]);
-
-  const handleAddLine = useCallback(
-    (input: NewLineInput) => {
-      const line = addLine(input);
-      setSelectedLineId(line.id);
-    },
-    [addLine],
-  );
-
   const handleDeleteLine = useCallback(
     (lineId: string) => {
-      deleteLine(lineId);
-      setEditedStopsByLine((prev) => {
-        const next = { ...prev };
-        delete next[lineId];
-        return next;
-      });
-      setSelectedLineId((current) => (current === lineId ? null : current));
+      void deleteLine(lineId);
     },
     [deleteLine],
   );
 
-  const displayLine = useMemo(() => {
-    if (!selectedLine) return null;
-    let line = selectedLine;
-    const edited = activeLineId ? editedStopsByLine[activeLineId] : undefined;
-    if (edited) line = applyEditedStops(line, edited);
-    if (activeLineId && !isCustomRegulationLine(activeLineId)) {
-      const override = lineInfoOverrides[activeLineId];
-      if (override) line = applyLineInfoUpdate(line, override);
-    }
-    return line;
-  }, [selectedLine, activeLineId, editedStopsByLine, lineInfoOverrides]);
-
-  const handleStopsChange = useCallback(
-    (stops: RegulationStop[]) => {
-      if (!activeLineId) return;
-      if (isCustomRegulationLine(activeLineId)) {
-        updateLineStops(activeLineId, stops);
-        return;
-      }
-      setEditedStopsByLine((prev) => ({ ...prev, [activeLineId]: stops }));
+  const openLine = useCallback(
+    (lineId: string) => {
+      router.push(`/lignes/${encodeURIComponent(lineId)}`);
     },
-    [activeLineId, updateLineStops],
-  );
-
-  const handleEditorPersist = useCallback(
-    (lineId: string, editorState: LineEditorState) => {
-      saveLineEditorDraft(lineId, editorState);
-
-      if (isCustomRegulationLine(lineId)) {
-        updateLineFromEditor(lineId, editorState);
-        return;
-      }
-
-      const baseLine =
-        customLines.find((line) => line.id === lineId) ??
-        networkLines.find((line) => line.id === lineId) ??
-        selectedLine;
-      const stops = regulationStopsFromEditor(
-        editorState,
-        baseLine?.stops ?? [],
-      );
-      setEditedStopsByLine((prev) => ({ ...prev, [lineId]: stops }));
-    },
-    [customLines, networkLines, selectedLine, updateLineFromEditor],
-  );
-
-  const handleLineInfoSave = useCallback(
-    (input: NewLineInput) => {
-      if (!activeLineId) return;
-
-      if (isCustomRegulationLine(activeLineId)) {
-        updateLineInfo(activeLineId, input);
-        return;
-      }
-
-      setLineInfoOverrides((prev) => {
-        const next = { ...prev, [activeLineId]: input };
-        saveLineInfoOverrides(next);
-        return next;
-      });
-    },
-    [activeLineId, updateLineInfo],
+    [router],
   );
 
   return (
-    <div className={`regulation-workspace${editorOpen ? " regulation-workspace--editor" : ""}`}>
-      {!editorOpen && (
-        <RegulationKpiBar
-          onRefresh={refresh}
-          loading={loading}
-          kpis={kpis}
-          alertCount={alerts.length}
-        />
-      )}
+    <div className="regulation-workspace">
+      <RegulationKpiBar
+        onRefresh={refresh}
+        loading={loading}
+        kpis={kpis}
+        alertCount={alerts.length}
+      />
 
-      {editorOpen ? (
-        <LineEditorWorkspace
-          line={displayLine}
-          onBack={() => setEditorOpen(false)}
-          onPersist={handleEditorPersist}
-        />
-      ) : (
-        <>
-          <LinesPanel
-            lines={lines}
-            selectedLineId={activeLineId ?? ""}
-            onSelectLine={setSelectedLineId}
-            onAddLine={handleAddLine}
-            onDeleteLine={handleDeleteLine}
-            loading={loading || !customLinesReady}
-          />
+      <LinesPanel
+        lines={lines}
+        selectedLineId=""
+        onSelectLine={openLine}
+        onDeleteLine={handleDeleteLine}
+        loading={loading || !customLinesReady}
+      />
 
-          <main className="regulation-main">
-            {error && (
-              <div className="px-4 pt-2">
-                <ErrorBanner message={error} onRetry={refresh} />
+      <main className="regulation-main">
+        {error && (
+          <div className="px-4 pt-2">
+            <ErrorBanner message={error} onRetry={refresh} />
+          </div>
+        )}
+
+        <div className="flex flex-1 items-center justify-center overflow-y-auto p-8">
+          <section className="w-full max-w-2xl rounded-3xl border border-white/10 bg-[#081327] p-8 text-center shadow-2xl shadow-black/10 sm:p-10">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-400/20 bg-blue-500/10 text-blue-300">
+              <BusFront className="h-7 w-7" strokeWidth={1.6} />
+            </div>
+            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-blue-300">
+              {network.name}
+            </p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white">
+              {lines.length > 0
+                ? `${lines.length} ligne${lines.length > 1 ? "s" : ""} sur votre réseau`
+                : "Votre réseau ne contient encore aucune ligne"}
+            </h1>
+            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-slate-400">
+              {lines.length > 0
+                ? "Sélectionnez une ligne dans la liste pour ouvrir sa fiche d’exploitation, consulter son plan et accéder à ses actions."
+                : "Créez une ligne manuellement ou importez votre fichier GTFS pour commencer à exploiter le réseau."}
+            </p>
+
+            {canManage && (
+              <div className="mt-7 flex flex-wrap justify-center gap-3">
+                <Link
+                  href="/lignes/nouvelle"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-blue-500"
+                >
+                  <Plus className="h-4 w-4" />
+                  Créer une ligne
+                </Link>
+                <Link
+                  href="/configuration/reseau"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+                >
+                  Importer un GTFS
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </div>
             )}
+          </section>
+        </div>
+      </main>
 
-            {!displayLine || loading ? (
-              <div className="flex flex-1 items-center justify-center p-8">
-                <p className="text-sm text-[#94A3B8]">Chargement du réseau…</p>
-              </div>
-            ) : displayLine.stops.length > 0 ? (
-              <>
-                <LineDetailHeader
-                  line={displayLine}
-                  topology={topology}
-                  onOpenEditor={() => setEditorOpen(true)}
-                  onEditLineInfo={() => setLineInfoEditOpen(true)}
-                />
-                <OperationalTimeline
-                  line={displayLine}
-                  fleet={fleetOnRoute}
-                  timelineStops={timelineStops}
-                  topology={topology}
-                  activeVariantId={
-                    activeLineId ? selectedVariantByLine[activeLineId] : null
-                  }
-                  onVariantChange={(variantId) => {
-                    if (!activeLineId) return;
-                    setSelectedVariantByLine((prev) => ({
-                      ...prev,
-                      [activeLineId]: variantId,
-                    }));
-                  }}
-                  loading={timelineLoading}
-                  onStopsChange={handleStopsChange}
-                />
-              </>
-            ) : timelineLoading ? (
-              <div className="flex flex-1 items-center justify-center p-8">
-                <p className="text-sm text-[#94A3B8]">
-                  Construction de la frise pour la ligne {displayLine.shortName}…
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8">
-                <LineDetailHeader
-                  line={displayLine}
-                  topology={topology}
-                  onOpenEditor={() => setEditorOpen(true)}
-                  onEditLineInfo={() => setLineInfoEditOpen(true)}
-                />
-                <p className="text-sm text-[#94A3B8]">
-                  {displayLine.vehicleCount === 0
-                    ? "Aucun véhicule en circulation sur cette ligne."
-                    : "Impossible de reconstruire la frise — tracé GTFS indisponible."}
-                </p>
-              </div>
-            )}
-          </main>
-
-          <TimelineLegend lastUpdated={lastUpdated} onRefresh={refresh} />
-
-          <LineInfoEditModal
-            open={lineInfoEditOpen}
-            line={displayLine}
-            onClose={() => setLineInfoEditOpen(false)}
-            onSubmit={handleLineInfoSave}
-          />
-        </>
-      )}
+      <TimelineLegend lastUpdated={lastUpdated} onRefresh={refresh} />
     </div>
   );
 }

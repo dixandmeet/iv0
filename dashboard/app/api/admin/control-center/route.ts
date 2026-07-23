@@ -134,6 +134,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const requestOrigin = request.headers.get("origin");
+  if (requestOrigin && requestOrigin !== new URL(request.url).origin) {
+    return NextResponse.json({ error: "Requête non autorisée" }, { status: 403 });
+  }
+
   const auth = await requireAdmin();
   if ("error" in auth) return auth.error;
 

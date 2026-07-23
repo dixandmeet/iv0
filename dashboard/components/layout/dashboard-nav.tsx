@@ -12,7 +12,15 @@ interface DashboardNavProps {
 function isModuleActive(module: AppModule, pathname: string): boolean {
   if (!module.route) return false;
   if (module.route === "/dashboard") {
-    return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+    return pathname === "/dashboard";
+  }
+  if (module.id === "ops.stations") {
+    return (
+      pathname === "/arrets" ||
+      pathname.startsWith("/arrets/") ||
+      pathname === "/stations" ||
+      pathname.startsWith("/stations/")
+    );
   }
   return pathname === module.route || pathname.startsWith(`${module.route}/`);
 }

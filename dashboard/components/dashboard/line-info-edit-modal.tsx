@@ -20,6 +20,8 @@ import {
   type NetworkMode,
   type RegulationLine,
 } from "@/lib/regulation-mock-data";
+import { useNetwork } from "@/components/network/network-provider";
+import { createClient } from "@/lib/supabase/client";
 
 interface LineInfoEditModalProps {
   open: boolean;
@@ -44,12 +46,26 @@ export function LineInfoEditModal({
   onClose,
   onSubmit,
 }: LineInfoEditModalProps) {
+  const { network, isPilotNetwork } = useNetwork();
   const formId = useId();
   const [shortName, setShortName] = useState("");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [transportType, setTransportType] = useState<NetworkMode>("bus");
   const [depotCode, setDepotCode] = useState("BLX");
+  const [depotOptions, setDepotOptions] = useState(ADD_LINE_DEPOT_OPTIONS);
+
+  useEffect(() => {
+    if (isPilotNetwork) {
+      setDepotOptions(ADD_LINE_DEPOT_OPTIONS);
+      return;
+    }
+    const supabase = createClient();
+    void supabase.from("network_depots").select("code, name").eq("network_id", network.id).order("name").then(({ data }) => {
+      const options = (data ?? []).map((depot) => ({ code: depot.code as string, label: depot.name as string }));
+      setDepotOptions(options.length ? options : [{ code: "NETWORK", label: network.name }]);
+    });
+  }, [isPilotNetwork, network.id, network.name]);
 
   useEffect(() => {
     if (!open || !line) return;
@@ -220,7 +236,7 @@ export function LineInfoEditModal({
                 role="radiogroup"
                 aria-label="Dépôt d'affectation"
               >
-                {ADD_LINE_DEPOT_OPTIONS.map((depot) => (
+                {depotOptions.map((depot) => (
                   <button
                     key={depot.code}
                     type="button"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { pointCoordinates } from "@/lib/geo";
 import type { GtfsStop } from "@/lib/types";
@@ -9,16 +9,22 @@ import {
   mapStopTimesToTimeline,
   type RouteTimelinePoint,
 } from "@/lib/regulation-data";
-import { buildDepotTimelineFromSchema } from "@/lib/regulation-depot";
+import {
+  buildDepotTimelinesFromSchema,
+  resolveDepotStopsToTimeline,
+} from "@/lib/regulation-depot";
 import { getDepotLineByCompositeId, parseLineId } from "@/lib/depot-lines";
+import { getNetworkLinePatterns } from "@/lib/network-line-patterns";
 import { isCustomRegulationLine } from "@/lib/regulation-custom-line";
 import {
+  buildLineTopologyFromEditorState,
   buildLineTopologyFromTrips,
   resolveActiveVariant,
   stopsForVariant,
   type LineTopology,
   type TripStopSequence,
 } from "@/lib/line-topology";
+import type { LineEditorState } from "@/lib/line-editor-types";
 
 async function fetchAllStops(supabase: ReturnType<typeof createClient>): Promise<GtfsStop[]> {
   const pageSize = 1000;
@@ -140,7 +146,7 @@ async function fetchRouteTripSequences(
 ): Promise<TripStopSequence[]> {
   const { data: trips, error } = await supabase
     .from("gtfs_trips")
-    .select("trip_id, trip_headsign, direction_id, shape_id")
+    .select("trip_id, direction_id, shape_id")
     .eq("route_id", gtfsRouteId)
     .order("trip_id")
     .limit(400);
@@ -157,8 +163,7 @@ async function fetchRouteTripSequences(
   }
 
   for (const trip of trips) {
-    if (representativeTrips.length >= 12) break;
-    const variantKey = `${trip.direction_id}|${trip.trip_headsign ?? ""}|${trip.shape_id ?? ""}`;
+    const variantKey = `${trip.direction_id}|${trip.shape_id ?? trip.trip_id}`;
     if (seenKeys.has(variantKey)) continue;
     seenKeys.add(variantKey);
     if (trip.trip_id === preferredTripId) continue;
@@ -169,13 +174,11 @@ async function fetchRouteTripSequences(
   const sequences: TripStopSequence[] = [];
 
   for (const trip of representativeTrips) {
-    if (sequences.length >= 12) break;
-
     try {
       const seq = await fetchTripSequence(
         supabase,
         trip.trip_id as string,
-        (trip.trip_headsign as string) ?? "",
+        "",
         (trip.direction_id as number) ?? 0,
         (trip.shape_id as string) ?? null,
       );
@@ -200,18 +203,17 @@ async function fetchSingleTripSequence(
   preferredTripId?: string | null,
 ): Promise<TripStopSequence | null> {
   let tripId = preferredTripId ?? null;
-  let headsign = "";
+  const headsign = "";
   let directionId = 0;
   let shapeId: string | null = null;
 
   if (tripId) {
     const { data: trip } = await supabase
       .from("gtfs_trips")
-      .select("trip_id, trip_headsign, direction_id, shape_id")
+      .select("trip_id, direction_id, shape_id")
       .eq("trip_id", tripId)
       .maybeSingle();
     if (trip) {
-      headsign = (trip.trip_headsign as string) ?? "";
       directionId = (trip.direction_id as number) ?? 0;
       shapeId = (trip.shape_id as string) ?? null;
     } else {
@@ -222,14 +224,13 @@ async function fetchSingleTripSequence(
   if (!tripId) {
     const { data: trips } = await supabase
       .from("gtfs_trips")
-      .select("trip_id, trip_headsign, direction_id, shape_id")
+      .select("trip_id, direction_id, shape_id")
       .eq("route_id", gtfsRouteId)
       .order("trip_id")
       .limit(1);
     const trip = trips?.[0];
     if (!trip) return null;
     tripId = trip.trip_id as string;
-    headsign = (trip.trip_headsign as string) ?? "";
     directionId = (trip.direction_id as number) ?? 0;
     shapeId = (trip.shape_id as string) ?? null;
   }
@@ -241,6 +242,7 @@ interface UseRouteTimelineOptions {
   routeId: string | null;
   preferredTripId?: string | null;
   selectedVariantId?: string | null;
+  editorState?: LineEditorState | null;
   enabled?: boolean;
 }
 
@@ -248,20 +250,40 @@ export function useRouteTimeline({
   routeId,
   preferredTripId,
   selectedVariantId,
+  editorState = null,
   enabled = true,
 }: UseRouteTimelineOptions) {
-  const [topology, setTopology] = useState<LineTopology | null>(null);
+  const [topologyResult, setTopologyResult] = useState<{
+    routeId: string | null;
+    topology: LineTopology | null;
+  }>({ routeId: null, topology: null });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadRequestRef = useRef(0);
 
   const loadTimeline = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
+    const commitTopology = (topology: LineTopology | null) => {
+      if (loadRequestRef.current !== requestId) return false;
+      setTopologyResult({ routeId, topology });
+      return true;
+    };
+
     if (!routeId || !enabled) {
-      setTopology(null);
+      commitTopology(null);
+      setLoading(false);
+      return;
+    }
+
+    if (editorState) {
+      commitTopology(buildLineTopologyFromEditorState(editorState));
+      setError(null);
+      setLoading(false);
       return;
     }
 
     if (isCustomRegulationLine(routeId)) {
-      setTopology(null);
+      commitTopology(null);
       setError(null);
       setLoading(false);
       return;
@@ -276,21 +298,46 @@ export function useRouteTimeline({
       const depotLine = getDepotLineByCompositeId(routeId);
       if (depotLine) {
         const allStops = await fetchAllStops(supabase);
-        const schemaTimeline = buildDepotTimelineFromSchema(
+        const schemaTimelines = buildDepotTimelinesFromSchema(
           depotLine.depotCode,
           depotLine.id,
           allStops,
         );
-        if (schemaTimeline.length >= 2) {
-          const tripSeq: TripStopSequence = {
-            tripId: `depot-${routeId}`,
-            headsign: depotLine.destination,
+        if (schemaTimelines.length > 0) {
+          const tripSequences: TripStopSequence[] = schemaTimelines.map((variant) => ({
+            tripId: `depot-${routeId}-${variant.id}`,
+            headsign: variant.destination,
             directionId: 0,
             shapeId: null,
-            stopIds: schemaTimeline.map((s) => s.stopId),
-            stops: schemaTimeline,
+            stopIds: variant.stops.map((stop) => stop.stopId),
+            stops: variant.stops,
+          }));
+          commitTopology(buildLineTopologyFromTrips(tripSequences));
+          return;
+        }
+      }
+
+      const networkPatterns = getNetworkLinePatterns(gtfsRouteId);
+      if (networkPatterns.length > 0) {
+        const allStops = await fetchAllStops(supabase);
+        const patternSequences: TripStopSequence[] = networkPatterns.map((pattern) => {
+          const stops = resolveDepotStopsToTimeline(
+            pattern.stops,
+            allStops,
+            `network-${gtfsRouteId}`,
+          );
+          return {
+            tripId: `network-${gtfsRouteId}-${pattern.id}`,
+            headsign: pattern.destination,
+            directionId: 0,
+            shapeId: null,
+            stopIds: stops.map((stop) => stop.stopId),
+            stops,
           };
-          setTopology(buildLineTopologyFromTrips([tripSeq]));
+        });
+        const patternTopology = buildLineTopologyFromTrips(patternSequences);
+        if (patternTopology) {
+          commitTopology(patternTopology);
           return;
         }
       }
@@ -308,10 +355,10 @@ export function useRouteTimeline({
 
       if (sequences.length > 0) {
         try {
-          setTopology(buildLineTopologyFromTrips(sequences));
+          commitTopology(buildLineTopologyFromTrips(sequences));
           return;
         } catch {
-          setTopology(buildLineTopologyFromTrips([sequences[0]]));
+          commitTopology(buildLineTopologyFromTrips([sequences[0]]));
           return;
         }
       }
@@ -322,14 +369,14 @@ export function useRouteTimeline({
         preferredTripId,
       );
       if (single) {
-        setTopology(buildLineTopologyFromTrips([single]));
+        commitTopology(buildLineTopologyFromTrips([single]));
         return;
       }
 
       // Repli shape unique
       const { data: trips } = await supabase
         .from("gtfs_trips")
-        .select("trip_id, shape_id, trip_headsign, direction_id")
+        .select("trip_id, shape_id, direction_id")
         .eq("route_id", gtfsRouteId)
         .order("trip_id")
         .limit(1);
@@ -356,30 +403,40 @@ export function useRouteTimeline({
           if (stops.length >= 2) {
             const tripSeq: TripStopSequence = {
               tripId: trips?.[0]?.trip_id as string,
-              headsign: (trips?.[0]?.trip_headsign as string) ?? "",
+              headsign: "",
               directionId: (trips?.[0]?.direction_id as number) ?? 0,
               shapeId,
               stopIds: stops.map((s) => s.stopId),
               stops,
             };
-            setTopology(buildLineTopologyFromTrips([tripSeq]));
+            commitTopology(buildLineTopologyFromTrips([tripSeq]));
             return;
           }
         }
       }
 
-      setTopology(null);
+      commitTopology(null);
     } catch (err) {
+      if (loadRequestRef.current !== requestId) return;
       setError(err instanceof Error ? err.message : "Erreur chargement frise");
-      setTopology(null);
+      commitTopology(null);
     } finally {
-      setLoading(false);
+      if (loadRequestRef.current === requestId) setLoading(false);
     }
-  }, [routeId, preferredTripId, enabled]);
+  }, [routeId, preferredTripId, editorState, enabled]);
 
   useEffect(() => {
     void loadTimeline();
   }, [loadTimeline]);
+
+  const topology =
+    topologyResult.routeId === routeId ? topologyResult.topology : null;
+  const timelinePending = Boolean(
+    enabled &&
+      routeId &&
+      !isCustomRegulationLine(routeId) &&
+      topologyResult.routeId !== routeId,
+  );
 
   const activeVariant = useMemo(() => {
     if (!topology) return null;
@@ -395,7 +452,7 @@ export function useRouteTimeline({
     topology,
     timelineStops,
     activeVariant,
-    loading,
+    loading: loading || timelinePending,
     error,
     refresh: loadTimeline,
   };

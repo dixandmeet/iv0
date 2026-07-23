@@ -17,6 +17,8 @@ export type GlobalSearchSuggestion = {
   title: string;
   subtitle: string;
   keywords?: string;
+  color?: string;
+  distanceMeters?: number;
 };
 
 type TopBarProps = {
@@ -34,6 +36,12 @@ type TopBarProps = {
   onSearchSubmit: () => void;
   onCloseInputs: () => void;
   originAddress: string;
+  originIsCurrent: boolean;
+  onOriginChange: (value: string) => void;
+  onOriginFocus: () => void;
+  onOriginBlur: () => void;
+  onOriginClear: () => void;
+  onUseCurrentPosition: () => void;
   originAddressLoading: boolean;
   destinationLoading: boolean;
   searchError: string | null;
@@ -42,6 +50,15 @@ type TopBarProps = {
   addressSuggestions: Array<{
     id: string;
     label: string;
+    kind?: "address" | "stop";
+    onPick: () => void;
+  }>;
+  showOriginSuggestions: boolean;
+  originSuggestionsLoading: boolean;
+  originSuggestions: Array<{
+    id: string;
+    label: string;
+    kind?: "address" | "stop";
     onPick: () => void;
   }>;
 };
@@ -92,12 +109,21 @@ export function TopBar({
   onSearchSubmit,
   onCloseInputs,
   originAddress,
+  originIsCurrent,
+  onOriginChange,
+  onOriginFocus,
+  onOriginBlur,
+  onOriginClear,
+  onUseCurrentPosition,
   originAddressLoading,
   destinationLoading,
   searchError,
   showAddressSuggestions,
   addressSuggestionsLoading,
   addressSuggestions,
+  showOriginSuggestions,
+  originSuggestionsLoading,
+  originSuggestions,
 }: TopBarProps) {
   const canSubmit = searchQuery.trim().length >= 3 && !destinationLoading;
   const searchRootRef = useRef<HTMLDivElement>(null);
@@ -115,9 +141,15 @@ export function TopBar({
         )
       : globalSearchSuggestions;
 
+    const seen = new Set<string>();
     const perCategory = new Map<GlobalSearchSuggestion["category"], number>();
     return matching
       .filter((suggestion) => {
+        // Deux lignes peuvent partager le même numéro public (ex. une C1 GTFS
+        // et une C1 créée manuellement) tout en restant deux résultats distincts.
+        const uniqueKey = suggestion.id;
+        if (seen.has(uniqueKey)) return false;
+        seen.add(uniqueKey);
         const count = perCategory.get(suggestion.category) ?? 0;
         if (count >= 4) return false;
         perCategory.set(suggestion.category, count + 1);
@@ -125,6 +157,14 @@ export function TopBar({
       })
       .slice(0, 10);
   }, [globalSearchQuery, globalSearchSuggestions]);
+
+  const resultCounts = useMemo(() => {
+    const counts = new Map<GlobalSearchSuggestion["category"], number>();
+    filteredSuggestions.forEach((suggestion) => {
+      counts.set(suggestion.category, (counts.get(suggestion.category) ?? 0) + 1);
+    });
+    return counts;
+  }, [filteredSuggestions]);
 
   useEffect(() => {
     const closeOnOutsideClick = (event: PointerEvent) => {
@@ -286,7 +326,16 @@ export function TopBar({
                     <div key={suggestion.id}>
                       {showGroup && (
                         <div className="immersive-map-global-results-group">
-                          {SEARCH_GROUP_LABELS[suggestion.category]}
+                          <span>
+                            {SEARCH_GROUP_LABELS[suggestion.category]}
+                            {suggestion.distanceMeters != null &&
+                            (suggestion.category === "stop" || suggestion.category === "line")
+                              ? " à proximité"
+                              : ""}
+                          </span>
+                          <span className="immersive-map-global-results-count">
+                            {resultCounts.get(suggestion.category) ?? 0}
+                          </span>
                         </div>
                       )}
                       <button
@@ -304,12 +353,28 @@ export function TopBar({
                       >
                         <span
                           className={`immersive-map-global-result-icon immersive-map-global-result-icon--${suggestion.mode}`}
+                          style={
+                            suggestion.category === "line" && suggestion.color
+                              ? {
+                                  borderColor: `${suggestion.color}A6`,
+                                  background: `${suggestion.color}2E`,
+                                  boxShadow: `inset 0 0 0 1px ${suggestion.color}33`,
+                                }
+                              : undefined
+                          }
                         >
                           {SEARCH_MODE_ICONS[suggestion.mode]}
                         </span>
                         <span className="min-w-0 flex-1 text-left">
-                          <span className="block truncate text-[13px] font-semibold text-white">
-                            {suggestion.title}
+                          <span className="flex items-center gap-1.5 truncate text-[13px] font-semibold text-white">
+                            {suggestion.category === "line" && suggestion.color && (
+                              <span
+                                className="h-2 w-2 flex-none rounded-full ring-1 ring-white/25"
+                                style={{ backgroundColor: suggestion.color }}
+                                aria-hidden="true"
+                              />
+                            )}
+                            <span className="truncate">{suggestion.title}</span>
                           </span>
                           <span className="mt-0.5 block truncate text-[11px] text-white/48">
                             {suggestion.subtitle}
@@ -398,35 +463,63 @@ export function TopBar({
           </div>
 
           <div className="immersive-map-route-fields">
-            <div className="immersive-map-route-field">
+            <label className="immersive-map-route-field">
               <span
                 className="immersive-map-route-point immersive-map-route-point--origin"
                 aria-hidden="true"
               >
                 ●
               </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#77807d]">
-                  Départ · Position actuelle
-                </div>
-                <div
-                  className={`mt-0.5 truncate text-sm font-medium ${
-                    originAddressLoading ? "text-[#8a9390]" : "text-[#17201e]"
-                  }`}
-                  title={originAddress}
-                  aria-live="polite"
-                >
-                  {originAddressLoading ? "Recherche de votre adresse…" : originAddress}
-                </div>
-              </div>
-              <span
-                className="immersive-map-location-confirmed"
-                aria-label="Position GPS confirmée"
-                title="Position GPS confirmée"
-              >
-                ✓
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-[#77807d]">
+                  Départ{originIsCurrent ? " · Position actuelle" : ""}
+                </span>
+                <input
+                  value={originAddressLoading ? "Recherche de votre adresse…" : originAddress}
+                  onChange={(event) => onOriginChange(event.target.value)}
+                  onFocus={onOriginFocus}
+                  onBlur={onOriginBlur}
+                  placeholder="Saisissez une adresse ou un arrêt"
+                  className="immersive-map-route-input"
+                  disabled={originAddressLoading}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={showOriginSuggestions}
+                  aria-controls="origin-address-suggestions"
+                />
               </span>
-            </div>
+              {originAddress && !originAddressLoading && (
+                <button
+                  type="button"
+                  className="immersive-map-location-confirmed"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onOriginClear();
+                  }}
+                  aria-label="Effacer le point de départ"
+                  title="Effacer le point de départ"
+                >
+                  ✕
+                </button>
+              )}
+              {!originAddress && !originAddressLoading && (
+                <button
+                  type="button"
+                  className="immersive-map-location-confirmed"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onUseCurrentPosition();
+                  }}
+                  aria-label="Utiliser ma position actuelle"
+                  title="Utiliser ma position actuelle"
+                >
+                  ◎
+                </button>
+              )}
+            </label>
 
             <label className="immersive-map-route-field immersive-map-route-field--destination">
               <span
@@ -458,6 +551,47 @@ export function TopBar({
             </label>
           </div>
 
+          {showOriginSuggestions && (
+            <div
+              id="origin-address-suggestions"
+              className="mt-2 max-h-56 overflow-y-auto rounded-2xl border border-black/10 bg-[#f7faf9] p-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.28)]"
+              role="listbox"
+              aria-label="Points de départ suggérés"
+            >
+              {originSuggestionsLoading && originSuggestions.length === 0 ? (
+                <div className="flex items-center gap-2.5 px-3 py-3 text-sm text-[#727b78]">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#17a08a]" />
+                  Recherche des adresses et arrêts…
+                </div>
+              ) : (
+                originSuggestions.map((suggestion) => {
+                  const [title, ...details] = suggestion.label.split(",");
+                  return (
+                    <button
+                      key={suggestion.id}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      className="flex w-full items-start gap-3 rounded-xl border-0 bg-transparent px-3 py-2.5 text-left transition hover:bg-[#e8f3ef] focus:bg-[#e8f3ef] focus:outline-none"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        suggestion.onPick();
+                      }}
+                    >
+                      <span className="mt-0.5 flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-[#dff2ec] text-sm text-[#168f7c]">
+                        {suggestion.kind === "stop" ? "🚏" : "📍"}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-[#17201e]">{title}</span>
+                        <span className="mt-0.5 block text-xs leading-snug text-[#77807d]">{details.join(",").trim()}</span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
+
           {showAddressSuggestions && (
             <div
               id="destination-address-suggestions"
@@ -465,7 +599,7 @@ export function TopBar({
               role="listbox"
               aria-label="Adresses suggérées"
             >
-              {addressSuggestionsLoading ? (
+              {addressSuggestionsLoading && addressSuggestions.length === 0 ? (
                 <div className="flex items-center gap-2.5 px-3 py-3 text-sm text-[#727b78]">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-[#17a08a]" />
                   Recherche des adresses…
@@ -486,7 +620,7 @@ export function TopBar({
                       }}
                     >
                       <span className="mt-0.5 flex h-7 w-7 flex-none items-center justify-center rounded-lg bg-[#dff2ec] text-sm text-[#168f7c]">
-                        📍
+                        {suggestion.kind === "stop" ? "🚏" : "📍"}
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold text-[#17201e]">

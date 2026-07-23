@@ -12,10 +12,12 @@ import { StationsListPanel } from "@/components/stations/stations-list-panel";
 import { StationDetailPanel } from "@/components/stations/station-detail-panel";
 import { StationFormModal } from "@/components/stations/station-form-modal";
 import type { StationFormPayload } from "@/lib/stations-types";
+import { useNetwork } from "@/components/network/network-provider";
 
 export function StationsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { canManage } = useNetwork();
   const {
     stations,
     loading,
@@ -69,21 +71,22 @@ export function StationsPageContent() {
   );
 
   const handleDisable = async () => {
-    if (!selectedId || !confirm("Désactiver cette station ? Elle sera masquée côté voyageur.")) return;
+    if (!canManage || !selectedId || !confirm("Désactiver cette station ? Elle sera masquée côté voyageur.")) return;
     await disableStation(selectedId);
     await refresh();
     await refreshDetail();
   };
 
   const handleEditStation = () => {
-    if (selectedId) router.push(`/stations/${selectedId}`);
+    if (canManage && selectedId) router.push(`/stations/${selectedId}`);
   };
 
   const handleAddStop = () => {
-    if (selectedId) router.push(`/stations/${selectedId}/arrets/nouveau`);
+    if (canManage && selectedId) router.push(`/stations/${selectedId}/arrets/nouveau`);
   };
 
   const handleFormSubmit = async (payload: StationFormPayload) => {
+    if (!canManage) return;
     const id = await createStation(payload);
     await refresh();
     setSelectedId(id);
@@ -102,6 +105,7 @@ export function StationsPageContent() {
         onExport={() => undefined}
         onToggleFilters={() => setFiltersOpen(!filtersOpen)}
         filtersOpen={filtersOpen}
+        canManage={canManage}
       />
 
       <div className="stops-layout">
@@ -136,6 +140,7 @@ export function StationsPageContent() {
           onEditStation={handleEditStation}
           onDisableStation={handleDisable}
           onAddStop={handleAddStop}
+          canManage={canManage}
         />
       </div>
 

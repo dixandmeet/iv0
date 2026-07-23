@@ -12,6 +12,7 @@ import { ErrorBanner } from "@/components/dashboard/error-banner";
 import { useVehiclePage } from "@/hooks/use-vehicle-page";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/empty-state";
+import { demoDataEnabled } from "@/lib/demo-mode";
 
 interface VehiclePageContentProps {
   vehicleId: string;
@@ -25,7 +26,7 @@ export function VehiclePageContent({ vehicleId }: VehiclePageContentProps) {
   const service = searchParams.get("service");
   const lineShortName = searchParams.get("line");
   const delayParam = searchParams.get("delay");
-  const isDemoQuery = searchParams.get("demo") === "1";
+  const isDemoQuery = demoDataEnabled && searchParams.get("demo") === "1";
   const delayMin =
     delayParam != null && !Number.isNaN(Number(delayParam)) ? Number(delayParam) : 0;
 
@@ -126,6 +127,7 @@ export function VehiclePageContent({ vehicleId }: VehiclePageContentProps) {
                   loading={timelineLoading}
                   focusVehicleId={vehicleId}
                   embedded
+                  allowDemo={isDemoMode}
                 />
               ) : timelineLoading ? (
                 <div className="flex h-full items-center justify-center p-6">
