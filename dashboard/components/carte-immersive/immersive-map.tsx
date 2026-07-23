@@ -32,6 +32,7 @@ import {
   setTransitTracesFilter,
 } from "./map-style";
 import { useHeroWeather } from "@/components/landing/use-hero-weather";
+import { useAnnouncementsData } from "@/hooks/use-announcements-data";
 import { MapWeatherScene } from "./map-weather-scene";
 import type {
   DashboardLineSearchItem,
@@ -41,6 +42,7 @@ import { loadCustomRegulationLines } from "@/lib/regulation-custom-line";
 import { loadLineEditorDraft } from "@/lib/line-editor-persistence";
 import { getVoicePoints, isStopType } from "@/lib/line-editor-utils";
 import { travelerCommentsForVehicle } from "@/lib/traveler-comments";
+import { buildTrackingServiceMessage } from "@/lib/carte-immersive/tracking-service-message";
 import {
   fetchRegisteredStopsFromDatabase,
   type RegisteredStop,
@@ -75,6 +77,7 @@ import {
 import { Vehicle3DLayer } from "./vehicle-3d-layer";
 import { AmbientSimulationLayer } from "./ambient-simulation-layer";
 import {
+  TrackingGirouetteBar,
   TrackingPanel,
   type TrackingPanelData,
   type TrackingStopPlanItem,
@@ -359,8 +362,6 @@ function geolocationIssueMessage(issue: GeolocationIssue): string {
 const NEARBY_SEARCH_STOP_LIMIT = 10;
 const TRACKING_ROUTE_FRONT_OFFSET_METERS = 30;
 const TRACKING_CAMERA_UPDATE_INTERVAL_SECONDS = 0.08;
-const TRACKING_ROUTE_MASK_SOURCE_ID = "immersive-map-tracking-route-mask-source";
-const TRACKING_ROUTE_MASK_LAYER_ID = "immersive-map-tracking-route-mask-layer";
 const NAVIBUS_SEARCH_LINES: Array<{
   id: string;
   title: string;
@@ -978,62 +979,6 @@ function showPlannedRoute(
   }
 }
 
-function updateTrackingRouteMask(map: maplibregl.Map, position: LatLng | null) {
-  if (!map.getSource(TRACKING_ROUTE_MASK_SOURCE_ID)) {
-    map.addSource(TRACKING_ROUTE_MASK_SOURCE_ID, {
-      type: "geojson",
-      data: { type: "FeatureCollection", features: [] },
-    });
-  }
-
-  if (!map.getLayer(TRACKING_ROUTE_MASK_LAYER_ID)) {
-    const layer: maplibregl.CircleLayerSpecification = {
-      id: TRACKING_ROUTE_MASK_LAYER_ID,
-      type: "circle",
-      source: TRACKING_ROUTE_MASK_SOURCE_ID,
-      paint: {
-        "circle-radius": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          14,
-          14,
-          17,
-          25,
-          19,
-          34,
-        ],
-        "circle-color": "#06120f",
-        "circle-opacity": 0.94,
-        "circle-blur": 0.18,
-        "circle-stroke-width": 1,
-        "circle-stroke-color": "rgba(51, 191, 163, 0.22)",
-      },
-    };
-    const beforeLayer = map.getLayer("immersive-vehicle-models")
-      ? "immersive-vehicle-models"
-      : undefined;
-    if (beforeLayer) map.addLayer(layer, beforeLayer);
-    else map.addLayer(layer);
-  }
-
-  const source = map.getSource(TRACKING_ROUTE_MASK_SOURCE_ID) as
-    | maplibregl.GeoJSONSource
-    | undefined;
-  source?.setData(
-    position
-      ? {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "Point",
-            coordinates: [position[1], position[0]],
-          },
-        }
-      : { type: "FeatureCollection", features: [] },
-  );
-}
-
 function createLocateControl(onLocate: () => void): maplibregl.IControl {
   let container: HTMLDivElement | null = null;
   let button: HTMLButtonElement | null = null;
@@ -1123,6 +1068,7 @@ export function ImmersiveMap({
     lng: CITY_CENTER[1],
   });
   const mapWeather = useHeroWeather(weatherLocation);
+  const { announcements } = useAnnouncementsData();
   const mapWeatherRef = useRef(mapWeather);
   mapWeatherRef.current = mapWeather;
 
@@ -1148,6 +1094,13 @@ export function ImmersiveMap({
     lineColor: string;
     serviceDate: string;
   } | null>(null);
+  // Arrêt depuis lequel le suivi a été lancé : repère de la carte « arrive
+  // dans N arrêts » du panneau de suivi.
+  const [trackingBoardingStop, setTrackingBoardingStop] = useState<string | null>(
+    null,
+  );
+  // Couleur officielle de la ligne suivie : habille la girouette.
+  const [trackingLineColor, setTrackingLineColor] = useState<string | null>(null);
   const trackingOriginRef = useRef<{
     stop: SelectedMapStop;
     line: string;
@@ -1349,7 +1302,6 @@ export function ImmersiveMap({
             TRACKING_ROUTE_FRONT_OFFSET_METERS,
           ),
         );
-        updateTrackingRouteMask(map, vehiclePosition);
       }
 
       if (
@@ -3462,6 +3414,7 @@ export function ImmersiveMap({
   const startVehicleTracking = async (
     vehicleId: string,
     vehicleOverride?: MapVehicle,
+    lineColorOverride?: string | null,
   ) => {
     const vehicle =
       vehicleOverride ?? displayVehicles.find((item) => item.id === vehicleId);
@@ -3614,6 +3567,16 @@ export function ImmersiveMap({
       ? routeDistanceMeters(buildRemainingRoute(route, initialRouteProjection))
       : null;
     setTracking(activeTracking);
+    setTrackingLineColor(
+      lineColorOverride ??
+        realLineTraces.find((trace) => trace.id === vehicle.routeId)?.color ??
+        dashboardLines.find(
+          (line) =>
+            line.routeId === vehicle.routeId ||
+            line.shortName === vehicle.routeId,
+        )?.color ??
+        null,
+    );
     setTrackingStopPlan(
       buildTrackingStopPlan(
         route,
@@ -3657,12 +3620,6 @@ export function ImmersiveMap({
           TRACKING_ROUTE_FRONT_OFFSET_METERS,
         ),
       );
-      if (mapRef.current) {
-        updateTrackingRouteMask(mapRef.current, [
-          currentPose.lat,
-          currentPose.lng,
-        ]);
-      }
     } else if (route.length >= 2) {
       showTrackingRoute(route);
     }
@@ -3734,6 +3691,20 @@ export function ImmersiveMap({
             serviceDate: passage.serviceDate,
           }
         : null;
+    setTrackingBoardingStop(
+      selectedStop ? selectedStop.stationName || selectedStop.name : null,
+    );
+    const passageLineColor =
+      ("lineColor" in passage ? passage.lineColor : null) ??
+        realLineTraces.find((trace) => trace.id === passage.routeId)?.color ??
+        dashboardLines.find(
+          (line) =>
+            line.id === passage.routeId ||
+            line.routeId === passage.routeId ||
+            line.shortName === passage.line,
+        )?.color ??
+        null;
+    setTrackingLineColor(passageLineColor);
 
     selectedStopMarkerRef.current?.remove();
     selectedStopMarkerRef.current = null;
@@ -3742,7 +3713,7 @@ export function ImmersiveMap({
     clearSelectedLineMap();
 
     if (liveVehicle) {
-      await startVehicleTracking(liveVehicle.id);
+      await startVehicleTracking(liveVehicle.id, undefined, passageLineColor);
       return;
     }
 
@@ -3788,7 +3759,11 @@ export function ImmersiveMap({
       routeDistanceM,
       scheduleStops,
     });
-    await startVehicleTracking(vehicleId, scheduledVehicle);
+    await startVehicleTracking(
+      vehicleId,
+      scheduledVehicle,
+      passageLineColor,
+    );
   };
 
   const stopVehicleTracking = () => {
@@ -3802,6 +3777,8 @@ export function ImmersiveMap({
     trackingAlertedRef.current = false;
     setTracking(null);
     setTrackingStopPlan([]);
+    setTrackingBoardingStop(null);
+    setTrackingLineColor(null);
     setTrackingNotification(false);
     setTrackingAlert(null);
     setTrackingStopsVisible(false);
@@ -3821,7 +3798,6 @@ export function ImmersiveMap({
     if (map?.getLayer("immersive-map-route-line")) {
       map.setLayoutProperty("immersive-map-route-line", "line-cap", "round");
     }
-    if (map) updateTrackingRouteMask(map, null);
 
     // Priorité au retour vers l'arrêt d'origine : on rouvre le panneau des
     // horaires de la journée (ligne + date mémorisées) et on recentre l'arrêt.
@@ -4091,6 +4067,28 @@ export function ImmersiveMap({
         tracking.status.toLowerCase().includes("retard") ? 4 : 0,
       )
     : [];
+  const trackingLineLabel =
+    tracking?.title.match(/^ligne\s+(.+)$/i)?.[1]?.trim() ??
+    tracking?.title ??
+    "";
+  const trackingLineReferences = tracking
+    ? [
+        trackingLineLabel,
+        ...[...dashboardLines, ...publishedCustomLines]
+          .filter(
+            (line) =>
+              normalizePublicLineName(line.shortName) ===
+              normalizePublicLineName(trackingLineLabel),
+          )
+          .flatMap((line) => [line.id, line.routeId, line.shortName]),
+      ]
+    : [];
+  const trackingServiceMessage = tracking
+    ? buildTrackingServiceMessage({
+        announcements,
+        lineReferences: trackingLineReferences,
+      })
+    : null;
   const trackingPanelData: TrackingPanelData | null = tracking
     ? {
         emoji:
@@ -4100,9 +4098,21 @@ export function ImmersiveMap({
               ? "⛴️"
               : "🚌",
         title: tracking.title,
+        // « Ligne 1 » → « 1 » : la girouette n'affiche que le numéro.
+        lineLabel: trackingLineLabel,
+        lineColor: trackingLineColor,
+        serviceMessage: trackingServiceMessage,
         mode: tracking.type,
         destination: tracking.destination,
         nextStop: tracking.nextStop,
+        // Véhicule à quai : soit collé à l'arrêt marqué, soit encore à son
+        // terminus de départ (course pas encore entamée).
+        atStop:
+          (trackingMetrics.distanceToStopM != null &&
+            trackingMetrics.distanceToStopM <= 30) ||
+          (trackingMetrics.distanceTraveledM != null &&
+            trackingMetrics.distanceTraveledM < 5),
+        boardingStopName: trackingBoardingStop,
         eta:
           trackingMetrics.etaMinutes == null
             ? "Indisponible"
@@ -4243,7 +4253,7 @@ export function ImmersiveMap({
     <div
       className={`immersive-map-root${bottomNavVisible ? " immersive-map-root--nav-visible" : ""}${
         contextPanelOpen ? " immersive-map-root--context-open" : ""
-      }`}
+      }${trackingPanelData ? " immersive-map-root--tracking" : ""}`}
       data-period={mapWeather.period}
       data-weather={mapWeather.condition}
     >
@@ -4468,6 +4478,8 @@ export function ImmersiveMap({
           }}
         />
       )}
+
+      {trackingPanelData && <TrackingGirouetteBar data={trackingPanelData} />}
 
       {trackingPanelData && (
         <TrackingPanel

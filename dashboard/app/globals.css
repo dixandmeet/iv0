@@ -12290,7 +12290,6 @@ textarea.station-field {
 }
 
 .immersive-map-tracking-head,
-.immersive-map-tracking-identity,
 .immersive-map-tracking-actions {
   display: flex;
   align-items: center;
@@ -12298,23 +12297,6 @@ textarea.station-field {
 
 .immersive-map-tracking-head {
   gap: 12px;
-}
-
-.immersive-map-tracking-identity {
-  min-width: 210px;
-  gap: 10px;
-}
-
-.immersive-map-tracking-vehicle {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  flex: none;
-  border: 1px solid rgba(51, 191, 163, 0.32);
-  border-radius: 14px;
-  background: rgba(51, 191, 163, 0.14);
-  font-size: 21px;
 }
 
 .immersive-map-tracking-kicker {
@@ -12337,12 +12319,6 @@ textarea.station-field {
   animation: immersive-map-pulse 1.8s infinite;
 }
 
-.immersive-map-tracking-identity h2 {
-  margin: 2px 0 0;
-  font-size: 17px;
-  line-height: 1.1;
-}
-
 .immersive-map-tracking-data-state {
   margin-right: auto;
   padding: 7px 10px;
@@ -12363,9 +12339,253 @@ textarea.station-field {
   cursor: pointer;
 }
 
+/* ===== Girouette (façade du véhicule suivi) ===== */
+/* Sans couleur de ligne connue, la girouette garde l'ambre des afficheurs. */
+.immersive-map-girouette {
+  --girouette-led: #ffc24b;
+  --girouette-badge: rgba(255, 176, 32, 0.09);
+  --girouette-badge-text: #ffc24b;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  margin-top: 10px;
+  padding: 11px 14px;
+  border: 1px solid color-mix(in srgb, var(--girouette-led) 24%, transparent);
+  border-radius: 14px;
+  background: #08090a;
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.6),
+    inset 0 12px 26px color-mix(in srgb, var(--girouette-led) 7%, transparent);
+}
+
+/* Trame de diodes : la grille rappelle l'afficheur matriciel des bus. */
+.immersive-map-girouette::after {
+  position: absolute;
+  content: "";
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.42) 0 1px,
+      transparent 1px 3px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.42) 0 1px,
+      transparent 1px 3px
+    );
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.immersive-map-girouette-line,
+.immersive-map-girouette-dest,
+.immersive-map-girouette-service {
+  position: relative;
+  z-index: 1;
+  font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+}
+
+.immersive-map-girouette-dest {
+  color: var(--girouette-led);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--girouette-led) 45%, transparent);
+}
+
+/* La pastille du numéro porte la teinte exacte de la ligne. */
+.immersive-map-girouette-line {
+  display: grid;
+  min-width: 52px;
+  max-width: 108px;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--girouette-led) 38%, transparent);
+  border-radius: 8px;
+  background: var(--girouette-badge);
+  color: var(--girouette-badge-text);
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  text-shadow: none;
+  white-space: nowrap;
+}
+
+.immersive-map-girouette-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.immersive-map-girouette-dest,
+.immersive-map-girouette-service {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.immersive-map-girouette-dest {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.immersive-map-girouette-service {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+}
+
+/* Barre girouette : mobile uniquement, elle remplace le header en suivi. */
+.immersive-map-girouette-bar {
+  display: none;
+}
+
+.immersive-map-girouette-stops {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 7px;
+}
+
+.immersive-map-girouette-stop {
+  min-width: 0;
+  padding: 8px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.immersive-map-girouette-stop--current {
+  border-color: color-mix(in srgb, var(--girouette-led, #ffc24b) 30%, transparent);
+  background: color-mix(in srgb, var(--girouette-led, #ffc24b) 9%, transparent);
+}
+
+.immersive-map-girouette-stop span,
+.immersive-map-girouette-stop strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.immersive-map-girouette-stop span {
+  margin-bottom: 2px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.immersive-map-girouette-stop--current span {
+  color: color-mix(in srgb, var(--girouette-led, #ffc24b) 78%, transparent);
+}
+
+.immersive-map-girouette-stop strong {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 14px;
+}
+
+/* Carte d'arrivée : « le véhicule arrive dans N arrêts ». */
+.immersive-map-tracking-arrival {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 7px;
+  padding: 10px 12px;
+  border: 1px solid rgba(51, 191, 163, 0.3);
+  border-radius: 14px;
+  background: rgba(51, 191, 163, 0.1);
+}
+
+.immersive-map-tracking-arrival--boardable {
+  border-color: rgba(51, 191, 163, 0.55);
+  background: rgba(51, 191, 163, 0.16);
+}
+
+.immersive-map-tracking-arrival-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.immersive-map-tracking-arrival-copy span,
+.immersive-map-tracking-arrival-copy strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.immersive-map-tracking-arrival-copy span {
+  margin-bottom: 2px;
+  color: rgba(140, 240, 218, 0.72);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.immersive-map-tracking-arrival-copy strong {
+  color: #fff;
+  font-size: 14px;
+}
+
+.immersive-map-tracking-arrival-count {
+  display: grid;
+  min-width: 52px;
+  flex: none;
+  justify-items: center;
+  padding: 4px 10px;
+  border: 1px solid rgba(51, 191, 163, 0.32);
+  border-radius: 11px;
+  background: rgba(7, 14, 12, 0.55);
+  line-height: 1.05;
+}
+
+.immersive-map-tracking-arrival-count strong {
+  color: #8cf0da;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.immersive-map-tracking-arrival-count span {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.immersive-map-tracking-arrival-board {
+  flex: none;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 11px;
+  background: #33bfa3;
+  color: #04211c;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.immersive-map-tracking-arrival-board:hover {
+  background: #5fe0c4;
+}
+
 .immersive-map-tracking-info {
   display: grid;
-  grid-template-columns: 1.25fr 1.25fr repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
   margin-top: 11px;
 }
@@ -12734,12 +12954,6 @@ textarea.station-field {
   color: #72e7cf;
 }
 
-.immersive-map-tracking-actions .immersive-map-tracking-board {
-  margin-left: auto;
-  background: #33bfa3;
-  color: #04211c;
-}
-
 .immersive-map-tracking-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -12909,7 +13123,7 @@ textarea.station-field {
   }
 
   .immersive-map-tracking-info {
-    grid-template-columns: 1.2fr 1.2fr repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .immersive-map-tracking-line-card,
@@ -13028,9 +13242,77 @@ textarea.station-field {
     display: none;
   }
 
-  .immersive-map-tracking-identity {
-    min-width: 0;
-    flex: 1;
+  /* Pendant le suivi, la girouette prend la place du header et le panneau se
+     réduit à l'essentiel : arrêts et montée à bord. */
+  .immersive-map-root--tracking .immersive-map-top-bar {
+    display: none;
+  }
+
+  .immersive-map-girouette-bar {
+    position: absolute;
+    top: 10px;
+    right: 6px;
+    left: 6px;
+    z-index: 406;
+    display: block;
+    filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.45));
+    animation: immersive-map-panel-in 0.4s ease both;
+  }
+
+  /* Ne restent que la girouette (en haut), les arrêts et la carte d'arrivée.
+     Sélecteurs portés par la racine : les règles mobiles qui suivent
+     redéclarent le `display` de ces blocs. */
+  .immersive-map-root--tracking .immersive-map-tracking-main-card .immersive-map-girouette,
+  .immersive-map-root--tracking .immersive-map-tracking-info,
+  .immersive-map-root--tracking .immersive-map-tracking-mileage,
+  .immersive-map-root--tracking .immersive-map-tracking-actions,
+  .immersive-map-root--tracking .immersive-map-tracking-mobile-tabs {
+    display: none;
+  }
+
+  /* Girouette : sur mobile le texte doit tenir en une ligne sans être tronqué. */
+  .immersive-map-girouette {
+    gap: 9px;
+    margin-top: 8px;
+    padding: 9px 11px;
+  }
+
+  .immersive-map-girouette-bar .immersive-map-girouette {
+    margin-top: 0;
+  }
+
+  .immersive-map-girouette-stops:first-child {
+    margin-top: 0;
+  }
+
+  .immersive-map-girouette-line {
+    min-width: 44px;
+    padding: 3px 7px;
+    font-size: 19px;
+  }
+
+  .immersive-map-girouette-dest {
+    font-size: 14px;
+    letter-spacing: 0.02em;
+  }
+
+  .immersive-map-girouette-service {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Empilé sur mobile : un nom d'arrêt tronqué se lit mal. */
+  .immersive-map-girouette-stops {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .immersive-map-girouette-stop {
+    padding: 7px 9px;
+  }
+
+  .immersive-map-girouette-stop strong {
+    font-size: 13px;
   }
 
   .immersive-map-tracking-info {
@@ -13102,10 +13384,6 @@ textarea.station-field {
     font-size: 10px;
   }
 
-  .immersive-map-tracking-actions .immersive-map-tracking-board {
-    margin-left: 0;
-  }
-
   .immersive-map-tracking-mobile-tabs {
     padding: 4px;
     border-radius: 13px;
@@ -13133,19 +13411,17 @@ textarea.station-field {
     gap: 7px;
   }
 
-  .immersive-map-tracking-vehicle {
-    width: 36px;
-    height: 36px;
-    border-radius: 11px;
-    font-size: 18px;
+  .immersive-map-girouette-line {
+    min-width: 40px;
+    font-size: 17px;
   }
 
-  .immersive-map-tracking-identity {
-    gap: 7px;
+  .immersive-map-girouette-dest {
+    font-size: 13px;
   }
 
-  .immersive-map-tracking-identity h2 {
-    font-size: 15px;
+  .immersive-map-girouette-service {
+    font-size: 8px;
   }
 
   .immersive-map-tracking-exit {
