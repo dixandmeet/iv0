@@ -73,6 +73,58 @@ export function useCustomRegulationLines() {
     if (error) throw new Error(error.message);
   }, [network.id, schemaReady]);
 
+  const transportModeOf = (line: RegulationLine) =>
+    line.transportType.toLowerCase().includes("tram")
+      ? "tram"
+      : line.transportType.toLowerCase().includes("nav") ||
+          line.transportType.toLowerCase().includes("bateau")
+        ? "boat"
+        : "bus";
+
+  // Persiste n'importe quelle ligne (y compris une ligne réseau GTFS éditée)
+  // dans network_lines, en gardant l'id composite comme clé. La RPC upsert est
+  // SECURITY DEFINER : elle autorise les superviseurs/régulateurs, alors que
+  // l'upsert direct exigerait un rôle owner/admin (RLS managers).
+  const persistLine = useCallback(
+    async (line: RegulationLine, editorState?: LineEditorState | null) => {
+      const persisted: RegulationLine = {
+        ...line,
+        editorState: editorState ?? line.editorState ?? null,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setCustomLines((prev) => [
+        persisted,
+        ...prev.filter((item) => item.id !== persisted.id),
+      ]);
+
+      if (!schemaReady) {
+        const next = [
+          persisted,
+          ...loadCustomRegulationLines(network.id).filter(
+            (item) => item.id !== persisted.id,
+          ),
+        ];
+        saveCustomRegulationLines(next, network.id);
+        return;
+      }
+
+      const supabase = createClient();
+      const { error } = await supabase.rpc("upsert_network_line", {
+        p_line_id: persisted.id,
+        p_short_name: persisted.shortName,
+        p_long_name: `${persisted.origin} ↔ ${persisted.destination}`,
+        p_transport_mode: transportModeOf(persisted),
+        p_color: persisted.lineColor ?? "#2563EB",
+        p_source: persisted.source ?? "gtfs",
+        p_data: { ...persisted, editorState: undefined },
+        p_editor_state: editorState ?? persisted.editorState ?? null,
+      });
+      if (error) throw new Error(error.message);
+    },
+    [network.id, schemaReady],
+  );
+
   const addLine = useCallback(async (input: NewLineInput) => {
     if (!canManage) throw new Error("Accès administrateur réseau requis");
     const base = createCustomRegulationLine(input);
@@ -165,6 +217,7 @@ export function useCustomRegulationLines() {
     updateLineStops,
     updateLineFromEditor,
     updateLineInfo,
+    persistLine,
     refresh: load,
   };
 }

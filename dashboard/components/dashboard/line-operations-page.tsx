@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { ErrorBanner } from "@/components/dashboard/error-banner";
@@ -11,21 +11,25 @@ import { TimelineLegend } from "@/components/dashboard/timeline-legend";
 import { LineEditorWorkspace } from "@/components/dashboard/line-editor/line-editor-workspace";
 import { useRegulationDashboard } from "@/hooks/use-regulation-dashboard";
 import { useCustomRegulationLines } from "@/hooks/use-custom-regulation-lines";
+import { useNetwork } from "@/components/network/network-provider";
 import { applyEditedStops } from "@/lib/regulation-stop-edits";
 import {
   applyLineInfoUpdate,
   isCustomRegulationLine,
   loadLineInfoOverrides,
-  saveLineInfoOverrides,
   type NewLineInput,
 } from "@/lib/regulation-custom-line";
 import {
+  applyEditorStateToRegulationLine,
   loadLineEditorDraft,
   regulationStopsFromEditor,
   saveLineEditorDraft,
 } from "@/lib/line-editor-persistence";
 import { regenerateLineEditorState } from "@/lib/line-regeneration";
-import { syncPublishedLineTrace } from "@/lib/line-editor-immersive-sync";
+import {
+  syncPublishedLineTrace,
+  unpublishLineTrace,
+} from "@/lib/line-editor-immersive-sync";
 import type { LineEditorState } from "@/lib/line-editor-types";
 import type { RegulationLine, RegulationStop } from "@/lib/regulation-mock-data";
 
@@ -43,14 +47,16 @@ function decodeLineIdParam(value: string): string {
 
 export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProps) {
   const lineId = useMemo(() => decodeLineIdParam(rawLineId), [rawLineId]);
+  const { schemaReady } = useNetwork();
   const {
     customLines,
     ready: customLinesReady,
     updateLineStops,
     updateLineFromEditor,
     updateLineInfo,
+    persistLine,
   } = useCustomRegulationLines();
-  const [editedStops, setEditedStops] = useState<RegulationStop[] | null>(null);
+  const migratedDraftRef = useRef<Set<string>>(new Set());
   const [lineInfoOverrides, setLineInfoOverrides] = useState<
     Record<string, NewLineInput>
   >({});
@@ -103,25 +109,77 @@ export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProp
     setLineInfoOverrides(loadLineInfoOverrides());
   }, []);
 
+  // Row serveur (network_lines) pour cette ligne, s'il existe. Une ligne GTFS
+  // éditée devient un override serveur porté par le même id composite.
+  const catalogLine = useMemo(
+    () => customLines.find((line) => line.id === lineId) ?? null,
+    [customLines, lineId],
+  );
+
   const selectedLine = useMemo((): RegulationLine | null => {
-    const custom = customLines.find((line) => line.id === lineId);
-    if (custom) return custom;
+    if (catalogLine) return catalogLine;
 
     const networkLineExists = networkLines.some((line) => line.id === lineId);
     return networkLineExists ? networkSelectedLine : null;
-  }, [customLines, lineId, networkLines, networkSelectedLine]);
+  }, [catalogLine, lineId, networkLines, networkSelectedLine]);
 
   const displayLine = useMemo(() => {
     if (!selectedLine) return null;
-    let line = editedStops
-      ? applyEditedStops(selectedLine, editedStops)
-      : selectedLine;
+    // Dès qu'une version serveur existe, elle fait foi : on n'empile plus les
+    // overrides localStorage (source de vérité unique, cohérente entre supports).
+    if (catalogLine) return catalogLine;
+
+    // Ligne GTFS pas encore migrée : on applique l'éventuel override d'infos
+    // local le temps que la migration serveur s'exécute.
+    let line = selectedLine;
     if (!isCustomRegulationLine(lineId)) {
       const override = lineInfoOverrides[lineId];
       if (override) line = applyLineInfoUpdate(line, override);
     }
     return line;
-  }, [selectedLine, editedStops, lineId, lineInfoOverrides]);
+  }, [selectedLine, catalogLine, lineId, lineInfoOverrides]);
+
+  // Persiste une édition de ligne réseau GTFS côté Supabase et republie le
+  // tracé partagé (carte immersive + mobile) dès qu'une géométrie existe.
+  const persistGtfsEdit = useCallback(
+    async (updated: RegulationLine, editorState?: LineEditorState | null) => {
+      await persistLine(updated, editorState);
+      const state = editorState ?? updated.editorState ?? null;
+      if (state) {
+        await syncPublishedLineTrace(state);
+      }
+    },
+    [persistLine],
+  );
+
+  // Migration one-shot : à la première ouverture d'une ligne GTFS déjà éditée
+  // localement (brouillon d'éditeur ou override d'infos) mais absente du
+  // serveur, on pousse cette édition dans Supabase pour la rendre commune à
+  // tous les supports. La version du premier poste qui charge fait foi.
+  useEffect(() => {
+    if (!schemaReady || !customLinesReady) return;
+    if (isCustomRegulationLine(lineId)) return;
+    if (catalogLine) return;
+    if (migratedDraftRef.current.has(lineId)) return;
+    if (!selectedLine) return;
+
+    const draft = loadLineEditorDraft(lineId);
+    const infoOverride = loadLineInfoOverrides()[lineId];
+    if (!draft && !infoOverride) return;
+
+    migratedDraftRef.current.add(lineId);
+    let updated = selectedLine;
+    if (draft) updated = applyEditorStateToRegulationLine(selectedLine, draft);
+    if (infoOverride) updated = applyLineInfoUpdate(updated, infoOverride);
+    void persistGtfsEdit(updated, draft ?? null);
+  }, [
+    schemaReady,
+    customLinesReady,
+    lineId,
+    catalogLine,
+    selectedLine,
+    persistGtfsEdit,
+  ]);
 
   const handleStopsChange = useCallback(
     (stops: RegulationStop[]) => {
@@ -129,10 +187,31 @@ export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProp
         void updateLineStops(lineId, stops);
         return;
       }
-      setEditedStops(stops);
+      const base = displayLine ?? selectedLine;
+      if (!base) return;
+      // Édition d'arrêts (frise) : on persiste le plan côté serveur en
+      // conservant l'éventuelle géométrie de l'éditeur (pas de republication).
+      const updated = applyEditedStops(base, stops);
+      void persistLine(updated);
     },
-    [lineId, updateLineStops],
+    [lineId, updateLineStops, displayLine, selectedLine, persistLine],
   );
+
+  const handleDeleteAllStops = useCallback(() => {
+    if (isCustomRegulationLine(lineId)) {
+      void updateLineStops(lineId, []);
+      return;
+    }
+    const base = displayLine ?? selectedLine;
+    if (!base) return;
+    // Remise à zéro : plan vidé, géométrie éditeur effacée et tracé partagé
+    // dépublié (carte immersive + mobile).
+    const cleared = applyEditedStops({ ...base, editorState: null }, []);
+    void (async () => {
+      await persistLine(cleared, null);
+      await unpublishLineTrace(base.shortName);
+    })();
+  }, [lineId, updateLineStops, displayLine, selectedLine, persistLine]);
 
   const handleEditorPersist = useCallback(
     async (persistedLineId: string, editorState: LineEditorState) => {
@@ -140,21 +219,29 @@ export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProp
       setSelectedVariantId(null);
       saveLineEditorDraft(persistedLineId, editorState);
 
-      const catalogLine = customLines.find((line) => line.id === persistedLineId);
-      if (catalogLine) {
+      // Ligne custom déjà au catalogue : chemin RPC dédié existant.
+      if (isCustomRegulationLine(persistedLineId)) {
         await updateLineFromEditor(persistedLineId, editorState);
+        await syncPublishedLineTrace(editorState);
         return;
       }
 
+      // Ligne réseau GTFS : matérialise/actualise l'override serveur + tracé.
       const baseLine =
-        networkLines.find((line) => line.id === persistedLineId) ?? selectedLine;
-      const stops = regulationStopsFromEditor(
-        editorState,
-        baseLine?.stops ?? [],
-      );
-      setEditedStops(stops);
+        customLines.find((line) => line.id === persistedLineId) ??
+        networkLines.find((line) => line.id === persistedLineId) ??
+        selectedLine;
+      if (!baseLine) return;
+      const updated = applyEditorStateToRegulationLine(baseLine, editorState);
+      await persistGtfsEdit(updated, editorState);
     },
-    [customLines, networkLines, selectedLine, updateLineFromEditor],
+    [
+      customLines,
+      networkLines,
+      selectedLine,
+      updateLineFromEditor,
+      persistGtfsEdit,
+    ],
   );
 
   const handleLineInfoSave = useCallback(
@@ -163,14 +250,13 @@ export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProp
         void updateLineInfo(lineId, input);
         return;
       }
-
-      setLineInfoOverrides((previous) => {
-        const next = { ...previous, [lineId]: input };
-        saveLineInfoOverrides(next);
-        return next;
-      });
+      const base = displayLine ?? selectedLine;
+      if (!base) return;
+      // Modification d'infos : persistée côté serveur, géométrie préservée.
+      const updated = applyLineInfoUpdate(base, input);
+      void persistLine(updated);
     },
-    [lineId, updateLineInfo],
+    [lineId, updateLineInfo, displayLine, selectedLine, persistLine],
   );
 
   const handleRegenerate = useCallback(async () => {
@@ -194,40 +280,16 @@ export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProp
 
       if (isCustomRegulationLine(lineId)) {
         await updateLineFromEditor(lineId, regeneratedState);
-      } else {
-        saveLineEditorDraft(lineId, regeneratedState);
-        setEditedStops(regeneratedStops);
-
-        const origin = regeneratedStops[0]?.name ?? displayLine.origin;
-        const destination =
-          regeneratedStops[regeneratedStops.length - 1]?.name ??
-          displayLine.destination;
-        setLineInfoOverrides((previous) => {
-          const current = previous[lineId];
-          const next = {
-            ...previous,
-            [lineId]: {
-              shortName: current?.shortName ?? displayLine.shortName,
-              origin,
-              destination,
-              transportType:
-                current?.transportType ??
-                (displayLine.transportType.toLowerCase().includes("tram")
-                  ? "tram"
-                  : displayLine.transportType.toLowerCase().includes("nav") ||
-                      displayLine.transportType.toLowerCase().includes("bateau")
-                    ? "boat"
-                    : "bus"),
-              depotCode: current?.depotCode ?? displayLine.depotCode,
-            },
-          };
-          saveLineInfoOverrides(next);
-          return next;
-        });
-      }
-
-      if (regeneratedState.status === "published") {
         await syncPublishedLineTrace(regeneratedState);
+      } else {
+        // Ligne réseau GTFS : régénération persistée côté serveur (plan + infos
+        // dérivés de l'état régénéré) et tracé republié pour tous les supports.
+        saveLineEditorDraft(lineId, regeneratedState);
+        const updated = applyEditorStateToRegulationLine(
+          displayLine,
+          regeneratedState,
+        );
+        await persistGtfsEdit(updated, regeneratedState);
       }
 
       setEditorStateOverride({ lineId, state: regeneratedState });
@@ -254,6 +316,7 @@ export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProp
     regenerating,
     timelineStops,
     updateLineFromEditor,
+    persistGtfsEdit,
   ]);
 
   if (editorOpen) {
@@ -327,6 +390,7 @@ export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProp
               onOpenEditor={() => setEditorOpen(true)}
               onEditLineInfo={() => setLineInfoEditOpen(true)}
               onRegenerate={() => void handleRegenerate()}
+              onDeleteAllStops={handleDeleteAllStops}
               isRegenerating={regenerating}
               regenerationDisabled={timelineLoading || timelineStops.length < 2}
             />
@@ -355,6 +419,7 @@ export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProp
               onOpenEditor={() => setEditorOpen(true)}
               onEditLineInfo={() => setLineInfoEditOpen(true)}
               onRegenerate={() => void handleRegenerate()}
+              onDeleteAllStops={handleDeleteAllStops}
               isRegenerating={regenerating}
               regenerationDisabled={timelineLoading || timelineStops.length < 2}
             />

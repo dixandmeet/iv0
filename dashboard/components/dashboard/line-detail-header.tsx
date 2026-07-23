@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
   ChevronDown,
   Map,
   Megaphone,
@@ -9,6 +10,7 @@ import {
   Pencil,
   RefreshCw,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -24,6 +26,7 @@ interface LineDetailHeaderProps {
   onOpenEditor?: () => void;
   onEditLineInfo?: () => void;
   onRegenerate?: () => void;
+  onDeleteAllStops?: () => void;
   isRegenerating?: boolean;
   regenerationDisabled?: boolean;
 }
@@ -38,10 +41,12 @@ export function LineDetailHeader({
   onOpenEditor,
   onEditLineInfo,
   onRegenerate,
+  onDeleteAllStops,
   isRegenerating = false,
   regenerationDisabled = false,
 }: LineDetailHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -154,11 +159,73 @@ export function LineDetailHeader({
                     Modifier les informations
                   </button>
                 )}
+                {onDeleteAllStops && (
+                  <button
+                    type="button"
+                    className="regulation-actions-menu-item regulation-actions-menu-item--danger"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setConfirmDeleteOpen(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Supprimer tous les arrêts
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {confirmDeleteOpen && onDeleteAllStops && (
+        <div
+          className="regulation-line-info-overlay"
+          role="presentation"
+          onClick={() => setConfirmDeleteOpen(false)}
+        >
+          <div
+            className="regulation-confirm-modal"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-all-stops-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="regulation-confirm-icon" aria-hidden>
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <h2 id="delete-all-stops-title" className="regulation-confirm-title">
+              Supprimer tous les arrêts ?
+            </h2>
+            <p className="regulation-confirm-text">
+              Les {topology?.nodes.length ?? line.stopCount} arrêts de la ligne{" "}
+              {line.shortName} seront retirés. Vous pourrez ensuite reconstruire
+              le tracé depuis zéro. Cette action est irréversible.
+            </p>
+            <div className="regulation-confirm-footer">
+              <button
+                type="button"
+                className="regulation-line-info-btn-secondary"
+                onClick={() => setConfirmDeleteOpen(false)}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                className="regulation-confirm-btn-danger"
+                onClick={() => {
+                  setConfirmDeleteOpen(false);
+                  onDeleteAllStops();
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Tout supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <motion.div
         className="regulation-line-stats"
