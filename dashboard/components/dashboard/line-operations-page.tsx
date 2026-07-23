@@ -254,7 +254,21 @@ export function LineOperationsPage({ lineId: rawLineId }: LineOperationsPageProp
       if (!base) return;
       // Modification d'infos : persistée côté serveur, géométrie préservée.
       const updated = applyLineInfoUpdate(base, input);
-      void persistLine(updated);
+      const previousShortName = base.shortName;
+      const renamed = previousShortName !== updated.shortName;
+      // Le tracé partagé est indexé par shortName : à un renommage, on aligne
+      // l'état éditeur, on retire l'ancienne clé et on republie sous la neuve,
+      // sinon l'ancien tracé resterait orphelin pour la carte et le mobile.
+      const editorState = updated.editorState
+        ? { ...updated.editorState, shortName: updated.shortName }
+        : null;
+
+      void (async () => {
+        await persistLine({ ...updated, editorState }, editorState);
+        if (!renamed) return;
+        await unpublishLineTrace(previousShortName);
+        if (editorState) await syncPublishedLineTrace(editorState);
+      })();
     },
     [lineId, updateLineInfo, displayLine, selectedLine, persistLine],
   );

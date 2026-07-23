@@ -138,7 +138,15 @@ function isTramMode(value: string): boolean {
 
 function lifecycleOf(line: RegulationLine): LifecycleStatus {
   if (line.lifecycleStatus) return line.lifecycleStatus;
-  if (line.editorState?.status === "draft" || line.editorState?.status === "validation") {
+  // Le statut brouillon de l'éditeur ne qualifie qu'une ligne créée à la main,
+  // en cours de préparation. Une ligne réseau GTFS reste exploitée même quand
+  // son plan vient d'être réédité et porte donc un état éditeur « draft ».
+  const isManual = line.source === "manual" || isCustomRegulationLine(line.id);
+  if (
+    isManual &&
+    (line.editorState?.status === "draft" ||
+      line.editorState?.status === "validation")
+  ) {
     return "preparation";
   }
   return "active";
@@ -277,12 +285,32 @@ export function LinesPageContent() {
       liveDriversByRoute.set(driver.route_id, (liveDriversByRoute.get(driver.route_id) ?? 0) + 1);
     }
 
+    // Une ligne éditée est servie depuis son snapshot serveur (network_lines) :
+    // il porte le plan à jour, mais ses compteurs temps réel sont figés à la
+    // dernière sauvegarde. On leur réinjecte les métriques vivantes du flux
+    // réseau, une seule fois, au premier doublon rencontré.
+    const catalogIds = new Set(customLines.map((line) => line.routeId || line.id));
+    const realtimeMerged = new Set<string>();
+
     const grouped = new Map<string, { line: RegulationLine; depots: Set<string> }>();
     for (const line of [...customLines, ...networkLines]) {
       const commercialId = line.routeId || line.id;
       const existing = grouped.get(commercialId);
       if (existing) {
         if (line.depotCode) existing.depots.add(line.depotCode);
+        if (catalogIds.has(commercialId) && !realtimeMerged.has(commercialId)) {
+          realtimeMerged.add(commercialId);
+          existing.line = {
+            ...existing.line,
+            status: line.status,
+            vehicleCount: line.vehicleCount,
+            maxVehicles: line.maxVehicles,
+            avgDelay: line.avgDelay,
+            punctuality: line.punctuality,
+            incidentCount: line.incidentCount,
+            vehicles: line.vehicles,
+          };
+        }
         continue;
       }
       grouped.set(commercialId, {
